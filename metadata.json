@@ -1,0 +1,7 @@
+{
+  "name": "Athenix",
+  "description": "Premium AI trading intelligence platform for forex and stock markets featuring real-time analysis, signals, and education.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

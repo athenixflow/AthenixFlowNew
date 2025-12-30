@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athenix | Premium AI Trading Intelligence</title>
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+    "recharts": "https://esm.sh/recharts@2.12.2",
+    "clsx": "https://esm.sh/clsx@2.1.0",
+    "tailwind-merge": "https://esm.sh/tailwind-merge@2.2.1",
+    "@google/genai": "https://esm.sh/@google/genai",
+    "firebase/app": "https://esm.sh/firebase@10.8.0/app",
+    "firebase/auth": "https://esm.sh/firebase@10.8.0/auth",
+    "firebase/firestore": "https://esm.sh/firebase@10.8.0/firestore",
+    "firebase/functions": "https://esm.sh/firebase@10.8.0/functions",
+    "firebase/": "https://esm.sh/firebase@^12.7.0/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+  }
+}
+</script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                gold: '#C5A24A',
+                sage: '#C1C6C0',
+                charcoal: '#1F1F1F',
+                muted: '#6B6F6A',
+                success: '#2E7D32',
+                warning: '#ED6C02',
+                error: '#D32F2F'
+              }
+            },
+            borderRadius: {
+              'athenix': '12px'
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff;
+            color: #1F1F1F;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Premium Gradient Backgrounds */
+        .bg-premium-gradient {
+            background: linear-gradient(135deg, #FFFFFF 0%, #C1C6C0 100%);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #FFFFFF; }
+        ::-webkit-scrollbar-thumb { background: #C5A24A; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a88a3f; }
+
+        /* Animations */
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fade-in 0.6s ease-out forwards;
+        }
+        
+        @keyframes slide-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up {
+            animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Card System */
+        .athenix-card {
+            background: #FFFFFF;
+            border: 1px solid #C1C6C0;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px -10px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        .athenix-card:hover {
+            box-shadow: 0 10px 30px -12px rgba(197, 162, 74, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Button System */
+        .btn-primary {
+            background-color: #C5A24A;
+            color: #FFFFFF;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #a88a3f;
+            box-shadow: 0 8px 20px -6px rgba(197, 162, 74, 0.4);
+        }
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid #C1C6C0;
+            color: #1F1F1F;
+            transition: all 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background-color: rgba(193, 198, 192, 0.1);
+            border-color: #C5A24A;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+</body>
+</html>
