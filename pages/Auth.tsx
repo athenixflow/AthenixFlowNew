@@ -1,6 +1,9 @@
 
 import React, { useState } from 'react';
-import { UserProfile, UserRole, SubscriptionPlan } from '../types';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../lib/firebase';
+import { initializeUserDocument } from '../services/firestore';
+import { UserProfile } from '../types';
 
 interface AuthPageProps {
   mode: 'login' | 'signup';
@@ -8,23 +11,45 @@ interface AuthPageProps {
   onToggleMode: () => void;
 }
 
-const AuthPage: React.FC<AuthPageProps> = ({ mode, onAuthSuccess, onToggleMode }) => {
+const AuthPage: React.FC<AuthPageProps> = ({ mode, onToggleMode }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const mockUser: UserProfile = {
-      uid: Math.random().toString(36).substring(7),
-      fullName: mode === 'signup' ? fullName : (email.split('@')[0] || 'Trader'),
-      email,
-      role: UserRole.USER,
-      subscription: SubscriptionPlan.PRO,
-      tokens: { analysis: 50, education: 100 },
-      createdAt: new Date().toISOString()
-    };
-    onAuthSuccess(mockUser);
+    if (!auth) {
+      setError("System initialization error. Please refresh the page.");
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      if (mode === 'signup') {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await initializeUserDocument(userCredential.user.uid, {
+          fullName,
+          email
+        });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      // App.tsx handles state change via onAuthStateChanged
+    } catch (err: any) {
+      console.error("Auth: Action failed", err);
+      let message = "Authentication failed. Please check your credentials.";
+      if (err.code === 'auth/email-already-in-use') message = "Email already registered.";
+      if (err.code === 'auth/weak-password') message = "Password must be at least 6 characters.";
+      if (err.code === 'auth/invalid-credential') message = "Invalid email or password.";
+      if (err.message?.includes('_getRecaptchaConfig')) message = "Communication error with Auth servers. Please try again.";
+      setError(message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -82,11 +107,18 @@ const AuthPage: React.FC<AuthPageProps> = ({ mode, onAuthSuccess, onToggleMode }
               />
             </div>
 
+            {error && (
+              <div className="p-4 bg-brand-error/10 border border-brand-error/20 rounded-xl">
+                <p className="text-[10px] text-brand-error font-black uppercase tracking-tight">{error}</p>
+              </div>
+            )}
+
             <button
               type="submit"
-              className="btn-primary w-full py-5 font-black rounded-xl tracking-widest uppercase text-sm mt-4"
+              disabled={isProcessing}
+              className="btn-primary w-full py-5 font-black rounded-xl tracking-widest uppercase text-sm mt-4 disabled:opacity-50"
             >
-              {mode === 'login' ? 'Enter System' : 'Create Profile'}
+              {isProcessing ? 'Verifying...' : mode === 'login' ? 'Enter System' : 'Create Profile'}
             </button>
           </form>
 

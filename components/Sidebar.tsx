@@ -21,7 +21,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, isOpen, activePage, onNavigate,
     { id: 'journal', label: 'Trade Journal', icon: ICONS.Journal },
     { id: 'billing', label: 'Subscription', icon: ICONS.Billing },
     { id: 'settings', label: 'Settings', icon: ICONS.Settings },
-    { id: 'admin', label: 'Admin Panel', icon: ICONS.Admin },
+    // Only show admin panel if user has Admin role
+    ...(user.role === UserRole.ADMIN ? [{ id: 'admin', label: 'Admin Panel', icon: ICONS.Admin }] : []),
   ];
 
   const handleLinkClick = (id: string) => {
@@ -86,11 +87,11 @@ const Sidebar: React.FC<SidebarProps> = ({ user, isOpen, activePage, onNavigate,
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] text-brand-muted font-bold uppercase">Analysis</span>
-                <span className="text-xs font-black text-brand-charcoal">{user.tokens.analysis}u</span>
+                <span className="text-xs font-black text-brand-charcoal">{user.analysisTokens}u</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-[10px] text-brand-muted font-bold uppercase">Education</span>
-                <span className="text-xs font-black text-brand-charcoal">{user.tokens.education}u</span>
+                <span className="text-xs font-black text-brand-charcoal">{user.educationTokens}u</span>
               </div>
             </div>
           </div>

@@ -1,163 +1,239 @@
+import React, { useState, useEffect } from 'react';
+import { getEducationLessons } from '../services/firestore';
+import { getAILessonContent } from '../services/backend';
+import { Lesson, UserProfile } from '../types';
 
-import React, { useState } from 'react';
-
-interface Lesson {
-  id: string;
-  title: string;
-  description: string;
-  content: string[];
+interface EducationHubProps {
+  user: UserProfile | null;
+  onTokenSpend: (resource: 'education') => void;
+  onNavigate: (page: string) => void;
 }
 
-const STATIC_LESSONS: Lesson[] = [
-  {
-    id: '1',
-    title: 'Understanding Market Structure',
-    description: 'Learn to identify institutional trends using swing highs and swing lows.',
-    content: [
-      'Market structure is the most fundamental concept in institutional trading. It allows traders to identify the current trend and potential reversal points by observing the relationship between successive peaks and troughs.',
-      'A bullish structure is defined by higher highs (HH) and higher lows (HL). Conversely, a bearish structure consists of lower highs (LH) and lower lows (LL).',
-      'Identifying a "Break of Structure" (BOS) is critical for anticipating a change in market direction.'
-    ]
-  },
-  {
-    id: '2',
-    title: 'Liquidity Concepts v3.1',
-    description: 'Deep dive into stop hunts, buy-side liquidity, and sell-side liquidity.',
-    content: [
-      'Liquidity refers to the areas on a chart where a high volume of orders—specifically stop losses—are likely to reside. Institutional players often drive price to these zones to fill their large positions.',
-      'Common liquidity pools include equal highs (double tops) and equal lows (double bottoms).',
-      'Understanding "Liquidity Sweeps" helps traders avoid being caught in "Stop Hunts" before the real market move occurs.'
-    ]
-  },
-  {
-    id: '3',
-    title: 'Institutional Order Blocks',
-    description: 'Master the footprint of big banks and hedge funds in the markets.',
-    content: [
-      'Order blocks are specific price candles where institutional players have placed large orders. These areas often act as strong support or resistance when price returns to them.',
-      'A bullish order block is typically the last down candle before a sharp impulsive move upward.',
-      'A bearish order block is the last up candle before a sharp impulsive move downward.'
-    ]
-  },
-  {
-    id: '4',
-    title: 'Risk Management Architecture',
-    description: 'The mathematical foundation of professional trading longevity.',
-    content: [
-      'Professional trading is not about being right 100% of the time; it is about managing risk so that losses are small and wins are significant.',
-      'Standard protocol suggests risking no more than 1-2% of total account capital on any single trade setup.',
-      'Position sizing must be calculated based on the distance between your entry and stop loss levels.'
-    ]
-  }
-];
-
-const EducationHub: React.FC = () => {
+const EducationHub: React.FC<EducationHubProps> = ({ user, onNavigate }) => {
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [question, setQuestion] = useState('');
+  const [isAsking, setIsAsking] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchLessons = async () => {
+      setLoading(true);
+      const data = await getEducationLessons();
+      // Ensure authority metadata is present for SEO
+      const enriched = data.map(l => ({
+        ...l,
+        author: l.author || 'Athenix Neural Research',
+        updatedAt: l.updatedAt || new Date().toISOString(),
+        category: l.category || 'Institutional Strategy'
+      }));
+      setLessons(enriched);
+      
+      // Auto-select first lesson for SEO visibility if none selected
+      if (enriched.length > 0 && !selectedLesson) {
+        setSelectedLesson(enriched[0]);
+      }
+      setLoading(false);
+    };
+    fetchLessons();
+  }, []);
+
+  const handleAskMentor = async () => {
+    if (!user || !question.trim()) {
+      if (!user) onNavigate('login');
+      return;
+    }
+
+    setIsAsking(true);
+    setError(null);
+    setAiResponse(null);
+
+    const response = await getAILessonContent(
+      user.uid, 
+      question, 
+      selectedLesson ? `Context: This query relates to ${selectedLesson.title}` : undefined
+    );
+
+    if (response.status === 'success') {
+      setAiResponse(response.data);
+      setQuestion('');
+    } else {
+      setError(response.message);
+    }
+    setIsAsking(false);
+  };
+
+  const relatedLessons = lessons
+    .filter(l => l.id !== selectedLesson?.id)
+    .slice(0, 3);
 
   return (
-    <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-7xl mx-auto">
-      {/* Header Section */}
-      <section className="space-y-2">
-        <h2 className="text-4xl font-black text-brand-charcoal uppercase tracking-tighter">Education Hub</h2>
-        <p className="text-brand-muted font-medium text-sm uppercase tracking-widest">
-          Algorithmic knowledge base designed to refine your institutional market perspective.
+    <div className="p-6 md:p-10 space-y-12 animate-fade-in max-w-7xl mx-auto pb-24">
+      {/* SEO Optimized Header Section */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="px-3 py-1 bg-brand-gold/10 border border-brand-gold/20 rounded-full">
+            <span className="text-[10px] font-black text-brand-gold uppercase tracking-[0.2em]">Institutional Alpha Library</span>
+          </div>
+          <span className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">Knowledge is your edge</span>
+        </div>
+        <h1 className="text-4xl md:text-7xl font-black text-brand-charcoal uppercase tracking-tighter leading-[0.9]">
+          Master The <br /> <span className="text-brand-gold">Institutional Loop.</span>
+        </h1>
+        <p className="text-brand-muted font-medium text-lg max-w-3xl leading-relaxed">
+          Athenix provides evergreen trading education, strategy breakdowns, and market explanations designed to help you understand Smart Money Concepts (SMC) and high-frequency institutional liquidity patterns.
         </p>
       </section>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Lessons Overview Section */}
-        <section className={`w-full lg:w-1/3 space-y-4 ${selectedLesson ? 'hidden lg:block' : 'block'}`}>
-          <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] mb-4">Available Modules</h3>
-          <div className="space-y-4">
-            {STATIC_LESSONS.map((lesson) => (
-              <div 
-                key={lesson.id} 
-                className={`athenix-card p-6 cursor-pointer transition-all border-l-4 ${
-                  selectedLesson?.id === lesson.id ? 'border-l-brand-gold bg-brand-gold/[0.02]' : 'border-l-transparent hover:border-l-brand-sage'
-                }`}
-                onClick={() => setSelectedLesson(lesson)}
-              >
-                <h4 className="font-black text-sm text-brand-charcoal uppercase tracking-widest mb-2">{lesson.title}</h4>
-                <p className="text-xs text-brand-muted font-medium mb-4 line-clamp-2">{lesson.description}</p>
-                <button className="text-[10px] font-black text-brand-gold uppercase tracking-widest flex items-center gap-2 group">
-                  Open Lesson
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Lesson Detail Panel */}
-        <section className="flex-1">
-          {selectedLesson ? (
-            <div className="athenix-card p-8 md:p-12 space-y-10 animate-slide-up bg-white min-h-[600px] flex flex-col">
-              <div className="flex items-center justify-between">
-                <button 
-                  onClick={() => setSelectedLesson(null)} 
-                  className="lg:hidden p-2 -ml-2 text-brand-muted hover:text-brand-gold transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <span className="text-[9px] font-black text-brand-gold uppercase tracking-[0.3em] bg-brand-gold/10 px-3 py-1 rounded-full">
-                  Verified Content
-                </span>
-              </div>
-
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Main Content Area: Article Style */}
+        <main className="flex-1 min-w-0">
+          {loading ? (
+            <div className="space-y-8">
+              <div className="h-12 bg-brand-sage/10 rounded-2xl animate-pulse w-3/4"></div>
               <div className="space-y-4">
-                <h3 className="text-3xl font-black text-brand-charcoal uppercase tracking-tighter leading-none">
-                  {selectedLesson.title}
-                </h3>
-                <p className="text-brand-muted font-bold text-[10px] uppercase tracking-widest">
-                  Athenix Intelligence Training Module
-                </p>
+                <div className="h-4 bg-brand-sage/10 rounded-full w-full animate-pulse"></div>
+                <div className="h-4 bg-brand-sage/10 rounded-full w-5/6 animate-pulse"></div>
+                <div className="h-4 bg-brand-sage/10 rounded-full w-4/6 animate-pulse"></div>
               </div>
+            </div>
+          ) : selectedLesson ? (
+            <article className="athenix-card p-8 md:p-12 space-y-10 relative overflow-hidden bg-white">
+              {/* Article Authority Metadata */}
+              <header className="space-y-4 border-b border-brand-sage/20 pb-8">
+                <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                  <span className="text-brand-gold">{selectedLesson.category}</span>
+                  <span className="w-1 h-1 bg-brand-sage rounded-full"></span>
+                  <span>By {selectedLesson.author}</span>
+                  <span className="w-1 h-1 bg-brand-sage rounded-full"></span>
+                  <span>Updated {new Date(selectedLesson.updatedAt).toLocaleDateString()}</span>
+                </div>
+                <h2 className="text-3xl md:text-5xl font-black text-brand-charcoal tracking-tighter uppercase leading-none">
+                  {selectedLesson.title}
+                </h2>
+                <p className="text-brand-muted font-bold uppercase text-xs tracking-tight">
+                  Strategy Overview & Algorithmic Mechanics
+                </p>
+              </header>
 
-              <div className="space-y-6 flex-1">
-                {selectedLesson.content.map((paragraph, idx) => (
-                  <p key={idx} className="text-sm text-brand-charcoal leading-loose font-medium opacity-90">
-                    {paragraph}
+              {/* Main Content Render */}
+              <div className="space-y-8">
+                {selectedLesson.content.map((para, i) => (
+                  <p key={i} className="text-brand-charcoal/90 text-sm md:text-base leading-loose font-medium">
+                    {para}
                   </p>
                 ))}
               </div>
 
-              <div className="pt-10 border-t border-brand-sage/20 space-y-6">
-                <div>
-                  <h4 className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest mb-4">Ask a Question</h4>
-                  <div className="relative">
-                    <input 
-                      type="text" 
-                      placeholder="Inquire about this module's logic..."
-                      className="w-full px-6 py-5 bg-brand-sage/5 border border-brand-sage rounded-2xl outline-none focus:border-brand-gold transition-all font-medium text-xs pr-32"
-                    />
-                    <button className="absolute right-2 top-2 bottom-2 px-6 bg-brand-gold text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-brand-charcoal transition-colors">
-                      Submit
-                    </button>
-                  </div>
+              {/* Internal Linking: Neural Directives CTA */}
+              <div className="bg-brand-sage/5 border border-dashed border-brand-sage rounded-2xl p-8 space-y-6">
+                <div className="space-y-2">
+                  <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.2em]">Neural Directives</h4>
+                  <p className="text-[11px] text-brand-muted font-medium">Apply this logic using the Athenix Neural Core for real-time market setups.</p>
                 </div>
-                <p className="text-[9px] text-brand-muted font-bold uppercase tracking-[0.2em] text-center">
-                  Inquiries require 1 Educational Credit
+                <button 
+                  onClick={() => onNavigate('assistant')}
+                  className="flex items-center gap-4 px-6 py-4 bg-brand-charcoal text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-gold transition-all group"
+                >
+                  Launch AI Assistant
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Disclaimer: Trust Signals */}
+              <footer className="pt-10 border-t border-brand-sage/20">
+                <p className="text-[9px] text-brand-muted font-black uppercase tracking-[0.2em] leading-relaxed">
+                  Risk Disclosure: Trading involves significant financial risk. The educational content provided by Athenix is for informational purposes only and does not constitute financial advice. Past performance is not indicative of future results.
                 </p>
-              </div>
-            </div>
+              </footer>
+            </article>
           ) : (
-            <div className="athenix-card min-h-[600px] p-12 flex flex-col items-center justify-center text-center bg-white border-dashed">
-              <div className="w-20 h-20 bg-brand-sage/5 rounded-[32px] flex items-center justify-center text-brand-sage mb-8">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <h4 className="text-xl font-black text-brand-charcoal uppercase tracking-widest mb-4">Select a Knowledge Module</h4>
-              <p className="text-[10px] text-brand-muted font-bold uppercase tracking-[0.2em] max-w-xs mx-auto leading-loose">
-                Initialize your algorithmic training by selecting a core module from the terminal directory.
-              </p>
+            <div className="athenix-card p-20 text-center opacity-40 italic">
+              Select a module from the intelligence library.
             </div>
           )}
-        </section>
+
+          {/* AI Response Section */}
+          {aiResponse && (
+            <div className="mt-8 athenix-card p-8 md:p-12 bg-brand-gold/5 border-brand-gold/20 animate-slide-up">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-2 h-2 bg-brand-gold rounded-full animate-pulse"></div>
+                <h3 className="text-[10px] font-black text-brand-gold uppercase tracking-[0.3em]">AI Mentor Synthesis</h3>
+              </div>
+              <div className="prose prose-sm max-w-none">
+                <p className="text-brand-charcoal text-sm leading-loose whitespace-pre-wrap font-medium">{aiResponse}</p>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* Sidebar: Library & AI Query */}
+        <aside className="w-full lg:w-80 space-y-8">
+          {/* AI Query Terminal */}
+          <div className="athenix-card p-6 bg-brand-charcoal text-white space-y-6">
+            <div className="space-y-2">
+              <h3 className="text-[10px] font-black text-brand-gold uppercase tracking-[0.3em]">Query Intelligence</h3>
+              <p className="text-[9px] text-white/50 font-bold uppercase tracking-tight">Ask anything about market mechanics</p>
+            </div>
+            <textarea 
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Query institutional concepts..."
+              className="w-full h-24 p-4 bg-white/5 border border-white/10 rounded-xl text-xs font-medium outline-none focus:border-brand-gold transition-all resize-none text-white"
+            />
+            <button 
+              disabled={isAsking}
+              onClick={handleAskMentor}
+              className="w-full py-4 bg-brand-gold text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 disabled:opacity-50 transition-all hover:bg-white hover:text-brand-charcoal"
+            >
+              {isAsking ? 'Decoding Node...' : 'Analyze Concept'}
+            </button>
+          </div>
+
+          {/* Module Library Index */}
+          <div className="space-y-6">
+            <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] pl-4 border-l-2 border-brand-sage">Related Intelligence</h3>
+            <div className="space-y-4">
+              {lessons.map((lesson) => (
+                <button 
+                  key={lesson.id} 
+                  onClick={() => setSelectedLesson(lesson)}
+                  className={`w-full text-left athenix-card p-5 transition-all group ${
+                    selectedLesson?.id === lesson.id ? 'border-brand-gold bg-brand-gold/5' : 'hover:border-brand-sage/50'
+                  }`}
+                >
+                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${
+                    selectedLesson?.id === lesson.id ? 'text-brand-gold' : 'text-brand-muted group-hover:text-brand-charcoal'
+                  }`}>
+                    {lesson.category}
+                  </p>
+                  <h4 className="text-xs font-black text-brand-charcoal uppercase leading-tight group-hover:text-brand-gold transition-colors">
+                    {lesson.title}
+                  </h4>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* External Growth Signal */}
+          <div className="athenix-card p-6 bg-brand-sage/5 border-dashed border-brand-sage/30 text-center">
+            <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest mb-4">Authority Signal</p>
+            <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed mb-6">
+              Missing a concept? Our research team publishes institutional breakdowns weekly.
+            </p>
+            <a 
+              href="/" 
+              onClick={(e) => { e.preventDefault(); onNavigate('landing'); }}
+              className="text-[9px] font-black text-brand-gold uppercase tracking-widest hover:underline"
+            >
+              Back to Overview
+            </a>
+          </div>
+        </aside>
       </div>
     </div>
   );

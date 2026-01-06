@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /terminal/education
+Disallow: /terminal/
+Disallow: /terminal/dashboard
+Disallow: /terminal/assistant
+Disallow: /terminal/signals
+Disallow: /terminal/journal
+Disallow: /terminal/billing
+Disallow: /terminal/settings
+Disallow: /terminal/admin
+
+Sitemap: https://athenix-neural.web.app/sitemap.xml

@@ -2,7 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { TradeAnalysis } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Fix: Initializing GoogleGenAI strictly according to guidelines
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeMarket = async (
   symbol: string, 
@@ -37,6 +38,7 @@ export const analyzeMarket = async (
     }
   });
 
+  // Fix: Directly accessing .text property on response
   return JSON.parse(response.text) as TradeAnalysis;
 };
 
@@ -55,5 +57,6 @@ export const getEducationResponse = async (question: string, context?: string): 
     }
   });
 
+  // Fix: Directly accessing .text property on response
   return response.text || "I apologize, I am unable to generate a lesson at this moment.";
 };

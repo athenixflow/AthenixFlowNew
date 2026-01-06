@@ -28,7 +28,8 @@ const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar }) => {
 
       <div className="flex items-center gap-5">
         <div className="hidden sm:flex flex-col items-end">
-          <span className="text-[9px] font-black text-brand-gold uppercase tracking-[0.2em]">{user.subscription} Elite</span>
+          {/* Fix: Using subscriptionPlan instead of subscription */}
+          <span className="text-[9px] font-black text-brand-gold uppercase tracking-[0.2em]">{user.subscriptionPlan} Elite</span>
           <span className="text-[9px] text-brand-muted font-bold uppercase">System Active</span>
         </div>
         <button className="w-10 h-10 rounded-full bg-brand-sage/10 flex items-center justify-center text-brand-gold border border-brand-sage transition-transform hover:scale-105">

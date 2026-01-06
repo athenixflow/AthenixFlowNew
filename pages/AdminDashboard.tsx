@@ -1,183 +1,381 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { getAllUsers, getActiveSignals, getEducationLessons } from '../services/firestore';
+import { adminUpdateUser, adminManageSignal, adminManageLesson, adminUpdateConfig } from '../services/backend';
+import { UserProfile, TradingSignal, Lesson, UserRole, SubscriptionPlan } from '../types';
 
-const AdminDashboard: React.FC = () => {
-  return (
-    <div className="p-6 md:p-10 space-y-12 animate-fade-in max-w-7xl mx-auto">
-      {/* Page Header Section */}
-      <section className="space-y-2">
-        <h2 className="text-4xl font-black text-brand-charcoal uppercase tracking-tighter">Admin Dashboard</h2>
-        <p className="text-brand-muted font-medium text-sm uppercase tracking-widest">
-          Comprehensive platform oversight and institutional control center.
-        </p>
-      </section>
+interface AdminDashboardProps {
+  user: UserProfile | null;
+}
 
-      {/* Overview Metrics Section */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: 'Total Users', value: 'System Total', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-          { label: 'Active Subscriptions', value: 'Live Tiers', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
-          { label: 'Total Signals Posted', value: 'Archived Setups', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
-          { label: 'Total Token Usage', value: 'Network Units', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-        ].map((metric, i) => (
-          <div key={i} className="athenix-card p-8 group hover:border-brand-gold transition-all">
-            <div className="flex justify-between items-start mb-6">
-              <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">{metric.label}</p>
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-brand-sage group-hover:text-brand-gold transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={metric.icon} />
-              </svg>
-            </div>
-            <p className="text-xl font-black text-brand-charcoal uppercase tracking-tighter">{metric.value}</p>
-          </div>
-        ))}
-      </section>
+type AdminTab = 'overview' | 'users' | 'signals' | 'education' | 'settings';
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* User Management Section */}
-        <section className="lg:col-span-2 space-y-6">
-          <div className="athenix-card flex flex-col min-h-[500px]">
-            <div className="p-8 border-b border-brand-sage/10 flex justify-between items-center">
-              <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">User Management</h3>
-              <div className="relative">
-                <input type="text" placeholder="Search Directory..." className="bg-brand-sage/5 border border-brand-sage/30 rounded-lg px-4 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-brand-gold w-48 transition-all" />
-              </div>
-            </div>
-            <div className="p-4 space-y-3 flex-1">
-              {[1, 2, 3, 4].map((u) => (
-                <div key={u} className="p-6 rounded-2xl border border-brand-sage/10 bg-white hover:bg-brand-sage/5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-brand-gold/10 text-brand-gold flex items-center justify-center font-black text-xs">U</div>
-                    <div>
-                      <p className="text-sm font-black text-brand-charcoal uppercase tracking-tight">Trader Node {u}</p>
-                      <p className="text-[10px] text-brand-muted font-bold tracking-tight">trader_{u}@athenix.network</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="px-3 py-1 bg-brand-gold/10 text-brand-gold text-[9px] font-black uppercase tracking-widest rounded-full">Pro Tier</span>
-                    <span className="px-3 py-1 bg-brand-charcoal text-white text-[9px] font-black uppercase tracking-widest rounded-full">User Role</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="p-2 text-brand-muted hover:text-brand-gold transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
-                    <button className="p-2 text-brand-muted hover:text-brand-gold transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [signals, setSignals] = useState<TradingSignal[]>([]);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
 
-        {/* Subscription & Token Controls */}
-        <section className="space-y-8">
-          <div className="athenix-card p-8 space-y-8 bg-brand-sage/5 border-dashed">
-            <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Resource Control</h3>
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest block">Adjust Token Balance</label>
-                <div className="flex gap-2">
-                  <input type="number" placeholder="Amt" className="w-20 px-3 py-3 bg-white border border-brand-sage rounded-xl outline-none text-xs font-black" />
-                  <select className="flex-1 px-3 py-3 bg-white border border-brand-sage rounded-xl outline-none text-[10px] font-black uppercase tracking-widest">
-                    <option>Analysis</option>
-                    <option>Education</option>
-                  </select>
-                </div>
-                <button className="w-full btn-primary py-4 rounded-xl text-[10px] font-black uppercase tracking-widest mt-2">Inject Tokens</button>
-              </div>
+  // Form states
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editingSignal, setEditingSignal] = useState<Partial<TradingSignal> | null>(null);
+  const [editingLesson, setEditingLesson] = useState<Partial<Lesson> | null>(null);
 
-              <div className="space-y-2 pt-4 border-t border-brand-sage/20">
-                <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest block">Modify Subscription</label>
-                <select className="w-full px-3 py-3 bg-white border border-brand-sage rounded-xl outline-none text-[10px] font-black uppercase tracking-widest">
-                  <option>Set Lite Tier</option>
-                  <option>Set Pro Tier</option>
-                  <option>Set Elite Tier</option>
-                </select>
-                <button className="w-full btn-secondary bg-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest mt-2 border-brand-charcoal">Update Plan</button>
-              </div>
-            </div>
-          </div>
+  const refreshData = async () => {
+    setLoading(true);
+    const [u, s, l] = await Promise.all([
+      getAllUsers(),
+      getActiveSignals(),
+      getEducationLessons()
+    ]);
+    setUsers(u);
+    setSignals(s);
+    setLessons(l);
+    setLoading(false);
+  };
 
-          <div className="athenix-card p-8 space-y-6">
-            <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Analytics Snapshot</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10 text-center">
-                <p className="text-[8px] text-brand-muted font-black uppercase mb-1">AI Runs</p>
-                <p className="text-sm font-black text-brand-charcoal">Log Pending</p>
-              </div>
-              <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10 text-center">
-                <p className="text-[8px] text-brand-muted font-black uppercase mb-1">Lessons</p>
-                <p className="text-sm font-black text-brand-charcoal">Log Pending</p>
-              </div>
-              <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10 text-center">
-                <p className="text-[8px] text-brand-muted font-black uppercase mb-1">Purchases</p>
-                <p className="text-sm font-black text-brand-charcoal">Log Pending</p>
-              </div>
-              <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10 text-center">
-                <p className="text-[8px] text-brand-muted font-black uppercase mb-1">Feedback</p>
-                <p className="text-sm font-black text-brand-charcoal">Log Pending</p>
-              </div>
-            </div>
-          </div>
-        </section>
+  useEffect(() => {
+    if (user?.role === UserRole.ADMIN) {
+      refreshData();
+    }
+  }, [user]);
+
+  if (user?.role !== UserRole.ADMIN) {
+    return (
+      <div className="p-20 text-center text-brand-error font-black uppercase tracking-widest">
+        Access Denied: Institutional Admin Authorization Required.
       </div>
+    );
+  }
+
+  const handleUpdateUser = async (targetUid: string, updates: Partial<UserProfile>) => {
+    const res = await adminUpdateUser(user.uid, targetUid, updates);
+    setActionStatus(res.message);
+    if (res.status === 'success') {
+      setEditingUser(null);
+      refreshData();
+    }
+  };
+
+  const handleSignalAction = async (action: 'create' | 'update' | 'delete', data: any) => {
+    const res = await adminManageSignal(user.uid, action, data);
+    setActionStatus(res.message);
+    if (res.status === 'success') {
+      setEditingSignal(null);
+      refreshData();
+    }
+  };
+
+  const handleLessonAction = async (action: 'create' | 'update' | 'delete', data: any) => {
+    const res = await adminManageLesson(user.uid, action, data);
+    setActionStatus(res.message);
+    if (res.status === 'success') {
+      setEditingLesson(null);
+      refreshData();
+    }
+  };
+
+  const renderOverview = () => (
+    <div className="space-y-8 animate-fade-in">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="athenix-card p-8">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest mb-6">Network Nodes</p>
+          <p className="text-xl font-black text-brand-charcoal uppercase tracking-tighter">{users.length} Users</p>
+        </div>
+        <div className="athenix-card p-8">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest mb-6">Live Vectors</p>
+          <p className="text-xl font-black text-brand-charcoal uppercase tracking-tighter">{signals.length} Signals</p>
+        </div>
+        <div className="athenix-card p-8">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest mb-6">Knowledge Modules</p>
+          <p className="text-xl font-black text-brand-charcoal uppercase tracking-tighter">{lessons.length} Modules</p>
+        </div>
+        <div className="athenix-card p-8 bg-brand-sage/5 border-dashed">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest mb-6">Security Integrity</p>
+          <p className="text-xl font-black text-brand-success uppercase tracking-tighter">Secured</p>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Signal Management */}
-        <section className="athenix-card overflow-hidden">
-          <div className="p-8 border-b border-brand-sage/10 flex justify-between items-center bg-white">
-            <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Signals Control</h3>
-            <button className="btn-primary px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest">Create Signal</button>
+        <div className="athenix-card p-8">
+          <h3 className="text-[10px] font-black text-brand-charcoal uppercase tracking-[0.3em] mb-6">Recent Token Activity</h3>
+          <div className="space-y-4 opacity-50 italic text-[10px] font-bold uppercase tracking-widest">
+            Detailed ledger logging is active. Historical transactions are indexed in tokenTransactions collection.
           </div>
-          <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto">
-            {[
-              { pair: 'GBP/USD', type: 'SELL', entry: '1.2740', sl: '1.2790', tp: '1.2650', author: 'Root_Admin' },
-              { pair: 'XAU/USD', type: 'BUY', entry: '2,042.0', sl: '2,035.0', tp: '2,060.0', author: 'Network_Node' },
-            ].map((sig, i) => (
-              <div key={i} className="p-5 border border-brand-sage/20 rounded-2xl flex items-center justify-between group">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-[10px] text-white shadow-sm ${sig.type === 'BUY' ? 'bg-brand-success' : 'bg-brand-error'}`}>
-                    {sig.type}
-                  </div>
-                  <div>
-                    <p className="text-sm font-black text-brand-charcoal">{sig.pair}</p>
-                    <p className="text-[9px] text-brand-muted font-bold uppercase">By: {sig.author}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button className="p-2 text-brand-muted hover:text-brand-charcoal"><svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
-                  <button className="p-2 text-brand-error/60 hover:text-brand-error"><svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        </div>
+        <div className="athenix-card p-8 bg-brand-charcoal text-white">
+          <h3 className="text-[10px] font-black text-brand-gold uppercase tracking-[0.3em] mb-6">Admin Intelligence</h3>
+          <p className="text-xs leading-loose font-medium opacity-80">
+            The Athenix Network is currently operating at optimal capacity. Gemini API bridges are healthy and latency is within institutional tolerance.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 
-        {/* Knowledge Base Management */}
-        <section className="athenix-card overflow-hidden">
-          <div className="p-8 border-b border-brand-sage/10 flex justify-between items-center bg-white">
-            <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Knowledge Directory</h3>
-            <button className="btn-secondary px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest bg-brand-sage/5">Upload Node</button>
-          </div>
-          <div className="p-6 space-y-4 max-h-[400px] overflow-y-auto">
-            {[
-              { title: 'Liquidity Matrix v4.0', desc: 'Institutional volume profile updates.' },
-              { title: 'SMC Delta Shifts', desc: 'Predicting fractal reversals via delta data.' },
-              { title: 'Macro Fundamental Core', desc: 'Central bank policy impact training.' },
-            ].map((kb, i) => (
-              <div key={i} className="p-5 border border-brand-sage/20 rounded-2xl flex items-center justify-between group hover:border-brand-gold transition-all">
-                <div>
-                  <p className="text-sm font-black text-brand-charcoal uppercase tracking-tight">{kb.title}</p>
-                  <p className="text-[10px] text-brand-muted font-bold tracking-tight">{kb.desc}</p>
-                </div>
-                <button className="p-2 text-brand-muted hover:text-brand-gold transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
-              </div>
+  const renderUsers = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="athenix-card overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-brand-sage/5 border-b border-brand-sage/10">
+              <th className="p-6 text-[10px] font-black text-brand-muted uppercase tracking-widest">Identity</th>
+              <th className="p-6 text-[10px] font-black text-brand-muted uppercase tracking-widest">Plan</th>
+              <th className="p-6 text-[10px] font-black text-brand-muted uppercase tracking-widest">Credits</th>
+              <th className="p-6 text-[10px] font-black text-brand-muted uppercase tracking-widest text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-brand-sage/10">
+            {users.map(u => (
+              <tr key={u.uid} className="hover:bg-brand-sage/5 transition-colors">
+                <td className="p-6">
+                  <p className="text-[11px] font-black text-brand-charcoal uppercase">{u.fullName}</p>
+                  <p className="text-[9px] text-brand-muted font-bold">{u.email}</p>
+                </td>
+                <td className="p-6">
+                  <span className={`px-2 py-1 text-[8px] font-black uppercase rounded ${
+                    u.subscriptionPlan === SubscriptionPlan.ELITE ? 'bg-brand-gold/20 text-brand-gold' : 'bg-brand-sage/20 text-brand-muted'
+                  }`}>
+                    {u.subscriptionPlan}
+                  </span>
+                </td>
+                <td className="p-6">
+                  <p className="text-[10px] font-black text-brand-charcoal">{u.analysisTokens}A / {u.educationTokens}E</p>
+                </td>
+                <td className="p-6 text-right">
+                  <button 
+                    onClick={() => setEditingUser(u)}
+                    className="text-[9px] font-black text-brand-gold uppercase tracking-widest hover:underline"
+                  >
+                    Modify
+                  </button>
+                </td>
+              </tr>
             ))}
-          </div>
-        </section>
+          </tbody>
+        </table>
       </div>
 
-      <div className="text-center opacity-30 pt-10">
-        <p className="text-[9px] font-black text-brand-muted uppercase tracking-[0.5em]">Network Supervisor Active | Admin ID: ATH-ADMIN-001</p>
+      {editingUser && (
+        <div className="fixed inset-0 z-[100] bg-brand-charcoal/40 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="athenix-card p-10 max-w-lg w-full space-y-8 animate-slide-up">
+            <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Modify User: {editingUser.fullName}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Plan</label>
+                <select 
+                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-black uppercase"
+                  defaultValue={editingUser.subscriptionPlan}
+                  onChange={(e) => handleUpdateUser(editingUser.uid, { subscriptionPlan: e.target.value as SubscriptionPlan })}
+                >
+                  {Object.values(SubscriptionPlan).map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Role</label>
+                <select 
+                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-black uppercase"
+                  defaultValue={editingUser.role}
+                  onChange={(e) => handleUpdateUser(editingUser.uid, { role: e.target.value as UserRole })}
+                >
+                  {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setEditingUser(null)}
+                className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest border border-brand-sage rounded-xl hover:bg-brand-sage/10"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderSignals = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em]">Institutional Feed Management</h3>
+        <button 
+          onClick={() => setEditingSignal({ pair: '', direction: 'BUY', entry: '', stopLoss: '', takeProfit: '', author: 'Athenix Admin' })}
+          className="btn-primary px-6 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl"
+        >
+          Inject New Vector
+        </button>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {signals.map(s => (
+          <div key={s.id} className="athenix-card p-6 flex justify-between items-center group">
+            <div>
+              <p className="text-xl font-black text-brand-charcoal uppercase tracking-tighter">{s.pair}</p>
+              <p className={`text-[9px] font-black uppercase tracking-widest ${s.direction === 'BUY' ? 'text-brand-success' : 'text-brand-error'}`}>{s.direction}</p>
+              <p className="text-[8px] text-brand-muted font-bold mt-1">ENTRY: {s.entry}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => setEditingSignal(s)} className="text-[9px] font-black text-brand-gold uppercase tracking-widest hover:underline">Edit</button>
+              <button onClick={() => handleSignalAction('delete', s)} className="text-[9px] font-black text-brand-error uppercase tracking-widest hover:underline">Remove</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editingSignal && (
+        <div className="fixed inset-0 z-[100] bg-brand-charcoal/40 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="athenix-card p-10 max-w-xl w-full space-y-6 animate-slide-up">
+            <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">{editingSignal.id ? 'Edit Vector' : 'New Vector'}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="PAIR" value={editingSignal.pair} onChange={e => setEditingSignal({...editingSignal, pair: e.target.value})} />
+              <select className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" value={editingSignal.direction} onChange={e => setEditingSignal({...editingSignal, direction: e.target.value as 'BUY' | 'SELL'})}>
+                <option value="BUY">BUY</option>
+                <option value="SELL">SELL</option>
+              </select>
+              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="ENTRY" value={editingSignal.entry} onChange={e => setEditingSignal({...editingSignal, entry: e.target.value})} />
+              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="STOP LOSS" value={editingSignal.stopLoss} onChange={e => setEditingSignal({...editingSignal, stopLoss: e.target.value})} />
+              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="TAKE PROFIT" value={editingSignal.takeProfit} onChange={e => setEditingSignal({...editingSignal, takeProfit: e.target.value})} />
+              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="AUTHOR" value={editingSignal.author} onChange={e => setEditingSignal({...editingSignal, author: e.target.value})} />
+            </div>
+            <div className="flex gap-4">
+              <button onClick={() => setEditingSignal(null)} className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest border border-brand-sage rounded-xl">Cancel</button>
+              <button onClick={() => handleSignalAction(editingSignal.id ? 'update' : 'create', editingSignal)} className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest bg-brand-gold text-white rounded-xl">Commit Vector</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderEducation = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em]">Knowledge Base Control</h3>
+        <button 
+          onClick={() => setEditingLesson({ title: '', description: '', content: [] })}
+          className="btn-primary px-6 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl"
+        >
+          Inject Module
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {lessons.map(l => (
+          <div key={l.id} className="athenix-card p-6 flex justify-between items-center">
+            <div>
+              <p className="text-sm font-black text-brand-charcoal uppercase tracking-widest">{l.title}</p>
+              <p className="text-[10px] text-brand-muted font-medium mt-1">{l.description}</p>
+            </div>
+            <div className="flex gap-4">
+              <button onClick={() => setEditingLesson(l)} className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Edit</button>
+              <button onClick={() => handleLessonAction('delete', l)} className="text-[9px] font-black text-brand-error uppercase tracking-widest">Purge</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editingLesson && (
+        <div className="fixed inset-0 z-[100] bg-brand-charcoal/40 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="athenix-card p-10 max-w-2xl w-full space-y-6 animate-slide-up overflow-y-auto max-h-[90vh]">
+            <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Module Configuration</h3>
+            <input className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[11px] font-bold outline-none" placeholder="MODULE TITLE" value={editingLesson.title} onChange={e => setEditingLesson({...editingLesson, title: e.target.value})} />
+            <textarea className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-medium outline-none h-24" placeholder="SHORT DESCRIPTION" value={editingLesson.description} onChange={e => setEditingLesson({...editingLesson, description: e.target.value})} />
+            <textarea className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-medium outline-none h-64" placeholder="MODULE CONTENT (JSON Array or Newline-separated)" value={Array.isArray(editingLesson.content) ? editingLesson.content.join('\n\n') : ''} onChange={e => setEditingLesson({...editingLesson, content: e.target.value.split('\n\n')})} />
+            <div className="flex gap-4">
+              <button onClick={() => setEditingLesson(null)} className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest border border-brand-sage rounded-xl">Abort</button>
+              <button onClick={() => handleLessonAction(editingLesson.id ? 'update' : 'create', editingLesson)} className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest bg-brand-gold text-white rounded-xl">Commit Module</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderSettings = () => (
+    <div className="space-y-10 animate-fade-in max-w-4xl">
+      <div className="athenix-card p-10 space-y-8">
+        <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em] border-l-4 border-brand-gold pl-4">System API Architecture</h3>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between p-6 bg-brand-sage/5 rounded-2xl border border-brand-sage/20">
+            <div>
+              <p className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">Google Gemini Pro v3.1</p>
+              <p className="text-[9px] text-brand-muted font-bold uppercase tracking-tight">Status: OPERATIONAL • Latency: 420ms</p>
+            </div>
+            <button className="px-4 py-2 bg-brand-charcoal text-white text-[8px] font-black uppercase rounded-lg tracking-widest">Update Bridge</button>
+          </div>
+          <div className="flex items-center justify-between p-6 bg-brand-sage/5 rounded-2xl border border-brand-sage/20">
+            <div>
+              <p className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">Forex Real-time Feed</p>
+              <p className="text-[9px] text-brand-muted font-bold uppercase tracking-tight">Status: ACTIVE • Provider: Institutional Aggregator</p>
+            </div>
+            <button className="px-4 py-2 bg-brand-charcoal text-white text-[8px] font-black uppercase rounded-lg tracking-widest">Update Key</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="athenix-card p-10 bg-brand-gold/5 border-dashed space-y-8">
+        <h3 className="text-xs font-black text-brand-gold uppercase tracking-[0.3em]">Monetary Protocol</h3>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest">Analysis Token Refill Rate</p>
+            <p className="text-lg font-black text-brand-charcoal">$5.00 / 20 Units</p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest">Education Token Refill Rate</p>
+            <p className="text-lg font-black text-brand-charcoal">$5.00 / 500 Units</p>
+          </div>
+        </div>
+        <button className="w-full py-4 text-[9px] font-black text-brand-charcoal uppercase tracking-[0.2em] border border-brand-gold rounded-xl">Adjust Economic Constants</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-7xl mx-auto pb-20">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <h2 className="text-4xl font-black text-brand-charcoal uppercase tracking-tighter">Institutional Oversight</h2>
+          <p className="text-brand-muted font-medium text-sm uppercase tracking-widest">Platform Admin Terminal v5.0 Active.</p>
+        </div>
+        {actionStatus && (
+          <div className="bg-brand-success/10 text-brand-success px-6 py-4 rounded-xl text-[10px] font-black uppercase animate-pulse border border-brand-success/20">
+            {actionStatus}
+          </div>
+        )}
+      </div>
+
+      <nav className="flex gap-2 p-1 bg-brand-sage/5 border border-brand-sage/20 rounded-2xl w-fit">
+        {(['overview', 'users', 'signals', 'education', 'settings'] as AdminTab[]).map(tab => (
+          <button 
+            key={tab}
+            onClick={() => { setActiveTab(tab); setActionStatus(null); }}
+            className={`px-8 py-3 text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all ${
+              activeTab === tab ? 'bg-white shadow-xl text-brand-gold' : 'text-brand-muted hover:text-brand-charcoal'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </nav>
+
+      {loading ? (
+        <div className="py-20 flex flex-col items-center justify-center space-y-4">
+          <div className="w-12 h-12 border-4 border-brand-sage border-t-brand-gold rounded-full animate-spin"></div>
+          <p className="text-[9px] font-black text-brand-muted uppercase tracking-[0.4em]">Querying Global Infrastructure...</p>
+        </div>
+      ) : (
+        <div className="min-h-[600px]">
+          {activeTab === 'overview' && renderOverview()}
+          {activeTab === 'users' && renderUsers()}
+          {activeTab === 'signals' && renderSignals()}
+          {activeTab === 'education' && renderEducation()}
+          {activeTab === 'settings' && renderSettings()}
+        </div>
+      )}
     </div>
   );
 };

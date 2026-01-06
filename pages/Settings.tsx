@@ -1,15 +1,11 @@
-
 import React from 'react';
+import { UserProfile } from '../types';
 
-const Settings: React.FC = () => {
-  const sections = [
-    { title: 'Profile Configuration', desc: 'Manage your public identity and personal details.', icon: 'User' },
-    { title: 'Security Protocol', desc: 'Secure your terminal with 2FA and password management.', icon: 'Lock' },
-    { title: 'Subscription Management', desc: 'View billing history and upgrade access level.', icon: 'CreditCard' },
-    { title: 'Notification Matrix', desc: 'Configure signal alerts and system updates.', icon: 'Bell' },
-    { title: 'Support Terminal', desc: 'Access documentation or contact institutional support.', icon: 'Help' },
-  ];
+interface SettingsProps {
+  user: UserProfile | null;
+}
 
+const Settings: React.FC<SettingsProps> = ({ user }) => {
   return (
     <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-5xl mx-auto">
       <div className="space-y-2">
@@ -17,34 +13,56 @@ const Settings: React.FC = () => {
         <p className="text-brand-muted font-medium text-sm uppercase tracking-widest">System configuration and security protocols.</p>
       </div>
 
-      <div className="space-y-4">
-        {sections.map((s, i) => (
-          <div key={i} className="athenix-card p-8 flex items-center justify-between group cursor-pointer hover:border-brand-gold transition-all">
-            <div className="flex items-center gap-6">
-              <div className="w-14 h-14 bg-brand-sage/10 rounded-2xl flex items-center justify-center text-brand-gold transition-all group-hover:bg-brand-gold group-hover:text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-black text-lg text-brand-charcoal tracking-tight uppercase tracking-widest">{s.title}</h4>
-                <p className="text-xs text-brand-muted font-medium uppercase tracking-tighter">{s.desc}</p>
-              </div>
-            </div>
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-brand-muted group-hover:text-brand-gold transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+      <div className="athenix-card p-10 space-y-8">
+        <h3 className="text-xs font-black text-brand-gold uppercase tracking-[0.3em]">Profile Identification</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-2">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Full Identity</p>
+            <p className="font-black text-brand-charcoal">{user?.fullName || 'Not available yet'}</p>
           </div>
-        ))}
+          <div className="space-y-2">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Network Email</p>
+            <p className="font-black text-brand-charcoal">{user?.email || 'Not available yet'}</p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Access Tier</p>
+            <p className="font-black text-brand-gold uppercase">
+              {user?.subscriptionPlan || 'LITE'} 
+              <span className="ml-2 px-2 py-0.5 bg-brand-gold/10 text-[8px] rounded">ACTIVE</span>
+            </p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Terminal Initialized</p>
+            <p className="font-black text-brand-charcoal">
+              {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+            </p>
+          </div>
+        </div>
+
+        <div className="pt-8 border-t border-brand-sage/20 grid grid-cols-2 gap-4">
+          <div className="p-4 bg-brand-sage/5 rounded-xl text-center border border-brand-sage/10">
+            <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Analysis Units</p>
+            <p className="text-xl font-black text-brand-charcoal">{user?.analysisTokens ?? 0}u</p>
+          </div>
+          <div className="p-4 bg-brand-sage/5 rounded-xl text-center border border-brand-sage/10">
+            <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Education Units</p>
+            <p className="text-xl font-black text-brand-charcoal">{user?.educationTokens ?? 0}u</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="athenix-card p-10 bg-brand-sage/5 border-dashed">
+        <h3 className="text-xs font-black text-brand-muted uppercase tracking-[0.3em] mb-4">Security Protocol</h3>
+        <p className="text-[10px] text-brand-muted font-medium leading-relaxed uppercase tracking-wider">
+          Profile data is synchronized via Google Cloud Firestore. Settings are currently in "READ-ONLY" mode to preserve institutional integrity during backend synchronization.
+        </p>
       </div>
 
       <div className="pt-10 border-t border-brand-sage/20">
-        <button className="flex items-center gap-3 px-8 py-4 bg-brand-error/5 text-brand-error rounded-xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-brand-error hover:text-white transition-all">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          Deactivate Terminal Access
-        </button>
+        <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest text-center opacity-40">
+          Terminal Profile Encrypted & Secure
+        </p>
       </div>
     </div>
   );

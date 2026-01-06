@@ -1,8 +1,17 @@
 
 import React, { useState } from 'react';
+import { UserProfile } from '../types';
+import { refillTokens } from '../services/backend';
 
-const Billing: React.FC = () => {
+interface BillingProps {
+  user: UserProfile | null;
+}
+
+const Billing: React.FC<BillingProps> = ({ user }) => {
   const [refillType, setRefillType] = useState<'analysis' | 'education'>('analysis');
+  const [refillAmount, setRefillAmount] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
   const plans = [
     {
@@ -47,9 +56,30 @@ const Billing: React.FC = () => {
     }
   ];
 
+  const handleRefill = async () => {
+    if (!user || !refillAmount) return;
+    const amount = parseFloat(refillAmount);
+    if (isNaN(amount) || amount < 5) {
+      setStatus({ type: 'error', msg: 'Minimum refill is $5.00' });
+      return;
+    }
+
+    setIsProcessing(true);
+    setStatus(null);
+
+    const response = await refillTokens(user.uid, refillType, amount);
+
+    if (response.status === 'success') {
+      setStatus({ type: 'success', msg: response.message });
+      setRefillAmount('');
+    } else {
+      setStatus({ type: 'error', msg: response.message });
+    }
+    setIsProcessing(false);
+  };
+
   return (
     <div className="p-6 md:p-10 space-y-16 animate-fade-in max-w-7xl mx-auto">
-      {/* Page Header Section */}
       <section className="text-center space-y-4">
         <h2 className="text-4xl md:text-5xl font-black text-brand-charcoal uppercase tracking-tighter">Subscription & Billing</h2>
         <p className="text-brand-muted font-medium text-sm uppercase tracking-widest max-w-2xl mx-auto leading-relaxed">
@@ -57,7 +87,6 @@ const Billing: React.FC = () => {
         </p>
       </section>
 
-      {/* Subscription Plans Section */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {plans.map((plan) => (
           <div 
@@ -113,9 +142,7 @@ const Billing: React.FC = () => {
         ))}
       </section>
 
-      {/* Token Usage & Refill Section */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-10 border-t border-brand-sage/20">
-        {/* Information Panel */}
         <div className="athenix-card p-10 bg-brand-sage/5 border-dashed space-y-8">
           <div className="space-y-2">
             <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Network Consumption Logic</h3>
@@ -132,7 +159,7 @@ const Billing: React.FC = () => {
             <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-brand-sage/20">
               <div className="w-10 h-10 bg-brand-sage/20 rounded-lg flex items-center justify-center text-brand-muted font-black text-xs">E</div>
               <p className="text-[11px] font-bold text-brand-muted uppercase tracking-wide">
-                1 Education Interaction = <span className="text-brand-charcoal font-black">1 Education Token</span>
+                1 Knowledge Query = <span className="text-brand-charcoal font-black">1 Education Token</span>
               </p>
             </div>
           </div>
@@ -143,11 +170,9 @@ const Billing: React.FC = () => {
               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">$5.00 = 20 Analysis Units</p>
               <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">$5.00 = 500 Education Units</p>
             </div>
-            <p className="mt-4 text-[9px] italic text-brand-muted font-medium">Refill scaling is linear. Purchased tokens do not expire upon monthly plan reset.</p>
           </div>
         </div>
 
-        {/* Refill UI Panel */}
         <div className="athenix-card p-10 space-y-8">
           <div className="space-y-2">
             <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Instant Resource Refill</h3>
@@ -183,28 +208,36 @@ const Billing: React.FC = () => {
                 <span className="absolute left-6 top-1/2 -translate-y-1/2 text-brand-muted font-black text-sm">$</span>
                 <input 
                   type="number" 
+                  value={refillAmount}
+                  onChange={(e) => setRefillAmount(e.target.value)}
                   placeholder="0.00"
+                  min="5"
                   className="w-full pl-12 pr-6 py-5 bg-brand-sage/5 border border-brand-sage rounded-2xl outline-none focus:border-brand-gold transition-all font-black text-sm"
                 />
               </div>
             </div>
 
-            <button className="btn-primary w-full py-5 font-black text-[10px] uppercase tracking-[0.3em] rounded-xl shadow-xl mt-4">
-              Authorize Token Purchase
-            </button>
+            {status && (
+              <div className={`p-4 rounded-xl text-[10px] font-black uppercase ${
+                status.type === 'success' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-error/10 text-brand-error'
+              }`}>
+                {status.msg}
+              </div>
+            )}
 
-            <div className="flex items-center justify-center gap-6 opacity-40 grayscale pt-2">
-              <div className="h-4 w-8 bg-brand-charcoal rounded-sm"></div>
-              <div className="h-4 w-8 bg-brand-charcoal rounded-sm"></div>
-              <div className="h-4 w-8 bg-brand-charcoal rounded-sm"></div>
-            </div>
+            <button 
+              disabled={isProcessing}
+              onClick={handleRefill}
+              className="btn-primary w-full py-5 font-black text-[10px] uppercase tracking-[0.3em] rounded-xl shadow-xl mt-4 disabled:opacity-50"
+            >
+              {isProcessing ? 'Verifying Transaction...' : 'Authorize Token Purchase'}
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Bottom Legal Disclosure */}
       <p className="text-[9px] text-center text-brand-muted font-bold uppercase tracking-[0.2em] opacity-50 pb-10">
-        Transactions are processed via institutional-grade encrypted channels. Non-refundable upon terminal injection.
+        Transactions are processed via institutional-grade encrypted channels.
       </p>
     </div>
   );
