@@ -2,7 +2,7 @@ import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getFunctions, Functions } from "firebase/functions";
-import { getAnalytics, Analytics } from "firebase/analytics";
+import { getAnalytics, Analytics, isSupported } from "firebase/analytics";
 
 // Athenix Configuration
 const firebaseConfig = {
@@ -16,32 +16,27 @@ const firebaseConfig = {
 };
 
 /**
- * SINGLETON INITIALIZATION (MANDATORY)
- * Ensures initializeApp() is called exactly once.
+ * SINGLETON INITIALIZATION
  */
-let app: FirebaseApp;
-let analytics: Analytics | null = null;
-
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  // Analytics only works in browser environments
-  if (typeof window !== 'undefined') {
-    analytics = getAnalytics(app);
-  }
-  console.log("Athenix: Firebase Core Initialized");
-} catch (e) {
-  console.error("Athenix: Firebase Initialization Failed", e);
-  throw e;
-}
+const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 /**
  * SERVICE INITIALIZATION
- * Explicitly passing 'app' prevents "Component not registered" errors caused by 
- * modular SDKs potentially loading different internal versions of the App registry.
+ * Services are initialized using the singleton 'app' instance.
+ * Modular Firebase v9+ requires importing from the specific service modules 
+ * which handles the registration side-effects.
  */
 const auth: Auth = getAuth(app);
 const firestore: Firestore = getFirestore(app);
 const functions: Functions = getFunctions(app);
 
-// Export centralized instances
+let analytics: Analytics | null = null;
+if (typeof window !== 'undefined') {
+  isSupported().then((supported) => {
+    if (supported) {
+      analytics = getAnalytics(app);
+    }
+  }).catch(err => console.debug("Analytics not supported", err));
+}
+
 export { app, auth, firestore, functions, analytics };
