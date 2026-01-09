@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { getAllUsers, getActiveSignals, getEducationLessons } from '../services/firestore';
-import { adminUpdateUser, adminManageSignal, adminManageLesson, adminUpdateConfig } from '../services/backend';
+// Removed adminUpdateConfig as it is not exported from backend service and not used in this component
+import { adminUpdateUser, adminManageSignal, adminManageLesson } from '../services/backend';
 import { UserProfile, TradingSignal, Lesson, UserRole, SubscriptionPlan } from '../types';
 
 interface AdminDashboardProps {

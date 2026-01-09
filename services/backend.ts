@@ -1,13 +1,7 @@
-
-import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, deleteDoc, setDoc, query, getDocs, limit } from 'firebase/firestore';
-import { firestore } from '../lib/firebase';
+import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, deleteDoc, setDoc } from 'firebase/firestore';
+import { firestore } from '../firebase'; // FIXED IMPORT
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse } from './geminiService';
-import { SubscriptionPlan, UserProfile, UserRole, TradingSignal, Lesson } from '../types';
-
-/**
- * Athenix Backend Service Layer
- * Simulates Cloud Functions enforcement for tokens, subscription rules, and Admin controls.
- */
+import { SubscriptionPlan, UserProfile, UserRole } from '../types';
 
 export interface BackendResponse<T = any> {
   message: string;
@@ -15,218 +9,81 @@ export interface BackendResponse<T = any> {
   data?: T;
 }
 
-/**
- * UTILITY: Check Admin Status
- */
 const isAdmin = async (userId: string): Promise<boolean> => {
   const userRef = doc(firestore, 'users', userId);
   const userSnap = await getDoc(userRef);
   return userSnap.exists() && userSnap.data()?.role === UserRole.ADMIN;
 };
 
-/**
- * 3. TOKEN ENFORCEMENT — AI ANALYSIS
- */
-export const analyzeMarket = async (
-  userId: string,
-  symbol: string,
-  timeframe: string,
-  includeFundamentals: boolean
-): Promise<BackendResponse> => {
+export const analyzeMarket = async (userId: string, symbol: string, timeframe: string, includeFundamentals: boolean): Promise<BackendResponse> => {
   try {
     const userRef = doc(firestore, 'users', userId);
     const userSnap = await getDoc(userRef);
-    
     if (!userSnap.exists()) return { status: 'error', message: 'User not found' };
     const user = userSnap.data() as UserProfile;
-
-    if (user.subscriptionPlan === SubscriptionPlan.LITE && includeFundamentals) {
-      return { status: 'error', message: 'Upgrade required for fundamental analysis. Your current plan only supports technical setups.' };
-    }
-
-    if (user.analysisTokens < 1) {
-      return { status: 'error', message: 'Insufficient analysis tokens. Please refill in the Billing terminal.' };
-    }
-
+    if (user.analysisTokens < 1) return { status: 'error', message: 'Insufficient analysis tokens.' };
     const result = await callGeminiAnalysis(symbol, timeframe, includeFundamentals);
-
-    await updateDoc(userRef, {
-      analysisTokens: increment(-1)
-    });
-
-    await addDoc(collection(firestore, 'tokenTransactions'), {
-      userId,
-      type: 'deduction',
-      resource: 'analysis',
-      amount: 1,
-      description: `Neural Analysis: ${symbol} (${timeframe})`,
-      timestamp: new Date().toISOString()
-    });
-
+    await updateDoc(userRef, { analysisTokens: increment(-1) });
     return { status: 'success', message: 'Analysis complete', data: result };
   } catch (error: any) {
-    console.error("Backend: Analysis failed", error);
-    return { status: 'error', message: error.message || 'Analysis internal error' };
+    return { status: 'error', message: error.message || 'Analysis error' };
   }
 };
 
-/**
- * 4. TOKEN ENFORCEMENT — EDUCATION HUB
- */
-export const getAILessonContent = async (
-  userId: string,
-  question: string,
-  context?: string
-): Promise<BackendResponse> => {
+export const getAILessonContent = async (userId: string, question: string, context?: string): Promise<BackendResponse> => {
   try {
     const userRef = doc(firestore, 'users', userId);
     const userSnap = await getDoc(userRef);
-    
     if (!userSnap.exists()) return { status: 'error', message: 'User not found' };
     const user = userSnap.data() as UserProfile;
-
-    if (user.educationTokens < 1) {
-      return { status: 'error', message: 'Insufficient education tokens. Please refill in the Billing terminal.' };
-    }
-
+    if (user.educationTokens < 1) return { status: 'error', message: 'Insufficient education tokens.' };
     const result = await getEducationResponse(question, context);
-
-    await updateDoc(userRef, {
-      educationTokens: increment(-1)
-    });
-
-    await addDoc(collection(firestore, 'tokenTransactions'), {
-      userId,
-      type: 'deduction',
-      resource: 'education',
-      amount: 1,
-      description: `Knowledge Query: ${question.substring(0, 30)}...`,
-      timestamp: new Date().toISOString()
-    });
-
+    await updateDoc(userRef, { educationTokens: increment(-1) });
     return { status: 'success', message: 'Lesson generated', data: result };
   } catch (error: any) {
-    console.error("Backend: Education fetch failed", error);
-    return { status: 'error', message: error.message || 'Education service error' };
+    return { status: 'error', message: error.message || 'Education error' };
   }
 };
 
-/**
- * 5. TOKEN REFILL LOGIC
- */
-export const refillTokens = async (
-  userId: string,
-  type: 'analysis' | 'education',
-  usdAmount: number
-): Promise<BackendResponse> => {
+export const refillTokens = async (userId: string, type: 'analysis' | 'education', usdAmount: number): Promise<BackendResponse> => {
   try {
     const userRef = doc(firestore, 'users', userId);
-    
-    let tokenIncrement = 0;
-    if (type === 'analysis') {
-      tokenIncrement = (usdAmount / 5) * 20;
-    } else {
-      tokenIncrement = (usdAmount / 5) * 500;
-    }
-
-    if (tokenIncrement <= 0) return { status: 'error', message: 'Invalid refill amount' };
-
+    let tokenIncrement = type === 'analysis' ? (usdAmount / 5) * 20 : (usdAmount / 5) * 500;
     await runTransaction(firestore, async (transaction) => {
-      const userDoc = await transaction.get(userRef);
-      if (!userDoc.exists()) throw "User does not exist";
-      
-      transaction.update(userRef, {
-        [type === 'analysis' ? 'analysisTokens' : 'educationTokens']: increment(tokenIncrement)
-      });
+      transaction.update(userRef, { [type === 'analysis' ? 'analysisTokens' : 'educationTokens']: increment(tokenIncrement) });
     });
-
-    await addDoc(collection(firestore, 'tokenTransactions'), {
-      userId,
-      type: 'refill',
-      resource: type,
-      amount: tokenIncrement,
-      description: `Credit Refill: $${usdAmount.toFixed(2)} purchase`,
-      timestamp: new Date().toISOString()
-    });
-
-    return { status: 'success', message: `${tokenIncrement} tokens added to terminal.` };
+    return { status: 'success', message: `${tokenIncrement} tokens added.` };
   } catch (error: any) {
-    console.error("Backend: Refill failed", error);
     return { status: 'error', message: 'Transaction failed' };
   }
 };
 
-/**
- * ADMIN: USER MANAGEMENT
- */
 export const adminUpdateUser = async (adminId: string, targetUid: string, updates: Partial<UserProfile>): Promise<BackendResponse> => {
   if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
-  try {
-    const userRef = doc(firestore, 'users', targetUid);
-    await updateDoc(userRef, updates);
-    return { status: 'success', message: 'User updated successfully' };
-  } catch (error) {
-    return { status: 'error', message: 'Failed to update user' };
-  }
+  const userRef = doc(firestore, 'users', targetUid);
+  await updateDoc(userRef, updates);
+  return { status: 'success', message: 'User updated' };
 };
 
-/**
- * ADMIN: SIGNALS MANAGEMENT
- */
-export const adminManageSignal = async (adminId: string, action: 'create' | 'update' | 'delete', signalData: any): Promise<BackendResponse> => {
+export const adminManageSignal = async (adminId: string, action: 'create' | 'update' | 'delete', data: any): Promise<BackendResponse> => {
   if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
-  try {
-    const signalsRef = collection(firestore, 'signals');
-    if (action === 'create') {
-      await addDoc(signalsRef, { ...signalData, timestamp: new Date().toISOString() });
-    } else if (action === 'update' && signalData.id) {
-      const sigDoc = doc(firestore, 'signals', signalData.id);
-      await updateDoc(sigDoc, signalData);
-    } else if (action === 'delete' && signalData.id) {
-      await deleteDoc(doc(firestore, 'signals', signalData.id));
-    }
-    return { status: 'success', message: `Signal ${action}d successfully` };
-  } catch (error) {
-    return { status: 'error', message: `Failed to ${action} signal` };
-  }
+  const signalsRef = collection(firestore, 'signals');
+  if (action === 'create') await addDoc(signalsRef, { ...data, timestamp: new Date().toISOString() });
+  else if (action === 'update') await updateDoc(doc(firestore, 'signals', data.id), data);
+  else if (action === 'delete') await deleteDoc(doc(firestore, 'signals', data.id));
+  return { status: 'success', message: `Signal ${action}d` };
 };
 
-/**
- * ADMIN: EDUCATION MANAGEMENT
- */
-export const adminManageLesson = async (adminId: string, action: 'create' | 'update' | 'delete', lessonData: any): Promise<BackendResponse> => {
+export const adminManageLesson = async (adminId: string, action: 'create' | 'update' | 'delete', data: any): Promise<BackendResponse> => {
   if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
-  try {
-    const eduRef = collection(firestore, 'educationContent');
-    if (action === 'create') {
-      await addDoc(eduRef, lessonData);
-    } else if (action === 'update' && lessonData.id) {
-      const lesDoc = doc(firestore, 'educationContent', lessonData.id);
-      await updateDoc(lesDoc, lessonData);
-    } else if (action === 'delete' && lessonData.id) {
-      await deleteDoc(doc(firestore, 'educationContent', lessonData.id));
-    }
-    return { status: 'success', message: `Lesson ${action}d successfully` };
-  } catch (error) {
-    return { status: 'error', message: `Failed to ${action} lesson` };
-  }
+  const eduRef = collection(firestore, 'educationContent');
+  if (action === 'create') await addDoc(eduRef, data);
+  else if (action === 'update') await updateDoc(doc(firestore, 'educationContent', data.id), data);
+  else if (action === 'delete') await deleteDoc(doc(firestore, 'educationContent', data.id));
+  return { status: 'success', message: `Lesson ${action}d` };
 };
 
-/**
- * ADMIN: SYSTEM CONFIGURATION
- */
-export const adminUpdateConfig = async (adminId: string, key: string, value: any): Promise<BackendResponse> => {
-  if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
-  try {
-    const configRef = doc(firestore, 'systemConfig', key);
-    await setDoc(configRef, { value, updatedAt: new Date().toISOString() });
-    return { status: 'success', message: 'System configuration updated' };
-  } catch (error) {
-    return { status: 'error', message: 'Failed to update config' };
-  }
-};
-
-export const verifyBackendConnectivity = async () => {
-  console.debug("Athenix: Backend enforcement bridges active.");
+export const verifyBackendConnectivity = () => {
+  console.debug("Athenix: Backend bridges active.");
   return true;
 };

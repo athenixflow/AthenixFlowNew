@@ -22,26 +22,9 @@
 
     <link rel="canonical" href="https://athenix-neural.web.app/" />
 
-    <!-- AI & Search Engine Structured Data -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Athenix",
-      "operatingSystem": "Web",
-      "applicationCategory": "FinanceApplication",
-      "description": "Athenix is a professional AI trading platform providing institutional market analysis, neural trade setups, and algorithmic trading education for Forex and Stock markets.",
-      "offers": {
-        "@type": "Offer",
-        "price": "20.00",
-        "priceCurrency": "USD"
-      },
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": "4.9",
-        "reviewCount": "1250"
-      }
-    }
+    <!-- Polyfill process.env for browser environments -->
+    <script>
+      window.process = window.process || { env: {} };
     </script>
 
     <script type="importmap">
@@ -55,14 +38,14 @@
     "clsx": "https://esm.sh/clsx@2.1.0",
     "tailwind-merge": "https://esm.sh/tailwind-merge@2.2.1",
     "@google/genai": "https://esm.sh/@google/genai",
-    "firebase/app": "https://esm.sh/firebase@10.8.0/app",
-    "firebase/auth": "https://esm.sh/firebase@10.8.0/auth?deps=firebase@10.8.0/app",
-    "firebase/firestore": "https://esm.sh/firebase@10.8.0/firestore?deps=firebase@10.8.0/app",
-    "firebase/functions": "https://esm.sh/firebase@10.8.0/functions?deps=firebase@10.8.0/app",
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
+    "firebase/functions": "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
     "firebase/": "https://esm.sh/firebase@^12.7.0/",
-    "vite": "https://esm.sh/vite@^7.3.0",
+    "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
@@ -101,32 +84,23 @@
             margin: 0;
             padding: 0;
         }
-        
         .bg-premium-gradient {
             background: linear-gradient(135deg, #FFFFFF 0%, #C1C6C0 100%);
         }
-
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #FFFFFF; }
         ::-webkit-scrollbar-thumb { background: #C5A24A; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #a88a3f; }
-
         @keyframes fade-in {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fade-in {
-            animation: fade-in 0.6s ease-out forwards;
-        }
-        
+        .animate-fade-in { animation: fade-in 0.6s ease-out forwards; }
         @keyframes slide-up {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .animate-slide-up {
-            animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
+        .animate-slide-up { animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .athenix-card {
             background: #FFFFFF;
             border: 1px solid #C1C6C0;
@@ -138,7 +112,6 @@
             box-shadow: 0 10px 30px -12px rgba(197, 162, 74, 0.15);
             transform: translateY(-2px);
         }
-
         .btn-primary {
             background-color: #C5A24A;
             color: #FFFFFF;
@@ -147,38 +120,10 @@
             background-color: #a88a3f;
             box-shadow: 0 8px 20px -6px rgba(197, 162, 74, 0.4);
         }
-        .btn-secondary {
-            background-color: transparent;
-            border: 1px solid #C1C6C0;
-            color: #1F1F1F;
-            transition: all 0.3s ease;
-        }
-        .btn-secondary:hover {
-            background-color: rgba(193, 198, 192, 0.1);
-            border-color: #C5A24A;
-        }
-
-        /* SEO Helper: Hidden descriptive text for AI Bots */
-        .ai-summary-overlay {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            border: 0;
-        }
     </style>
 </head>
 <body>
-    <div class="ai-summary-overlay" aria-hidden="true">
-        <h1>Athenix AI Trading Platform</h1>
-        <p>Athenix is a high-performance intelligence terminal for professional traders. It uses neural networks to analyze Forex and Stock markets, providing institutional-grade signals and trading education.</p>
-    </div>
-    
     <div id="root"></div>
-    <!-- Explicitly link index.tsx for Vite build -->
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>
