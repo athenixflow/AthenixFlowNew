@@ -2,8 +2,9 @@ import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getFunctions, Functions } from "firebase/functions";
+import { getAnalytics, Analytics } from "firebase/analytics";
 
-// Institutional credentials
+// Athenix Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAhocrl50PXgRJpbwWuOHM3O3Mhg7xyH2Y",
   authDomain: "athenixweb.firebaseapp.com",
@@ -19,8 +20,14 @@ const firebaseConfig = {
  * Ensures initializeApp() is called exactly once.
  */
 let app: FirebaseApp;
+let analytics: Analytics | null = null;
+
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  // Analytics only works in browser environments
+  if (typeof window !== 'undefined') {
+    analytics = getAnalytics(app);
+  }
   console.log("Athenix: Firebase Core Initialized");
 } catch (e) {
   console.error("Athenix: Firebase Initialization Failed", e);
@@ -37,4 +44,4 @@ const firestore: Firestore = getFirestore(app);
 const functions: Functions = getFunctions(app);
 
 // Export centralized instances
-export { app, auth, firestore, functions };
+export { app, auth, firestore, functions, analytics };

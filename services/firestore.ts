@@ -57,3 +57,14 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(collection(firestore, "users"));
   return snap.docs.map(doc => doc.data() as UserProfile);
 };
+
+export const checkDatabaseConnection = async (): Promise<boolean> => {
+  try {
+    // Attempt to fetch signals as a lightweight connectivity test
+    await getDocs(query(collection(firestore, "signals"), limit(1)));
+    return true;
+  } catch (e) {
+    console.error("Connection check failed:", e);
+    return false;
+  }
+};

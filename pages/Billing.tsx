@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, SubscriptionPlan } from '../types';
 import { refillTokens } from '../services/backend';
 
 interface BillingProps {
@@ -15,6 +14,7 @@ const Billing: React.FC<BillingProps> = ({ user }) => {
 
   const plans = [
     {
+      id: SubscriptionPlan.LITE,
       name: 'Lite',
       price: '20',
       analysis: '10',
@@ -28,6 +28,7 @@ const Billing: React.FC<BillingProps> = ({ user }) => {
       buttonText: 'Choose Lite'
     },
     {
+      id: SubscriptionPlan.PRO,
       name: 'Pro',
       price: '60',
       analysis: '30',
@@ -42,6 +43,7 @@ const Billing: React.FC<BillingProps> = ({ user }) => {
       highlight: true
     },
     {
+      id: SubscriptionPlan.ELITE,
       name: 'Elite',
       price: '120',
       analysis: '70',
@@ -78,8 +80,19 @@ const Billing: React.FC<BillingProps> = ({ user }) => {
     setIsProcessing(false);
   };
 
+  const handlePlanSelection = (planId: SubscriptionPlan) => {
+    setStatus({ 
+      type: 'success', 
+      msg: `Initializing secure protocol for ${planId} upgrade...` 
+    });
+    // In a real app, this would redirect to Stripe/Payment gateway
+    setTimeout(() => {
+      setStatus(null);
+    }, 3000);
+  };
+
   return (
-    <div className="p-6 md:p-10 space-y-16 animate-fade-in max-w-7xl mx-auto">
+    <div className="p-6 md:p-10 space-y-16 animate-fade-in max-w-7xl mx-auto pb-24">
       <section className="text-center space-y-4">
         <h2 className="text-4xl md:text-5xl font-black text-brand-charcoal uppercase tracking-tighter">Subscription & Billing</h2>
         <p className="text-brand-muted font-medium text-sm uppercase tracking-widest max-w-2xl mx-auto leading-relaxed">
@@ -131,12 +144,15 @@ const Billing: React.FC<BillingProps> = ({ user }) => {
               </div>
             </div>
 
-            <button className={`w-full mt-12 py-5 font-black text-[10px] uppercase tracking-[0.3em] rounded-xl transition-all shadow-lg active:scale-95 ${
-              plan.highlight 
-                ? 'bg-brand-gold text-white shadow-brand-gold/20 hover:bg-brand-charcoal' 
-                : 'bg-brand-charcoal text-white hover:bg-brand-gold'
-            }`}>
-              {plan.buttonText}
+            <button 
+              onClick={() => handlePlanSelection(plan.id)}
+              className={`w-full mt-12 py-5 font-black text-[10px] uppercase tracking-[0.3em] rounded-xl transition-all shadow-lg active:scale-95 ${
+                plan.highlight 
+                  ? 'bg-brand-gold text-white shadow-brand-gold/20 hover:bg-brand-charcoal' 
+                  : 'bg-brand-charcoal text-white hover:bg-brand-gold'
+              }`}
+            >
+              {user?.subscriptionPlan === plan.id ? 'Current Plan' : plan.buttonText}
             </button>
           </div>
         ))}
