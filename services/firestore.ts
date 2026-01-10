@@ -40,8 +40,9 @@ export const getActiveSignals = async (): Promise<TradingSignal[]> => {
 
 export const getJournalEntries = async (userId: string): Promise<JournalEntry[]> => {
   try {
+    // Collection switched to 'tradeJournal' to match rules
     const q = query(
-      collection(firestore, "journal"), 
+      collection(firestore, "tradeJournal"), 
       where("userId", "==", userId), 
       orderBy("createdAt", "desc")
     );
@@ -77,21 +78,25 @@ export const addJournalEntry = async (userId: string, entry: { title: string; ma
   try {
     console.log(`[Journal] Attempting to save entry for user: ${userId}`);
     
-    if (!userId) throw new Error("User ID is required for journal entries.");
+    if (!userId) {
+      console.error("[Journal] Error: User ID missing.");
+      return { success: false, error: "Authentication missing" };
+    }
 
-    const docRef = await addDoc(collection(firestore, "journal"), {
+    // Collection switched to 'tradeJournal' to match rules
+    const docRef = await addDoc(collection(firestore, "tradeJournal"), {
       userId,
       title: entry.title,
-      market: entry.market,
+      market: entry.market || '',
       notes: entry.notes,
-      createdAt: serverTimestamp() // Use server timestamp for consistency
+      createdAt: serverTimestamp() // Ensure server timestamp
     });
 
     console.log(`[Journal] Entry saved successfully. ID: ${docRef.id}`);
-    return true;
-  } catch (e) {
-    console.error("[Journal] Failed to save entry:", e);
-    return false;
+    return { success: true };
+  } catch (e: any) {
+    console.error("[Journal] Firestore Write Failed:", e.code, e.message);
+    return { success: false, error: e.message };
   }
 };
 

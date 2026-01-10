@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { getJournalEntries, addJournalEntry } from '../services/firestore';
 import { JournalEntry, UserProfile } from '../types';
+import { auth } from '../firebase'; // Strict auth import
 
 interface JournalProps {
   user: UserProfile | null;
@@ -23,10 +24,13 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const fetchEntries = async () => {
-    if (!user) return;
+    // Prefer auth.currentUser if available for consistency, else fall back to prop
+    const currentUser = auth.currentUser || user;
+    if (!currentUser) return;
+    
     setLoading(true);
     try {
-      const data = await getJournalEntries(user.uid);
+      const data = await getJournalEntries(currentUser.uid);
       setEntries(data);
     } catch (err) {
       console.error("Failed to load entries", err);
@@ -36,6 +40,7 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
   };
 
   useEffect(() => {
+    // Trigger fetch when user prop changes (e.g. initial load)
     if (user) {
       fetchEntries();
     }
@@ -43,11 +48,14 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      setErrorMsg("Authentication required.");
+
+    // 1. Auth Readiness Check
+    if (!auth.currentUser) {
+      setErrorMsg("Security Protocol: Auth session not resolved.");
       return;
     }
 
+    // 2. Validation
     if (!newTitle.trim() || !newNotes.trim()) {
       setErrorMsg("Title and notes are required.");
       return;
@@ -57,16 +65,19 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    console.log(`[Journal Page] Submitting entry for UID: ${user.uid}`);
+    const uid = auth.currentUser.uid;
+    console.log(`[Journal Page] Submitting entry for UID: ${uid}`);
 
     try {
-      const success = await addJournalEntry(user.uid, {
+      // 3. Write to Firestore
+      const result = await addJournalEntry(uid, {
         title: newTitle,
         market: newMarket,
         notes: newNotes
       });
 
-      if (success) {
+      // 4. Handle Response
+      if (result.success) {
         setNewTitle('');
         setNewMarket('');
         setNewNotes('');
@@ -81,11 +92,12 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
           setSuccessMsg(null);
         }, 1500);
       } else {
-        setErrorMsg("Failed to save entry. Please try again.");
+        // Show specific error from backend
+        setErrorMsg(`Save Failed: ${result.error || "Permission Denied"}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setErrorMsg("An unexpected error occurred.");
+      setErrorMsg(`Error: ${err.message || "Unknown system error"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -129,7 +141,6 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
             <div className="space-y-2">
               <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Market Pair</label>
               <input 
-                required
                 value={newMarket}
                 onChange={(e) => setNewMarket(e.target.value)}
                 placeholder="e.g. XAU/USD" 
