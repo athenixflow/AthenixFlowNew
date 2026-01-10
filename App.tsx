@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import Sidebar from './components/Sidebar';
@@ -14,6 +15,10 @@ import Journal from './pages/Journal';
 import Billing from './pages/Billing';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
+import About from './pages/About';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
+import Pricing from './pages/Pricing';
 import { UserProfile, UserRole } from './types';
 import { auth } from './firebase';
 import { verifyBackendConnectivity } from './services/backend';
@@ -34,6 +39,11 @@ const App: React.FC = () => {
     if (path === '/login') return 'login';
     if (path === '/register') return 'signup';
     if (path === '/onboarding') return 'onboarding';
+    if (path === '/about') return 'about';
+    // Mapping new routes to internal identifiers
+    if (path === '/privacy-policy' || path === '/privacy') return 'privacy';
+    if (path === '/terms-of-service' || path === '/terms') return 'terms';
+    if (path === '/pricing') return 'pricing';
     if (path.startsWith('/terminal/')) return path.replace('/terminal/', '');
     return 'landing';
   }, []);
@@ -43,6 +53,11 @@ const App: React.FC = () => {
     if (page === 'login') return '/login';
     if (page === 'signup') return '/register';
     if (page === 'onboarding') return '/onboarding';
+    if (page === 'about') return '/about';
+    // Using new public routes
+    if (page === 'privacy') return '/privacy-policy';
+    if (page === 'terms') return '/terms-of-service';
+    if (page === 'pricing') return '/pricing';
     return `/terminal/${page}`;
   };
 
@@ -53,7 +68,6 @@ const App: React.FC = () => {
     // Admin Guard
     if (page === 'admin' && currentUser?.role !== UserRole.ADMIN) {
       // Recursive call, but safe as 'dashboard' != 'admin'
-      // We manually set state here to avoid loop if we called navigateTo recursively
       const dashPath = getPathFromPage('dashboard');
       window.history.pushState({}, '', dashPath);
       setCurrentPage('dashboard');
@@ -135,7 +149,7 @@ const App: React.FC = () => {
         if (protectedPages.includes(current)) {
           navigateTo('landing');
         } else {
-           // Allow staying on login/signup/landing
+           // Allow staying on login/signup/landing/about/terms/privacy/pricing
            if (current === 'splash') navigateTo('landing');
            else setCurrentPage(current);
         }
@@ -154,7 +168,7 @@ const App: React.FC = () => {
     } catch (error) {}
   };
 
-  const isPublicPage = ['landing', 'onboarding', 'login', 'signup', 'splash', 'education'].includes(currentPage);
+  const isPublicPage = ['landing', 'onboarding', 'login', 'signup', 'splash', 'education', 'about', 'privacy', 'terms', 'pricing'].includes(currentPage);
 
   const renderPage = () => {
     if (isAuthResolving && currentPage === 'splash') return <Splash />;
@@ -170,10 +184,14 @@ const App: React.FC = () => {
 
     switch (currentPage) {
       case 'splash': return <Splash />;
-      case 'landing': return <LandingPage onEnter={() => navigateTo(user ? 'dashboard' : 'onboarding')} />;
+      case 'landing': return <LandingPage onEnter={() => navigateTo(user ? 'dashboard' : 'onboarding')} onNavigate={navigateTo} />;
       case 'onboarding': return <Onboarding onStart={() => navigateTo('signup')} onLogin={() => navigateTo('login')} />;
       case 'login': return <AuthPage mode="login" onAuthSuccess={() => {}} onToggleMode={() => navigateTo('signup')} />;
       case 'signup': return <AuthPage mode="signup" onAuthSuccess={() => {}} onToggleMode={() => navigateTo('login')} />;
+      case 'about': return <About onNavigate={navigateTo} />;
+      case 'privacy': return <Privacy onNavigate={navigateTo} />;
+      case 'terms': return <Terms onNavigate={navigateTo} />;
+      case 'pricing': return <Pricing user={user} onNavigate={navigateTo} />;
       case 'dashboard': return <Dashboard user={user} onNavigate={navigateTo} />;
       case 'assistant': return <AIAssistant user={user} onTokenSpend={() => {}} />;
       case 'education': return <EducationHub user={user} onTokenSpend={() => {}} onNavigate={navigateTo} />;
@@ -182,7 +200,7 @@ const App: React.FC = () => {
       case 'billing': return <Billing user={user} />;
       case 'settings': return <Settings user={user} onLogout={handleLogout} />;
       case 'admin': return <AdminDashboard user={user} />;
-      default: return <LandingPage onEnter={() => navigateTo(user ? 'dashboard' : 'onboarding')} />;
+      default: return <LandingPage onEnter={() => navigateTo(user ? 'dashboard' : 'onboarding')} onNavigate={navigateTo} />;
     }
   };
 

@@ -3,9 +3,20 @@ import React from 'react';
 
 interface LandingPageProps {
   onEnter: () => void;
+  onNavigate?: (page: string) => void;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onNavigate }) => {
+  // Helper to handle navigation if onNavigate is provided
+  const handleNav = (page: string) => {
+    if (onNavigate) {
+      onNavigate(page);
+    } else {
+      // Fallback if prop not passed
+      window.location.href = `/${page}`;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white selection:bg-brand-gold/30">
       {/* Navigation Bar */}
@@ -18,7 +29,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
           <div className="hidden md:flex items-center gap-8 text-[10px] font-black uppercase tracking-widest text-brand-muted">
             <a href="#features" className="hover:text-brand-gold transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-brand-gold transition-colors">How it Works</a>
-            <a href="#pricing" className="hover:text-brand-gold transition-colors">Pricing</a>
+            <button onClick={() => handleNav('pricing')} className="hover:text-brand-gold transition-colors uppercase">Pricing</button>
             <a href="#faq" className="hover:text-brand-gold transition-colors">FAQ</a>
           </div>
           <button 
@@ -57,9 +68,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
               Initialize Profile
             </button>
             <button
+              onClick={() => handleNav('pricing')}
               className="px-10 py-5 bg-white border border-brand-sage rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-brand-sage/5 transition-all"
             >
-              Explore Alpha
+              View Plans
             </button>
           </div>
         </div>
@@ -197,16 +209,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
           <div className="space-y-6">
             <h4 className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">Company</h4>
             <ul className="space-y-3 text-xs text-brand-muted font-bold uppercase tracking-widest">
-              <li><a href="#" className="hover:text-brand-gold transition-colors">About Athenix</a></li>
-              <li><a href="#" className="hover:text-brand-gold transition-colors">Pricing</a></li>
+              <li><button onClick={() => handleNav('about')} className="hover:text-brand-gold transition-colors text-left">About Athenix</button></li>
+              <li><button onClick={() => handleNav('pricing')} className="hover:text-brand-gold transition-colors text-left">Pricing</button></li>
             </ul>
           </div>
 
           <div className="space-y-6">
             <h4 className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">Security</h4>
             <ul className="space-y-3 text-xs text-brand-muted font-bold uppercase tracking-widest">
-              <li><a href="/privacy" className="hover:text-brand-gold transition-colors">Privacy Policy</a></li>
-              <li><a href="/terms" className="hover:text-brand-gold transition-colors">Terms of Service</a></li>
+              <li><button onClick={() => handleNav('privacy')} className="hover:text-brand-gold transition-colors text-left">Privacy Policy</button></li>
+              <li><button onClick={() => handleNav('terms')} className="hover:text-brand-gold transition-colors text-left">Terms of Service</button></li>
             </ul>
           </div>
         </div>
