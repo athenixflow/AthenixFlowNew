@@ -1,5 +1,6 @@
-import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp } from "firebase/firestore";
-import { firestore } from "../firebase"; // FIXED IMPORT
+
+import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp } from "firebase/firestore";
+import { firestore } from "../firebase";
 import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson } from "../types";
 
 export const initializeUserDocument = async (uid: string, data: { fullName: string; email: string }) => {
@@ -38,14 +39,60 @@ export const getActiveSignals = async (): Promise<TradingSignal[]> => {
 };
 
 export const getJournalEntries = async (userId: string): Promise<JournalEntry[]> => {
-  const q = query(collection(firestore, "journal"), where("userId", "==", userId), orderBy("createdAt", "desc"));
-  const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as JournalEntry));
+  try {
+    const q = query(
+      collection(firestore, "journal"), 
+      where("userId", "==", userId), 
+      orderBy("createdAt", "desc")
+    );
+    
+    const snap = await getDocs(q);
+    
+    return snap.docs.map(doc => {
+      const data = doc.data();
+      // Safe timestamp conversion
+      let createdDate = new Date().toISOString();
+      if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+        createdDate = data.createdAt.toDate().toISOString();
+      } else if (data.createdAt) {
+         createdDate = new Date(data.createdAt).toISOString();
+      }
+
+      return {
+        id: doc.id,
+        userId: data.userId,
+        title: data.title || 'Untitled Entry',
+        market: data.market || 'Unknown Market',
+        notes: data.notes || '',
+        createdAt: createdDate
+      } as JournalEntry;
+    });
+  } catch (error) {
+    console.error("Error fetching journal entries:", error);
+    return [];
+  }
 };
 
-export const addJournalEntry = async (userId: string, entry: any) => {
-  await addDoc(collection(firestore, "journal"), { userId, ...entry, createdAt: new Date().toISOString() });
-  return true;
+export const addJournalEntry = async (userId: string, entry: { title: string; market: string; notes: string }) => {
+  try {
+    console.log(`[Journal] Attempting to save entry for user: ${userId}`);
+    
+    if (!userId) throw new Error("User ID is required for journal entries.");
+
+    const docRef = await addDoc(collection(firestore, "journal"), {
+      userId,
+      title: entry.title,
+      market: entry.market,
+      notes: entry.notes,
+      createdAt: serverTimestamp() // Use server timestamp for consistency
+    });
+
+    console.log(`[Journal] Entry saved successfully. ID: ${docRef.id}`);
+    return true;
+  } catch (e) {
+    console.error("[Journal] Failed to save entry:", e);
+    return false;
+  }
 };
 
 export const getEducationLessons = async (): Promise<Lesson[]> => {
