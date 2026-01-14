@@ -13,7 +13,7 @@ const About: React.FC<AboutProps> = ({ onNavigate }) => {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => onNavigate('landing')}>
             <div className="w-8 h-8 bg-brand-gold rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
-            <span className="text-xl font-black tracking-tighter text-brand-charcoal uppercase">ATHENIX</span>
+            <span className="text-xl font-black tracking-tighter text-brand-charcoal uppercase">ATHENIXFLOW</span>
           </div>
           <button 
             onClick={() => onNavigate('landing')}
@@ -29,7 +29,7 @@ const About: React.FC<AboutProps> = ({ onNavigate }) => {
         <div className="absolute top-0 right-0 w-[50%] h-full bg-premium-gradient opacity-5 skew-x-12 transform origin-top-right"></div>
         <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10 animate-fade-in">
           <div className="inline-block px-4 py-1.5 bg-brand-gold/10 border border-brand-gold/20 rounded-full">
-            <span className="text-[10px] font-black text-brand-gold uppercase tracking-[0.2em]">Company & Vision</span>
+            <span className="text-[10px] font-black text-brand-gold uppercase tracking-[0.2em]">Platform Vision & Mission</span>
           </div>
           
           <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">
@@ -38,39 +38,39 @@ const About: React.FC<AboutProps> = ({ onNavigate }) => {
           </h1>
           
           <p className="text-lg text-white/70 max-w-2xl mx-auto leading-relaxed font-medium">
-            Where artificial intelligence, education, and disciplined trading intelligence converge to empower smarter decisions.
+            Athenixflow converges artificial intelligence, education, and disciplined trade journaling to empower smarter, data-driven decisions.
           </p>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-20 space-y-24">
         
-        {/* What Is Athenix */}
+        {/* What Is Athenixflow */}
         <section className="space-y-6">
-          <h2 className="text-xs font-black text-brand-gold uppercase tracking-[0.3em] pl-4 border-l-4 border-brand-gold">What Is Athenix?</h2>
+          <h2 className="text-xs font-black text-brand-gold uppercase tracking-[0.3em] pl-4 border-l-4 border-brand-gold">What Is Athenixflow?</h2>
           <div className="prose prose-lg text-brand-charcoal">
             <p className="text-xl font-medium leading-relaxed">
-              Athenix is an AI-powered trading intelligence and education platform designed to support traders across all experience levels. The platform combines technical analysis, optional fundamental analysis, and continuous AI learning to deliver structured insights, signals, and educational guidance.
+              Athenixflow is a comprehensive <strong>AI-powered trading analysis and education platform</strong>. We are designed to assist retail traders in the forex and stock markets by providing institutional-grade technical analysis, automated trade setups, and performance tracking tools.
             </p>
             <p className="text-brand-muted mt-4 leading-loose">
-              Rather than replacing human decision-making, Athenix enhances it by providing structured analysis, historical context, and educational reinforcement — allowing users to trade with clarity, discipline, and awareness.
+              Unlike signal services that create dependency, Athenixflow focuses on enablement. Our platform combines AI generation with educational context, helping users understand <em>why</em> a trade setup is valid. We serve as a neutral, data-driven second opinion that validates your thesis before execution.
             </p>
           </div>
         </section>
 
-        {/* Why Athenix Exists */}
+        {/* Why Athenixflow Exists */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
-            <h2 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Why We Built This</h2>
+            <h2 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Our Mission</h2>
             <p className="text-brand-muted leading-loose">
-              Financial markets are complex, fast-moving, and emotionally demanding. Many traders fail not due to lack of effort, but lack of structure, education, and consistency.
+              The financial markets are complex and emotionally demanding. Most retail traders fail not due to a lack of effort, but due to a lack of structure and consistency. Athenixflow exists to solve this problem by:
             </p>
             <ul className="space-y-4 pt-4">
               {[
-                "Reducing emotional decision-making",
-                "Providing structured AI-backed analysis",
-                "Educating users alongside analysis",
-                "Encouraging disciplined, informed trading"
+                "Providing objective AI technical analysis",
+                "Reducing emotional decision-making in trading",
+                "Offering structured trade journaling tools",
+                "Educating users on Smart Money Concepts (SMC)"
               ].map((item, i) => (
                 <li key={i} className="flex items-center gap-3">
                   <div className="w-1.5 h-1.5 bg-brand-gold rounded-full"></div>
@@ -82,7 +82,7 @@ const About: React.FC<AboutProps> = ({ onNavigate }) => {
           <div className="athenix-card p-8 bg-brand-sage/5 border-dashed">
             <h3 className="text-3xl font-black text-brand-charcoal uppercase tracking-tighter mb-4">The Discipline Gap</h3>
             <p className="text-sm text-brand-muted font-medium leading-relaxed">
-              "We believe the gap between retail and institutional performance isn't just information—it's processing power and discipline. Athenix bridges that gap."
+              "We believe the gap between retail and institutional performance isn't just information—it's processing power and discipline. Athenixflow bridges that gap with AI."
             </p>
           </div>
         </section>
@@ -95,12 +95,12 @@ const About: React.FC<AboutProps> = ({ onNavigate }) => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { title: "Neural Assistant", desc: "AI Trade Assistant for technical and hybrid analysis." },
-              { title: "Market Intelligence", desc: "Forex and stock market data synthesis." },
-              { title: "Token Logic", desc: "Fair-use token-based AI usage model." },
-              { title: "Education Hub", desc: "AI-powered learning tailored to your gaps." },
-              { title: "Curated Signals", desc: "Verified setups for subscribers." },
-              { title: "Trade Journal", desc: "Activity tracking and performance auditing." }
+              { title: "Neural Assistant", desc: "AI Trade Assistant for technical and hybrid analysis of charts." },
+              { title: "Market Intelligence", desc: "Forex and stock market data synthesis and structure identification." },
+              { title: "Token Logic", desc: "Fair-use token-based AI usage model for analysis requests." },
+              { title: "Education Hub", desc: "AI-powered learning tailored to bridge knowledge gaps." },
+              { title: "Curated Signals", desc: "Verified high-probability setups for subscribers." },
+              { title: "Trade Journal", desc: "Activity tracking and performance auditing for self-improvement." }
             ].map((cap, i) => (
               <div key={i} className="athenix-card p-6 hover:shadow-xl transition-shadow">
                 <h3 className="text-sm font-black text-brand-charcoal uppercase tracking-widest mb-2">{cap.title}</h3>
@@ -116,19 +116,19 @@ const About: React.FC<AboutProps> = ({ onNavigate }) => {
           <div className="relative z-10 space-y-6">
             <h2 className="text-xs font-black text-brand-gold uppercase tracking-[0.3em]">Our AI Philosophy</h2>
             <p className="text-lg font-medium leading-relaxed opacity-90">
-              Athenix AI is designed to assist, not advise. To inform, not influence. To educate, not promise profits.
+              Athenixflow AI is designed to assist, not advise. To inform, not influence. To educate, not promise profits.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6">
               <div>
                 <h4 className="text-[10px] font-black uppercase tracking-widest mb-2 opacity-70">Learning Sources</h4>
                 <p className="text-xs leading-loose opacity-60">
-                  Platform usage patterns, user feedback, uploaded knowledge base materials, and curated web sources aligned with market theory.
+                  Our system is trained on institutional market theory, price action mechanics, and Smart Money Concepts to provide high-fidelity technical analysis.
                 </p>
               </div>
               <div>
                 <h4 className="text-[10px] font-black uppercase tracking-widest mb-2 opacity-70">Objective</h4>
                 <p className="text-xs leading-loose opacity-60">
-                  To provide a neutral, data-driven second opinion that helps traders validate their own thesis before execution.
+                  To provide a neutral, data-driven analysis that helps traders identify risk, entry, and exit points with greater clarity.
                 </p>
               </div>
             </div>
@@ -153,7 +153,7 @@ const About: React.FC<AboutProps> = ({ onNavigate }) => {
         <section className="athenix-card p-8 border-l-4 border-brand-warning">
           <h3 className="text-xs font-black text-brand-warning uppercase tracking-[0.3em] mb-4">Risk & Responsibility</h3>
           <p className="text-sm text-brand-muted font-medium leading-loose">
-            Athenix does not provide financial advice, investment advice, or guaranteed outcomes. Trading involves significant risk, and users are solely responsible for their decisions. Athenix is an analytical and educational tool only.
+            Athenixflow does not provide financial advice, investment advice, or guaranteed outcomes. Trading involves significant risk, and users are solely responsible for their decisions. Athenixflow is an analytical and educational tool only. Past performance is not indicative of future results.
           </p>
         </section>
 
@@ -161,7 +161,7 @@ const About: React.FC<AboutProps> = ({ onNavigate }) => {
         <section className="text-center space-y-6 pt-10">
           <h2 className="text-3xl font-black text-brand-charcoal uppercase tracking-tighter">Long-Term Vision</h2>
           <p className="text-brand-muted font-medium max-w-2xl mx-auto leading-loose">
-            Athenix aims to become a global standard for AI-assisted trading intelligence by continuously improving accuracy, transparency, and educational depth while maintaining ethical AI principles.
+            Athenixflow aims to become the global standard for AI-assisted trading intelligence by continuously improving accuracy, transparency, and educational depth while maintaining ethical AI principles.
           </p>
         </section>
 
@@ -170,7 +170,7 @@ const About: React.FC<AboutProps> = ({ onNavigate }) => {
       {/* Footer */}
       <footer className="bg-brand-sage/5 border-t border-brand-sage/20 py-12 text-center">
         <p className="text-[9px] text-brand-muted font-black uppercase tracking-[0.3em]">
-          &copy; {new Date().getFullYear()} ATHENIX NEURAL NETWORK.
+          &copy; {new Date().getFullYear()} ATHENIXFLOW NEURAL NETWORK.
         </p>
       </footer>
     </div>

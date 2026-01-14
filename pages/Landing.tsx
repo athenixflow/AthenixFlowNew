@@ -24,7 +24,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onNavigate }) => {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-brand-gold rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
-            <span className="text-xl font-black tracking-tighter text-brand-charcoal uppercase">ATHENIX</span>
+            <span className="text-xl font-black tracking-tighter text-brand-charcoal uppercase">ATHENIXFLOW</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-[10px] font-black uppercase tracking-widest text-brand-muted">
             <a href="#features" className="hover:text-brand-gold transition-colors">Features</a>
@@ -48,17 +48,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onNavigate }) => {
         
         <div className="max-w-5xl mx-auto text-center space-y-8 relative z-10 animate-fade-in">
           <div className="inline-block px-4 py-1.5 bg-brand-gold/10 border border-brand-gold/20 rounded-full">
-            <span className="text-[10px] font-black text-brand-gold uppercase tracking-[0.2em]">Institutional Grade Neural Network</span>
+            <span className="text-[10px] font-black text-brand-gold uppercase tracking-[0.2em]">Institutional Grade Trading Platform</span>
           </div>
           
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-brand-charcoal leading-[0.95] max-w-4xl mx-auto">
-            THE NEXT GEN <br /> 
-            <span className="text-brand-gold italic">AI TRADING PLATFORM</span>
+            THE ATHENIXFLOW <br /> 
+            <span className="text-brand-gold italic">TRADING ECOSYSTEM</span>
           </h1>
           
-          <p className="text-lg md:text-xl text-brand-muted max-w-2xl mx-auto leading-relaxed font-medium">
-            <strong>Athenix is a professional AI trading platform</strong> designed for modern market conditions. We solve the complexity of technical analysis by providing professional <strong>Forex trading AI</strong>, high-precision institutional signals, and smart trading analysis powered by the Gemini 3 Pro neural engine.
-          </p>
+          <div className="text-lg md:text-xl text-brand-muted max-w-3xl mx-auto leading-relaxed font-medium space-y-4">
+            <p>
+              <strong>Athenixflow is an AI-powered trading analysis and education platform</strong> designed explicitly for forex and stock market traders. We provide automated technical analysis, high-probability trade setups, and performance journaling tools.
+            </p>
+            <p className="text-base opacity-80">
+              Our system focuses on technical analysis with optional fundamental insights to help you identify institutional market behavior.
+            </p>
+          </div>
 
           <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center">
             <button
@@ -74,38 +79,42 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onNavigate }) => {
               View Plans
             </button>
           </div>
+          
+          <p className="text-[9px] text-brand-muted font-bold uppercase tracking-widest pt-4">
+            Risk Disclaimer: Athenixflow provides analysis, not financial advice.
+          </p>
         </div>
       </header>
 
       {/* Benefits / Features Section */}
       <section id="features" className="py-24 px-6 max-w-7xl mx-auto">
         <div className="text-center space-y-4 mb-20">
-          <h2 className="text-[10px] font-black text-brand-gold uppercase tracking-[0.3em]">Core Advantage</h2>
-          <p className="text-3xl md:text-5xl font-black text-brand-charcoal tracking-tighter">WHY PROFESSIONAL TRADERS <br/> CHOOSE ATHENIX.</p>
+          <h2 className="text-[10px] font-black text-brand-gold uppercase tracking-[0.3em]">Platform Capabilities</h2>
+          <p className="text-3xl md:text-5xl font-black text-brand-charcoal tracking-tighter">COMPLETE MARKET INTELLIGENCE.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="athenix-card p-10 space-y-6">
             <div className="w-12 h-12 bg-brand-gold/10 rounded-2xl flex items-center justify-center text-brand-gold font-black">AI</div>
-            <h3 className="text-xl font-black text-brand-charcoal uppercase tracking-tight">Smart Trading Analysis</h3>
+            <h3 className="text-xl font-black text-brand-charcoal uppercase tracking-tight">AI Market Analysis</h3>
             <p className="text-brand-muted text-sm font-medium leading-relaxed">
-              Athenix provides <strong>smart trading analysis</strong> by using neural networks to identify high-probability setups using <strong>Smart Money Concepts (SMC)</strong> and institutional liquidity patterns.
+              Athenixflow utilizes advanced neural networks to perform <strong>technical analysis</strong> on forex pairs and stocks, identifying key liquidity zones and market structure shifts automatically.
             </p>
           </div>
 
           <div className="athenix-card p-10 space-y-6 border-brand-gold shadow-xl shadow-brand-gold/5">
-            <div className="w-12 h-12 bg-brand-gold text-white rounded-2xl flex items-center justify-center font-black">SIG</div>
-            <h3 className="text-xl font-black text-brand-charcoal uppercase tracking-tight">Institutional Signals</h3>
+            <div className="w-12 h-12 bg-brand-gold text-white rounded-2xl flex items-center justify-center font-black">JRNL</div>
+            <h3 className="text-xl font-black text-brand-charcoal uppercase tracking-tight">Trade Journaling</h3>
             <p className="text-brand-muted text-sm font-medium leading-relaxed">
-              Access <strong>verified trading signals</strong> directly from the terminal. Every signal is vetted by institutional analysts and includes detailed risk/reward parameters.
+              Track your performance with our integrated <strong>trade journal</strong>. Log setups, record execution notes, and audit your trading history to improve consistency over time.
             </p>
           </div>
 
           <div className="athenix-card p-10 space-y-6">
             <div className="w-12 h-12 bg-brand-gold/10 rounded-2xl flex items-center justify-center text-brand-gold font-black">EDU</div>
-            <h3 className="text-xl font-black text-brand-charcoal uppercase tracking-tight">Elite Trading Education</h3>
+            <h3 className="text-xl font-black text-brand-charcoal uppercase tracking-tight">Trading Education</h3>
             <p className="text-brand-muted text-sm font-medium leading-relaxed">
-              The Athenix <strong>trading education platform</strong> features algorithmic theory and psychological conditioning modules designed to bridge the gap between retail and institutional trading.
+              The platform includes a comprehensive <strong>education hub</strong> covering Smart Money Concepts (SMC), risk management, and algorithmic theory to bridge the gap between retail and institutional trading.
             </p>
           </div>
         </div>
@@ -117,14 +126,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onNavigate }) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
             <div className="space-y-10">
               <h2 className="text-4xl md:text-6xl font-black tracking-tighter leading-none">
-                HOW THE <span className="text-brand-gold italic">TERMINAL</span> OPERATES.
+                HOW <span className="text-brand-gold italic">ATHENIXFLOW</span> WORKS.
               </h2>
-              <p className="text-white/60 font-medium">Athenix operates as a decentralized intelligence node, synthesizing global market data into actionable trading alpha.</p>
+              <p className="text-white/60 font-medium">We synthesize complex market data into actionable intelligence for the modern trader.</p>
               <div className="space-y-8">
                 {[
-                  { step: "01", title: "Data Aggregation", desc: "We pull real-time institutional liquidity data and macro-economic fundamentals from across the global network." },
-                  { step: "02", title: "Neural Processing", desc: "The Athenix AI engine processes this data using advanced technical pattern recognition and fundamental confluence filters." },
-                  { step: "03", title: "Alpha Distribution", desc: "High-conviction trade setups are distributed to verified user terminals with precise entry, stop, and target parameters." }
+                  { step: "01", title: "Select Your Market", desc: "Choose from major forex pairs, indices, or stocks within the terminal dashboard." },
+                  { step: "02", title: "AI Neural Analysis", desc: "Our AI engine processes technical price action and optional fundamental data to generate a structured trade analysis." },
+                  { step: "03", title: "Review & Execute", desc: "Review the generated entry, stop loss, and take profit levels. Use the trade journal to log your decision and outcome." }
                 ].map((item, i) => (
                   <div key={i} className="flex gap-6">
                     <span className="text-brand-gold font-black text-xl italic tracking-widest">{item.step}</span>
@@ -170,11 +179,11 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onNavigate }) => {
 
           <article className="grid gap-6">
             {[
-              { q: "What is Athenix?", a: "Athenix is a professional-grade AI trading terminal that uses neural networks to provide market analysis and institutional signals for Forex, Stocks, and Crypto." },
-              { q: "How does AI trading analysis work on this platform?", a: "Our AI analysis works by processing technical data and fundamental news through the Gemini 3 Pro model, identifying confluences based on Smart Money Concepts (SMC)." },
-              { q: "Is Athenix good for beginners?", a: "Yes. While designed for professional workflows, our Education Hub provides comprehensive trading education that guides beginners through institutional concepts." },
-              { q: "What makes Athenix different from other trading tools?", a: "Unlike static indicators, Athenix uses a dynamic neural network to interpret context. We focus on institutional liquidity and macro confluence rather than simple retail patterns." },
-              { q: "How much does Athenix cost?", a: "Athenix offers transparent subscription tiers starting at $20/month for Lite access, with Pro and Elite tiers available for advanced traders." }
+              { q: "What is Athenixflow?", a: "Athenixflow is a professional AI trading platform that provides technical analysis, educational resources, and trade journaling tools for forex and stock market traders." },
+              { q: "Does Athenixflow provide financial advice?", a: "No. Athenixflow is an educational and analytical tool. We provide data-driven market analysis, but all trading decisions are the sole responsibility of the user." },
+              { q: "Who is this platform for?", a: "Athenixflow is designed for both beginner and advanced traders who want to structure their trading workflow using AI analysis and professional journaling practices." },
+              { q: "How does the AI analysis work?", a: "Our AI processes price action data to identify market structure, liquidity zones, and potential trade setups based on technical analysis principles." },
+              { q: "Is there a subscription fee?", a: "Yes. Athenixflow offers tiered monthly subscriptions (Lite, Pro, Elite) that grant access to different levels of AI analysis tokens and educational content." }
             ].map((faq, i) => (
               <section key={i} className="athenix-card p-8 bg-white">
                 <h3 className="text-sm font-black text-brand-charcoal uppercase tracking-widest mb-4">{faq.q}</h3>
@@ -191,7 +200,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onNavigate }) => {
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-brand-gold rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
-              <span className="text-xl font-black tracking-tighter text-brand-charcoal uppercase">ATHENIX</span>
+              <span className="text-xl font-black tracking-tighter text-brand-charcoal uppercase">ATHENIXFLOW</span>
             </div>
             <p className="text-xs text-brand-muted font-medium leading-loose">
               Professional AI trading architecture for institutional market analysis, algorithmic trade setups, and elite education.
@@ -209,7 +218,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onNavigate }) => {
           <div className="space-y-6">
             <h4 className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">Company</h4>
             <ul className="space-y-3 text-xs text-brand-muted font-bold uppercase tracking-widest">
-              <li><button onClick={() => handleNav('about')} className="hover:text-brand-gold transition-colors text-left">About Athenix</button></li>
+              <li><button onClick={() => handleNav('about')} className="hover:text-brand-gold transition-colors text-left">About Athenixflow</button></li>
               <li><button onClick={() => handleNav('pricing')} className="hover:text-brand-gold transition-colors text-left">Pricing</button></li>
             </ul>
           </div>
@@ -224,8 +233,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, onNavigate }) => {
         </div>
         
         <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-brand-sage/10 text-center">
-          <p className="text-[9px] text-brand-muted font-black uppercase tracking-[0.3em]">
-            &copy; {new Date().getFullYear()} ATHENIX NEURAL NETWORK. ALL RIGHTS RESERVED. RISK DISCLOSURE: TRADING INVOLVES SIGNIFICANT RISK.
+          <p className="text-[9px] text-brand-muted font-black uppercase tracking-[0.3em] leading-relaxed">
+            &copy; {new Date().getFullYear()} ATHENIXFLOW NEURAL NETWORK. ALL RIGHTS RESERVED. <br/>
+            RISK DISCLOSURE: TRADING INVOLVES SIGNIFICANT RISK. ATHENIXFLOW IS NOT A FINANCIAL ADVISOR.
           </p>
         </div>
       </footer>
