@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { checkDatabaseConnection } from '../services/firestore';
+import { testMarketConnection } from '../services/marketData';
 
 interface SettingsProps {
   user: UserProfile | null;
@@ -8,14 +10,19 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'checking' | 'connected' | 'error'>('idle');
+  const [dbStatus, setDbStatus] = useState<'idle' | 'checking' | 'connected' | 'error'>('idle');
+  const [apiStatus, setApiStatus] = useState<'idle' | 'checking' | 'connected' | 'error'>('idle');
 
   const runDiagnostics = async () => {
-    setConnectionStatus('checking');
-    const isConnected = await checkDatabaseConnection();
-    setTimeout(() => {
-      setConnectionStatus(isConnected ? 'connected' : 'error');
-    }, 500);
+    // Check Database
+    setDbStatus('checking');
+    const isDbConnected = await checkDatabaseConnection();
+    setDbStatus(isDbConnected ? 'connected' : 'error');
+
+    // Check Market API
+    setApiStatus('checking');
+    const isApiConnected = await testMarketConnection();
+    setApiStatus(isApiConnected ? 'connected' : 'error');
   };
 
   return (
@@ -72,25 +79,46 @@ const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
                onClick={runDiagnostics} 
                className="text-[9px] font-black text-brand-gold uppercase tracking-widest hover:underline"
              >
-               Test Connection
+               Run System Scan
              </button>
           </div>
           
+          {/* DB Check */}
           <div className="flex items-center gap-4">
             <div className={`w-3 h-3 rounded-full transition-colors duration-300 ${
-              connectionStatus === 'connected' ? 'bg-brand-success shadow-[0_0_10px_rgba(46,125,50,0.5)]' : 
-              connectionStatus === 'error' ? 'bg-brand-error shadow-[0_0_10px_rgba(211,47,47,0.5)]' :
-              connectionStatus === 'checking' ? 'bg-brand-warning animate-pulse' : 'bg-brand-sage'
+              dbStatus === 'connected' ? 'bg-brand-success shadow-[0_0_10px_rgba(46,125,50,0.5)]' : 
+              dbStatus === 'error' ? 'bg-brand-error shadow-[0_0_10px_rgba(211,47,47,0.5)]' :
+              dbStatus === 'checking' ? 'bg-brand-warning animate-pulse' : 'bg-brand-sage'
             }`}></div>
             <div className="flex-1">
               <p className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">
-                {connectionStatus === 'idle' && 'Ready for diagnostics'}
-                {connectionStatus === 'checking' && 'Pinging Firestore Node...'}
-                {connectionStatus === 'connected' && 'Firestore Bridge: ESTABLISHED'}
-                {connectionStatus === 'error' && 'Firestore Bridge: FAILED'}
+                Firestore Database
               </p>
               <p className="text-[9px] text-brand-muted font-medium mt-1">
-                {connectionStatus === 'connected' ? 'Latency: 24ms • Encryption: AES-256' : 'Verify internet connection or console configuration.'}
+                {dbStatus === 'idle' && 'Waiting for scan...'}
+                {dbStatus === 'checking' && 'Pinging Firestore Node...'}
+                {dbStatus === 'connected' && 'Bridge Established'}
+                {dbStatus === 'error' && 'Connection Failed'}
+              </p>
+            </div>
+          </div>
+
+          {/* API Check */}
+          <div className="flex items-center gap-4">
+            <div className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+              apiStatus === 'connected' ? 'bg-brand-success shadow-[0_0_10px_rgba(46,125,50,0.5)]' : 
+              apiStatus === 'error' ? 'bg-brand-error shadow-[0_0_10px_rgba(211,47,47,0.5)]' :
+              apiStatus === 'checking' ? 'bg-brand-warning animate-pulse' : 'bg-brand-sage'
+            }`}></div>
+            <div className="flex-1">
+              <p className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">
+                Market Data Feed (Vercel API)
+              </p>
+              <p className="text-[9px] text-brand-muted font-medium mt-1">
+                {apiStatus === 'idle' && 'Waiting for scan...'}
+                {apiStatus === 'checking' && 'Testing /api/market endpoint...'}
+                {apiStatus === 'connected' && 'Feed Active (JSON Received)'}
+                {apiStatus === 'error' && 'Feed Unreachable (Check Vercel/Keys)'}
               </p>
             </div>
           </div>
@@ -109,7 +137,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
 
       <div className="pt-10 border-t border-brand-sage/20">
         <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest text-center opacity-40">
-          Terminal Profile Encrypted & Secure • System v5.0
+          Terminal Profile Encrypted & Secure • System v5.1
         </p>
       </div>
     </div>

@@ -9,36 +9,41 @@ export default async function handler(req, res) {
   try {
     if (type === 'forex') {
       // APILayer (Fixer/Currency Data)
-      // Documentation: https://apilayer.com/marketplace/fixer-api
-      // Using /fixer/latest to get rates relative to USD (Base)
-      const headers = new Headers();
-      headers.append("apikey", process.env.Currency_api);
-
+      const url = `https://api.apilayer.com/fixer/latest?base=USD&symbols=${symbol}`;
+      
+      // Use plain object for headers for maximum Node.js compatibility
       const requestOptions = {
         method: 'GET',
-        headers: headers,
+        headers: {
+          "apikey": process.env.Currency_api
+        },
         redirect: 'follow'
       };
-
-      // Assuming symbol is the target currency (e.g., EUR, GBP)
-      const url = `https://api.apilayer.com/fixer/latest?base=USD&symbols=${symbol}`;
       
       const response = await fetch(url, requestOptions);
       const data = await response.json();
       
+      // Pass through APILayer error if success is false
+      if (data.success === false) {
+         console.error("APILayer Error:", data.error);
+         return res.status(200).json({ error: data.error });
+      }
+
       return res.status(200).json(data);
     } 
     
     if (type === 'stock') {
       // Marketstack (Stocks)
-      // Documentation: https://marketstack.com/documentation
-      // Using /eod (End of Day) or /intraday
-      
-      // Note: Free tier might not support HTTPS, but Vercel fetches happen server-side
+      // Note: Marketstack free tier is HTTP only
       const url = `http://api.marketstack.com/v2/eod?access_key=${process.env.Stockmarket_api}&symbols=${symbol}&limit=1`;
       
       const response = await fetch(url);
       const data = await response.json();
+
+      if (data.error) {
+        console.error("Marketstack Error:", data.error);
+        return res.status(200).json({ error: data.error });
+      }
       
       return res.status(200).json(data);
     }

@@ -163,34 +163,67 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         <div className="fixed inset-0 z-[100] bg-brand-charcoal/40 backdrop-blur-sm flex items-center justify-center p-6">
           <div className="athenix-card p-10 max-w-lg w-full space-y-8 animate-slide-up">
             <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Modify User: {editingUser.fullName}</h3>
+            
             <div className="grid grid-cols-2 gap-4">
+              {/* Plan Selection */}
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Plan</label>
                 <select 
-                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-black uppercase"
-                  defaultValue={editingUser.subscriptionPlan}
-                  onChange={(e) => handleUpdateUser(editingUser.uid, { subscriptionPlan: e.target.value as SubscriptionPlan })}
+                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-black uppercase outline-none focus:border-brand-gold"
+                  value={editingUser.subscriptionPlan}
+                  onChange={(e) => setEditingUser({...editingUser, subscriptionPlan: e.target.value as SubscriptionPlan})}
                 >
                   {Object.values(SubscriptionPlan).map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
+
+              {/* Role Selection */}
               <div className="space-y-2">
                 <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Role</label>
                 <select 
-                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-black uppercase"
-                  defaultValue={editingUser.role}
-                  onChange={(e) => handleUpdateUser(editingUser.uid, { role: e.target.value as UserRole })}
+                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-black uppercase outline-none focus:border-brand-gold"
+                  value={editingUser.role}
+                  onChange={(e) => setEditingUser({...editingUser, role: e.target.value as UserRole})}
                 >
                   {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
+
+              {/* Analysis Tokens */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Analysis Tokens</label>
+                <input 
+                  type="number"
+                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-black uppercase outline-none focus:border-brand-gold"
+                  value={editingUser.analysisTokens}
+                  onChange={(e) => setEditingUser({...editingUser, analysisTokens: parseInt(e.target.value) || 0})}
+                />
+              </div>
+
+              {/* Education Tokens */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Education Tokens</label>
+                <input 
+                  type="number"
+                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-black uppercase outline-none focus:border-brand-gold"
+                  value={editingUser.educationTokens}
+                  onChange={(e) => setEditingUser({...editingUser, educationTokens: parseInt(e.target.value) || 0})}
+                />
+              </div>
             </div>
-            <div className="flex gap-4">
+
+            <div className="flex gap-4 pt-4">
               <button 
                 onClick={() => setEditingUser(null)}
-                className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest border border-brand-sage rounded-xl hover:bg-brand-sage/10"
+                className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest border border-brand-sage rounded-xl hover:bg-brand-sage/10 transition-colors"
               >
-                Close
+                Cancel
+              </button>
+              <button 
+                onClick={() => handleUpdateUser(editingUser.uid, editingUser)}
+                className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest bg-brand-gold text-white rounded-xl shadow-lg hover:bg-brand-charcoal transition-colors"
+              >
+                Save Changes
               </button>
             </div>
           </div>

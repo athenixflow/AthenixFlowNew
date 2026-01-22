@@ -18,7 +18,7 @@ export const analyzeMarket = async (
   Based on current market sentiment and historical patterns, provide a structured trade setup.`;
 
   if (marketContext) {
-    prompt += `\n\nREAL-TIME MARKET DATA CONTEXT:\n${marketContext}\n\nUse this data to validate current price levels, trend direction, and volatility.`;
+    prompt += `\n\nREAL-TIME MARKET DATA CONTEXT:\n${marketContext}\n\nIMPORTANT INSTRUCTION: The user has provided real-time price data. In your 'reasoning' field, you MUST start the sentence with "Analyzing live market data: " and reference the specific price provided in the context to prove you are using it.`;
   }
 
   if (includeFundamentals) {
@@ -40,7 +40,7 @@ export const analyzeMarket = async (
           stopLoss: { type: Type.STRING },
           takeProfit: { type: Type.STRING },
           riskReward: { type: Type.STRING },
-          reasoning: { type: Type.STRING, description: 'A detailed explanation of the analysis, referencing the provided real-time data where applicable.' }
+          reasoning: { type: Type.STRING, description: 'A detailed explanation of the analysis. If live data was provided, explicitly mention the price.' }
         },
         required: ["pair", "timeframe", "direction", "entry", "stopLoss", "takeProfit", "riskReward", "reasoning"]
       }

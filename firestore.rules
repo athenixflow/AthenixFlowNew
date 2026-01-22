@@ -33,10 +33,10 @@ service cloud.firestore {
       // Allow initial creation of the user document
       allow create: if isOwner(userId);
       
-      // Prevent client-side modification of sensitive fields
-      allow update: if isOwner(userId) && 
+      // Allow update if Admin OR if Owner (with restricted fields)
+      allow update: if isAdmin() || (isOwner(userId) && 
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['role', 'subscriptionPlan', 'analysisTokens', 'educationTokens', 'subscriptionStatus']);
+          .hasAny(['role', 'subscriptionPlan', 'analysisTokens', 'educationTokens', 'subscriptionStatus']));
     }
 
     // --- 3. SIGNALS COLLECTION ---
