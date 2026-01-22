@@ -1,6 +1,8 @@
+
 import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, deleteDoc, setDoc } from 'firebase/firestore';
-import { firestore } from '../firebase'; // FIXED IMPORT
+import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse } from './geminiService';
+import { getMarketData } from './marketData';
 import { SubscriptionPlan, UserProfile, UserRole } from '../types';
 
 export interface BackendResponse<T = any> {
@@ -20,12 +22,50 @@ export const analyzeMarket = async (userId: string, symbol: string, timeframe: s
     const userRef = doc(firestore, 'users', userId);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) return { status: 'error', message: 'User not found' };
+    
     const user = userSnap.data() as UserProfile;
     if (user.analysisTokens < 1) return { status: 'error', message: 'Insufficient analysis tokens.' };
-    const result = await callGeminiAnalysis(symbol, timeframe, includeFundamentals);
+
+    // 1. Fetch Real-Time Market Data
+    let marketContext = '';
+    try {
+      let type: 'forex' | 'stock' = 'forex';
+      let searchSymbol = symbol.replace('USD', '');
+
+      // Handle Indices/ETFs mapping for Marketstack (stock) vs APILayer (forex)
+      if (['NAS100', 'US30'].includes(symbol)) {
+        type = 'stock';
+        if (symbol === 'NAS100') searchSymbol = 'QQQ'; // ETF Proxy
+        if (symbol === 'US30') searchSymbol = 'DIA';   // ETF Proxy
+      } else if (symbol === 'BTCUSD') {
+        type = 'forex';
+        searchSymbol = 'BTC';
+      } else if (symbol === 'XAUUSD') {
+        type = 'forex';
+        searchSymbol = 'XAU';
+      }
+
+      console.log(`Athenix: Fetching ${type} data for ${searchSymbol}...`);
+      const marketData = await getMarketData(type, searchSymbol);
+      
+      if (marketData && !marketData.error) {
+        marketContext = JSON.stringify(marketData);
+      } else {
+        console.warn("Athenix: Market data fetch returned empty or error.");
+      }
+    } catch (err) {
+      console.warn("Athenix: Market data fetch failed, proceeding with pure AI analysis.", err);
+    }
+
+    // 2. Call Gemini with Market Context
+    const result = await callGeminiAnalysis(symbol, timeframe, includeFundamentals, marketContext);
+    
+    // 3. Deduct Token
     await updateDoc(userRef, { analysisTokens: increment(-1) });
+    
     return { status: 'success', message: 'Analysis complete', data: result };
   } catch (error: any) {
+    console.error(error);
     return { status: 'error', message: error.message || 'Analysis error' };
   }
 };

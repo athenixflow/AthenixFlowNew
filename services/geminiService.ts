@@ -3,18 +3,27 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { TradeAnalysis } from "../types";
 
 // Fix: Initializing GoogleGenAI strictly according to guidelines
+// process.env.API_KEY is replaced by Vite at build time
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeMarket = async (
   symbol: string, 
   timeframe: string, 
-  includeFundamentals: boolean
+  includeFundamentals: boolean,
+  marketContext?: string
 ): Promise<TradeAnalysis> => {
   const model = 'gemini-3-pro-preview';
   
-  const prompt = `Perform a high-precision ${includeFundamentals ? 'Technical and Fundamental' : 'Technical'} analysis for the ${symbol} trading pair on the ${timeframe} timeframe.
-  Based on current market sentiment and historical patterns, provide a structured trade setup.
-  ${includeFundamentals ? 'Include macroeconomic factors affecting this pair.' : ''}`;
+  let prompt = `Perform a high-precision ${includeFundamentals ? 'Technical and Fundamental' : 'Technical'} analysis for the ${symbol} trading pair on the ${timeframe} timeframe.
+  Based on current market sentiment and historical patterns, provide a structured trade setup.`;
+
+  if (marketContext) {
+    prompt += `\n\nREAL-TIME MARKET DATA CONTEXT:\n${marketContext}\n\nUse this data to validate current price levels, trend direction, and volatility.`;
+  }
+
+  if (includeFundamentals) {
+    prompt += `\nInclude macroeconomic factors affecting this pair.`;
+  }
 
   const response = await ai.models.generateContent({
     model,
@@ -31,7 +40,7 @@ export const analyzeMarket = async (
           stopLoss: { type: Type.STRING },
           takeProfit: { type: Type.STRING },
           riskReward: { type: Type.STRING },
-          reasoning: { type: Type.STRING, description: 'A detailed explanation of the analysis' }
+          reasoning: { type: Type.STRING, description: 'A detailed explanation of the analysis, referencing the provided real-time data where applicable.' }
         },
         required: ["pair", "timeframe", "direction", "entry", "stopLoss", "takeProfit", "riskReward", "reasoning"]
       }
