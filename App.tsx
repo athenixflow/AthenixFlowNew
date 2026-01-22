@@ -25,7 +25,6 @@ import { verifyBackendConnectivity } from './services/backend';
 import { getUserProfile, initializeUserDocument } from './services/firestore';
 
 const App: React.FC = () => {
-  console.log('Environment variables:', import.meta.env);
   const [currentPage, setCurrentPage] = useState<string>('splash');
   const [isAuthResolving, setIsAuthResolving] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
