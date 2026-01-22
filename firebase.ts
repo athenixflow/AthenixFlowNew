@@ -6,13 +6,13 @@ import { getAnalytics, Analytics, isSupported } from "firebase/analytics";
 
 // Athenix Configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAhocrl50PXgRJpbwWuOHM3O3Mhg7xyH2Y",
-  authDomain: "athenixweb.firebaseapp.com",
-  projectId: "athenixweb",
-  storageBucket: "athenixweb.firebasestorage.app",
-  messagingSenderId: "61603874286",
-  appId: "1:61603874286:web:458f857e9e4b308eb7baff",
-  measurementId: "G-EDP3DMGSDM"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 /**

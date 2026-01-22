@@ -3,8 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { TradeAnalysis } from "../types";
 
 // Fix: Initializing GoogleGenAI strictly according to guidelines
-// process.env.API_KEY is replaced by Vite at build time
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
 export const analyzeMarket = async (
   symbol: string, 
