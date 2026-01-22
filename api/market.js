@@ -8,14 +8,22 @@ export default async function handler(req, res) {
 
   try {
     if (type === 'forex') {
-      // APILayer (Fixer/Currency Data)
-      const url = `https://api.apilayer.com/fixer/latest?base=USD&symbols=${symbol}`;
+      const apiKey = process.env.Currency_api;
+      
+      if (!apiKey) {
+        console.error("Configuration Error: process.env.Currency_api is missing in Vercel Environment Variables.");
+        return res.status(500).json({ error: "Server configuration error: Currency API key not found." });
+      }
+
+      // APILayer (Currencylayer / Currency Data API)
+      // Documentation: https://apilayer.com/marketplace/currency_data-api
+      const url = `https://api.apilayer.com/currency_data/live?source=USD&currencies=${symbol}`;
       
       // Use plain object for headers for maximum Node.js compatibility
       const requestOptions = {
         method: 'GET',
         headers: {
-          "apikey": process.env.Currency_api
+          "apikey": apiKey
         },
         redirect: 'follow'
       };

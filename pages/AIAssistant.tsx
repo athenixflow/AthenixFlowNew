@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { UserProfile, TradeAnalysis } from '../types';
 import { analyzeMarket } from '../services/backend';
+import { getMarketData } from '../services/marketData';
 
 const TIMEFRAMES = [
   '1m', '3m', '5m', '10m', '15m', '30m', 
@@ -21,6 +22,89 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<TradeAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Live Price State
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [priceTimestamp, setPriceTimestamp] = useState<string | null>(null);
+  const [isPriceLoading, setIsPriceLoading] = useState(false);
+
+  const handleSymbolChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSymbol = e.target.value;
+    setSymbol(newSymbol);
+    setCurrentPrice(null);
+    setPriceTimestamp(null);
+    setError(null);
+    
+    if (!newSymbol) return;
+
+    setIsPriceLoading(true);
+    try {
+      let type: 'forex' | 'stock' = 'forex';
+      let searchSymbol = newSymbol.replace('USD', '');
+
+      // Handle Indices/ETFs mapping
+      if (['NAS100', 'US30'].includes(newSymbol)) {
+        type = 'stock';
+        if (newSymbol === 'NAS100') searchSymbol = 'QQQ';
+        if (newSymbol === 'US30') searchSymbol = 'DIA';
+      } else if (newSymbol === 'BTCUSD') {
+        type = 'forex';
+        searchSymbol = 'BTC';
+      } else if (newSymbol === 'XAUUSD') {
+        type = 'forex';
+        searchSymbol = 'XAU';
+      }
+
+      const data = await getMarketData(type, searchSymbol);
+      
+      if (data) {
+        if (data.error) {
+          setError(`Market Data Error: ${typeof data.error === 'object' ? JSON.stringify(data.error) : data.error}`);
+        } else {
+            // Handle Timestamp
+            if (data.timestamp) {
+              const date = new Date(data.timestamp * 1000);
+              setPriceTimestamp(date.toLocaleTimeString());
+            } else if (data.date) {
+              setPriceTimestamp(new Date(data.date).toLocaleDateString());
+            } else {
+              setPriceTimestamp(new Date().toLocaleTimeString());
+            }
+
+            // Handle Price Extraction
+            if (type === 'forex') {
+              // Check for Currencylayer 'quotes' format (e.g., { "USDEUR": 0.92 })
+              const quoteKey = `USD${searchSymbol}`;
+              
+              if (data.quotes && data.quotes[quoteKey]) {
+                const rate = data.quotes[quoteKey];
+                setCurrentPrice(1 / rate);
+              } 
+              // Fallback to Fixer 'rates' format
+              else if (data.rates && data.rates[searchSymbol]) {
+                const rate = data.rates[searchSymbol];
+                setCurrentPrice(1 / rate);
+              } else {
+                setError(`Price not found for ${searchSymbol}. API may be limited.`);
+              }
+            } else if (type === 'stock') {
+               if (data.data && data.data.length > 0) {
+                  setCurrentPrice(data.data[0].close);
+               } else {
+                  setError("Stock data unavailable from provider.");
+               }
+            }
+        }
+      } else {
+        setError("Failed to reach market data service.");
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch price", err);
+      setError(`System Error: ${err.message}`);
+    } finally {
+      setIsPriceLoading(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!user) return;
@@ -61,7 +145,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                 <div className="relative">
                   <select 
                     value={symbol}
-                    onChange={(e) => setSymbol(e.target.value)}
+                    onChange={handleSymbolChange}
                     className="w-full px-5 py-4 bg-brand-sage/5 border border-brand-sage rounded-xl outline-none font-bold text-brand-charcoal hover:border-brand-gold transition-colors appearance-none cursor-pointer"
                   >
                     <option value="" disabled>Select pair or stock</option>
@@ -72,7 +156,58 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                     <option value="US30">US30</option>
                     <option value="BTCUSD">BTC/USD</option>
                   </select>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-brand-muted">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
+              </div>
+
+              {/* Live Price Display - Enhanced Aesthetics */}
+              <div className="relative overflow-hidden p-6 bg-brand-charcoal text-white rounded-2xl shadow-xl border border-brand-charcoal group">
+                 {/* Background Glow Effect */}
+                 <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/10 blur-[50px] rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+                 
+                 <div className="flex justify-between items-start relative z-10">
+                   <div>
+                     <div className="flex items-center gap-2 mb-2">
+                       <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-gold">Live Market Data</span>
+                       <div className={`w-1.5 h-1.5 rounded-full ${isPriceLoading ? 'bg-brand-warning animate-ping' : (currentPrice ? 'bg-brand-success' : 'bg-brand-muted')}`}></div>
+                     </div>
+                     
+                     <div className="h-10 flex items-center">
+                       {isPriceLoading ? (
+                         <div className="w-6 h-6 border-2 border-white/20 border-t-brand-gold rounded-full animate-spin"></div>
+                       ) : (
+                         <span className="text-3xl font-black tracking-tighter font-mono">
+                           {currentPrice 
+                             ? `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}` 
+                             : '---'}
+                         </span>
+                       )}
+                     </div>
+                   </div>
+                   
+                   {currentPrice && (
+                     <div className="text-right">
+                       <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">Quote</p>
+                       <p className="text-xs font-bold text-white/80 tracking-wide">USD</p>
+                     </div>
+                   )}
+                 </div>
+
+                 <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-end">
+                   <div>
+                     <p className="text-[8px] text-white/40 font-bold uppercase tracking-widest">Last Update</p>
+                     <p className="text-[10px] text-white/80 font-mono tracking-wide">
+                       {priceTimestamp || '--:--:--'}
+                     </p>
+                   </div>
+                   <div className="bg-brand-gold/20 px-2 py-1 rounded text-[8px] font-black text-brand-gold uppercase tracking-widest">
+                     REAL-TIME
+                   </div>
+                 </div>
               </div>
 
               <div className="space-y-2">
@@ -84,7 +219,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                       onClick={() => setTimeframe(tf)}
                       className={`py-2 text-[10px] font-black tracking-widest rounded-lg border transition-all ${
                         timeframe === tf 
-                          ? 'border-brand-gold bg-brand-gold text-white' 
+                          ? 'border-brand-gold bg-brand-gold text-white shadow-lg shadow-brand-gold/20' 
                           : 'border-brand-sage bg-white text-brand-muted hover:border-brand-gold hover:text-brand-gold'
                       }`}
                     >
@@ -118,7 +253,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
               <button 
                 disabled={isAnalyzing}
                 onClick={handleGenerate}
-                className="btn-primary w-full py-5 font-black text-xs rounded-xl shadow-xl uppercase tracking-[0.2em] mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary w-full py-5 font-black text-xs rounded-xl shadow-xl uppercase tracking-[0.2em] mt-4 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform"
               >
                 {isAnalyzing ? 'Processing...' : 'Generate Analysis'}
               </button>

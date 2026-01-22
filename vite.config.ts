@@ -18,8 +18,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     define: {
-      // Robustly map the API key. Checks API_KEY (standard), Google_api (Vercel specific from prompt), or VITE_API_KEY.
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.Google_api || env.VITE_API_KEY || ''),
+      // Robustly map the API key. Prioritizes 'Google_api' as per Vercel configuration.
+      'process.env.API_KEY': JSON.stringify(env.Google_api || env.API_KEY || env.VITE_API_KEY || ''),
     },
     server: {
       port: 3000,
