@@ -16,9 +16,7 @@ export interface MarketDataResponse {
 
 export const getMarketData = async (type: 'forex' | 'stock', symbol: string): Promise<MarketDataResponse | null> => {
   try {
-    // Use relative URLs for production (Vercel), fallback to localhost for development
-    const apiBase = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_BASE || 'http://localhost:3002');
-    const response = await fetch(`${apiBase}/api/market?type=${type}&symbol=${symbol}`);
+    const response = await fetch(`/api/market?type=${type}&symbol=${symbol}`);
     
     // Check if response is JSON
     const contentType = response.headers.get("content-type");

@@ -4,6 +4,7 @@ import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse } from './geminiService';
 import { getMarketData } from './marketData';
 import { SubscriptionPlan, UserProfile, UserRole } from '../types';
+import { saveAnalysisToHistory } from './firestore';
 
 export interface BackendResponse<T = any> {
   message: string;
@@ -17,7 +18,13 @@ const isAdmin = async (userId: string): Promise<boolean> => {
   return userSnap.exists() && userSnap.data()?.role === UserRole.ADMIN;
 };
 
-export const analyzeMarket = async (userId: string, symbol: string, timeframe: string, includeFundamentals: boolean): Promise<BackendResponse> => {
+export const analyzeMarket = async (
+  userId: string, 
+  symbol: string, 
+  timeframe: string, 
+  includeFundamentals: boolean,
+  marketType?: 'forex' | 'stock'
+): Promise<BackendResponse> => {
   try {
     const userRef = doc(firestore, 'users', userId);
     const userSnap = await getDoc(userRef);
@@ -29,20 +36,26 @@ export const analyzeMarket = async (userId: string, symbol: string, timeframe: s
     // 1. Fetch Real-Time Market Data
     let marketContext = '';
     try {
-      let type: 'forex' | 'stock' = 'forex';
-      let searchSymbol = symbol.replace('USD', '');
+      let type: 'forex' | 'stock' = marketType || 'forex';
+      let searchSymbol = symbol;
 
-      // Handle Indices/ETFs mapping for Marketstack (stock) vs APILayer (forex)
-      if (['NAS100', 'US30'].includes(symbol)) {
-        type = 'stock';
-        if (symbol === 'NAS100') searchSymbol = 'QQQ'; // ETF Proxy
-        if (symbol === 'US30') searchSymbol = 'DIA';   // ETF Proxy
-      } else if (symbol === 'BTCUSD') {
-        type = 'forex';
-        searchSymbol = 'BTC';
-      } else if (symbol === 'XAUUSD') {
-        type = 'forex';
-        searchSymbol = 'XAU';
+      // Auto-detection fallback if marketType is not provided
+      if (!marketType) {
+        if (['NAS100', 'US30'].includes(symbol) || symbol.length < 5) {
+           type = 'stock';
+        } else {
+           type = 'forex';
+        }
+      }
+
+      // Symbol Normalization for API
+      if (type === 'forex') {
+         // Some forex APIs need "EUR" instead of "EURUSD" if source=USD
+         // But sticking to passing what was selected to let the proxy handle or fail gracefully
+         // If symbol contains USD, we can try to strip it for better matching if the API requires
+         if (symbol.includes('USD') && symbol.length === 6) {
+           searchSymbol = symbol.replace('USD', '');
+         }
       }
 
       console.log(`Athenix: Fetching ${type} data for ${searchSymbol}...`);
@@ -60,10 +73,23 @@ export const analyzeMarket = async (userId: string, symbol: string, timeframe: s
     // 2. Call Gemini with Market Context
     const result = await callGeminiAnalysis(symbol, timeframe, includeFundamentals, marketContext);
     
-    // 3. Deduct Token
+    // 3. Prepare Analysis Record with Persistence Data
+    const fullAnalysis = {
+      ...result,
+      userId: userId,
+      timestamp: new Date().toISOString()
+    };
+
+    // 4. Save to History (Persistence)
+    const historyId = await saveAnalysisToHistory(fullAnalysis);
+    if (historyId) {
+      fullAnalysis.id = historyId; // Attach the ID for frontend use
+    }
+
+    // 5. Deduct Token
     await updateDoc(userRef, { analysisTokens: increment(-1) });
     
-    return { status: 'success', message: 'Analysis complete', data: result };
+    return { status: 'success', message: 'Analysis complete', data: fullAnalysis };
   } catch (error: any) {
     console.error(error);
     return { status: 'error', message: error.message || 'Analysis error' };

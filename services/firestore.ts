@@ -1,7 +1,7 @@
 
-import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc } from "firebase/firestore";
 import { firestore } from "../firebase";
-import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson } from "../types";
+import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback } from "../types";
 
 export const initializeUserDocument = async (uid: string, data: { fullName: string; email: string }) => {
   try {
@@ -38,9 +38,10 @@ export const getActiveSignals = async (): Promise<TradingSignal[]> => {
   return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TradingSignal));
 };
 
+// --- JOURNAL SERVICES ---
+
 export const getJournalEntries = async (userId: string): Promise<JournalEntry[]> => {
   try {
-    // Collection switched to 'tradeJournal' to match rules
     const q = query(
       collection(firestore, "tradeJournal"), 
       where("userId", "==", userId), 
@@ -51,7 +52,6 @@ export const getJournalEntries = async (userId: string): Promise<JournalEntry[]>
     
     return snap.docs.map(doc => {
       const data = doc.data();
-      // Safe timestamp conversion
       let createdDate = new Date().toISOString();
       if (data.createdAt && typeof data.createdAt.toDate === 'function') {
         createdDate = data.createdAt.toDate().toISOString();
@@ -62,9 +62,17 @@ export const getJournalEntries = async (userId: string): Promise<JournalEntry[]>
       return {
         id: doc.id,
         userId: data.userId,
-        title: data.title || 'Untitled Entry',
-        market: data.market || 'Unknown Market',
+        title: data.title || 'Untitled',
+        market: data.market || '',
         notes: data.notes || '',
+        
+        // New Fields
+        direction: data.direction || 'BUY',
+        entryPrice: data.entryPrice || '',
+        stopLoss: data.stopLoss || '',
+        takeProfit: data.takeProfit || '',
+        outcome: data.outcome || 'open',
+        
         createdAt: createdDate
       } as JournalEntry;
     });
@@ -74,31 +82,89 @@ export const getJournalEntries = async (userId: string): Promise<JournalEntry[]>
   }
 };
 
-export const addJournalEntry = async (userId: string, entry: { title: string; market: string; notes: string }) => {
+export const addJournalEntry = async (userId: string, entry: Partial<JournalEntry>) => {
   try {
-    console.log(`[Journal] Attempting to save entry for user: ${userId}`);
-    
-    if (!userId) {
-      console.error("[Journal] Error: User ID missing.");
-      return { success: false, error: "Authentication missing" };
-    }
+    if (!userId) return { success: false, error: "Authentication missing" };
 
-    // Collection switched to 'tradeJournal' to match rules
     const docRef = await addDoc(collection(firestore, "tradeJournal"), {
       userId,
       title: entry.title,
       market: entry.market || '',
-      notes: entry.notes,
-      createdAt: serverTimestamp() // Ensure server timestamp
+      notes: entry.notes || '',
+      
+      // New Fields
+      direction: entry.direction || 'BUY',
+      entryPrice: entry.entryPrice || '',
+      stopLoss: entry.stopLoss || '',
+      takeProfit: entry.takeProfit || '',
+      outcome: entry.outcome || 'open',
+      
+      createdAt: serverTimestamp()
     });
 
-    console.log(`[Journal] Entry saved successfully. ID: ${docRef.id}`);
-    return { success: true };
+    return { success: true, id: docRef.id };
   } catch (e: any) {
-    console.error("[Journal] Firestore Write Failed:", e.code, e.message);
+    console.error("[Journal] Save Failed:", e.message);
     return { success: false, error: e.message };
   }
 };
+
+// --- ANALYSIS HISTORY SERVICES ---
+
+export const saveAnalysisToHistory = async (analysis: TradeAnalysis) => {
+  try {
+    if (!analysis.userId) return null;
+    
+    const docRef = await addDoc(collection(firestore, "analysisHistory"), {
+      ...analysis,
+      timestamp: serverTimestamp() // Overwrite with server time for accuracy
+    });
+    
+    return docRef.id;
+  } catch (e) {
+    console.error("Failed to save analysis history:", e);
+    return null;
+  }
+};
+
+export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnalysis[]> => {
+  try {
+    const q = query(
+      collection(firestore, "analysisHistory"),
+      where("userId", "==", userId),
+      orderBy("timestamp", "desc"),
+      limit(50)
+    );
+    const snap = await getDocs(q);
+    
+    return snap.docs.map(doc => {
+      const data = doc.data();
+      let ts = new Date().toISOString();
+      if (data.timestamp?.toDate) ts = data.timestamp.toDate().toISOString();
+      
+      return {
+        id: doc.id,
+        ...data,
+        timestamp: ts
+      } as TradeAnalysis;
+    });
+  } catch (e) {
+    console.error("Failed to fetch analysis history:", e);
+    return [];
+  }
+};
+
+export const submitAnalysisFeedback = async (analysisId: string, feedback: AnalysisFeedback) => {
+  try {
+    const ref = doc(firestore, "analysisHistory", analysisId);
+    await updateDoc(ref, { feedback });
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+};
+
+// --- EDUCATION & ADMIN ---
 
 export const getEducationLessons = async (): Promise<Lesson[]> => {
   const snap = await getDocs(collection(firestore, "educationContent"));
@@ -112,11 +178,9 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
 
 export const checkDatabaseConnection = async (): Promise<boolean> => {
   try {
-    // Attempt to fetch signals as a lightweight connectivity test
     await getDocs(query(collection(firestore, "signals"), limit(1)));
     return true;
   } catch (e) {
-    console.error("Connection check failed:", e);
     return false;
   }
 };

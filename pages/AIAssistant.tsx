@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
-import { UserProfile, TradeAnalysis } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserProfile, TradeAnalysis, AnalysisFeedback } from '../types';
 import { analyzeMarket } from '../services/backend';
 import { getMarketData } from '../services/marketData';
+import { getUserAnalysisHistory, submitAnalysisFeedback } from '../services/firestore';
+import { FOREX_INSTRUMENTS, STOCK_INSTRUMENTS, ICONS } from '../constants';
 
 const TIMEFRAMES = [
   '1m', '3m', '5m', '10m', '15m', '30m', 
@@ -16,9 +18,18 @@ interface AIAssistantProps {
 }
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
+  // Configuration State
+  const [marketType, setMarketType] = useState<'forex' | 'stock' | null>(null);
   const [symbol, setSymbol] = useState('');
   const [timeframe, setTimeframe] = useState('1h');
   const [fundamentalToggle, setFundamentalToggle] = useState(false);
+  
+  // Searchable Dropdown State
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Analysis State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<TradeAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,35 +39,83 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
   const [priceTimestamp, setPriceTimestamp] = useState<string | null>(null);
   const [isPriceLoading, setIsPriceLoading] = useState(false);
 
-  const handleSymbolChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSymbol = e.target.value;
-    setSymbol(newSymbol);
+  // History State
+  const [history, setHistory] = useState<TradeAnalysis[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+
+  // Feedback State
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      loadHistory();
+    }
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [user]);
+
+  useEffect(() => {
+    // Reset selections when market type changes
+    if (marketType) {
+        setSymbol('');
+        setSearchQuery('');
+        setCurrentPrice(null);
+        setPriceTimestamp(null);
+        setError(null);
+        setAnalysis(null);
+    }
+  }, [marketType]);
+
+  const loadHistory = async () => {
+    if (!user) return;
+    setHistoryLoading(true);
+    const data = await getUserAnalysisHistory(user.uid);
+    setHistory(data);
+    setHistoryLoading(false);
+  };
+
+  const getFilteredInstruments = () => {
+    const list = marketType === 'forex' ? FOREX_INSTRUMENTS : marketType === 'stock' ? STOCK_INSTRUMENTS : [];
+    if (!searchQuery) return list;
+    const lowerQ = searchQuery.toLowerCase();
+    return list.filter(i => 
+      i.symbol.toLowerCase().includes(lowerQ) || 
+      i.name.toLowerCase().includes(lowerQ)
+    );
+  };
+
+  const handleInstrumentSelect = async (selected: { symbol: string, name: string }) => {
+    setSymbol(selected.symbol);
+    setSearchQuery(`${selected.name} (${selected.symbol})`);
+    setIsDropdownOpen(false);
+    
+    // Fetch Price Data
     setCurrentPrice(null);
     setPriceTimestamp(null);
     setError(null);
-    
-    if (!newSymbol) return;
-
+    setAnalysis(null);
     setIsPriceLoading(true);
-    try {
-      let type: 'forex' | 'stock' = 'forex';
-      let searchSymbol = newSymbol.replace('USD', '');
 
-      // Handle Indices/ETFs mapping
-      if (['NAS100', 'US30'].includes(newSymbol)) {
-        type = 'stock';
-        if (newSymbol === 'NAS100') searchSymbol = 'QQQ';
-        if (newSymbol === 'US30') searchSymbol = 'DIA';
-      } else if (newSymbol === 'BTCUSD') {
-        type = 'forex';
-        searchSymbol = 'BTC';
-      } else if (newSymbol === 'XAUUSD') {
-        type = 'forex';
-        searchSymbol = 'XAU';
+    try {
+      const type = marketType === 'forex' ? 'forex' : 'stock';
+      let searchSymbol = selected.symbol;
+      
+      // Prepare symbol for API
+      // If Forex and using a source=USD API, we might need to strip USD to get the quote
+      if (type === 'forex') {
+        if (selected.symbol.endsWith('USD')) searchSymbol = selected.symbol.replace('USD', '');
+        else if (selected.symbol.startsWith('USD')) searchSymbol = selected.symbol.replace('USD', '');
       }
 
       const data = await getMarketData(type, searchSymbol);
-      
+
       if (data) {
         if (data.error) {
           setError(`Market Data Error: ${typeof data.error === 'object' ? JSON.stringify(data.error) : data.error}`);
@@ -71,21 +130,35 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
               setPriceTimestamp(new Date().toLocaleTimeString());
             }
 
-            // Handle Price Extraction
+            // Handle Price Extraction logic for USD-based source
             if (type === 'forex') {
-              // Check for Currencylayer 'quotes' format (e.g., { "USDEUR": 0.92 })
               const quoteKey = `USD${searchSymbol}`;
+              // API returns USD -> XXX. 
+              // If we want XXX -> USD (e.g. EURUSD), we need 1 / rate.
+              // If we want USD -> XXX (e.g. USDJPY), we need rate.
               
-              if (data.quotes && data.quotes[quoteKey]) {
-                const rate = data.quotes[quoteKey];
-                setCurrentPrice(1 / rate);
-              } 
-              // Fallback to Fixer 'rates' format
-              else if (data.rates && data.rates[searchSymbol]) {
-                const rate = data.rates[searchSymbol];
-                setCurrentPrice(1 / rate);
+              let rate: number | null = null;
+              
+              // Try to find the rate in response
+              if (data.quotes && data.quotes[quoteKey]) rate = data.quotes[quoteKey];
+              else if (data.rates && data.rates[searchSymbol]) rate = data.rates[searchSymbol];
+
+              if (rate !== null) {
+                 if (selected.symbol.endsWith('USD')) {
+                   // e.g. EURUSD, GBPUSD, XAUUSD. We fetched USDEUR. We want EURUSD.
+                   setCurrentPrice(1 / rate);
+                 } else {
+                   // e.g. USDJPY. We fetched USDJPY. We want USDJPY.
+                   setCurrentPrice(rate);
+                 }
               } else {
-                setError(`Price not found for ${searchSymbol}. API may be limited.`);
+                 // Try exact match (for crosses if supported)
+                 if (data.quotes && data.quotes[selected.symbol]) {
+                     setCurrentPrice(data.quotes[selected.symbol]);
+                 } else {
+                     // Fallback/Error - Proceeding without live price visual but passing symbol to AI
+                     console.warn(`Could not extract price for ${selected.symbol}`);
+                 }
               }
             } else if (type === 'stock') {
                if (data.data && data.data.length > 0) {
@@ -108,8 +181,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
 
   const handleGenerate = async () => {
     if (!user) return;
-    if (!symbol) {
-      setError('Please select a market pair.');
+    if (!symbol || !marketType) {
+      setError('Please select a market type and instrument.');
       return;
     }
 
@@ -117,96 +190,243 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
     setError(null);
     setAnalysis(null);
 
-    const response = await analyzeMarket(user.uid, symbol, timeframe, fundamentalToggle);
+    const response = await analyzeMarket(user.uid, symbol, timeframe, fundamentalToggle, marketType);
 
     if (response.status === 'success') {
       setAnalysis(response.data);
+      loadHistory();
     } else {
       setError(response.message);
     }
     setIsAnalyzing(false);
   };
 
+  const submitFeedback = async (analysisId: string, status: 'successful' | 'not_successful') => {
+    const feedback: AnalysisFeedback = {
+      status,
+      comment: feedbackComment,
+      timestamp: new Date().toISOString()
+    };
+    
+    await submitAnalysisFeedback(analysisId, feedback);
+    setActiveFeedbackId(null);
+    setFeedbackComment('');
+    loadHistory(); 
+  };
+
+  const fmt = (num?: number, digits = 5) => num ? num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: digits }) : '---';
+
+  const AnalysisDetailView = ({ data, isHistory = false }: { data: TradeAnalysis, isHistory?: boolean }) => (
+    <div className={`space-y-10 relative overflow-hidden bg-white ${isHistory ? 'p-0' : 'border border-brand-sage rounded-2xl p-6 md:p-10 animate-slide-up'}`}>
+      {!isHistory && <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/5 -mr-16 -mt-16 rounded-full"></div>}
+      
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-brand-sage/10">
+        <div>
+          <h4 className="text-3xl font-black text-brand-charcoal tracking-tighter mb-2 uppercase">
+            {data.instrument}
+          </h4>
+          <div className="flex flex-wrap gap-2">
+              <span className="px-2 py-1 bg-brand-charcoal text-white text-[9px] font-black uppercase rounded tracking-widest">
+                {data.execution_timeframe}
+              </span>
+              <span className={`px-2 py-1 text-[9px] font-black uppercase rounded tracking-widest ${
+                data.final_decision === 'trade' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-muted/10 text-brand-muted'
+              }`}>
+                {data.final_decision === 'trade' ? 'ACTIVE SETUP' : 'NO TRADE'}
+              </span>
+              {data.strategy_used && (
+                <span className="px-2 py-1 bg-brand-gold/10 text-brand-gold text-[9px] font-black uppercase rounded tracking-widest">
+                  {data.strategy_used.replace(/_/g, ' ')}
+                </span>
+              )}
+          </div>
+        </div>
+        {data.signal && (
+          <div className="text-right">
+              <div className="text-xs font-black uppercase tracking-widest text-brand-muted mb-1">Confidence</div>
+              <div className="text-2xl font-black text-brand-charcoal">{data.signal.confidence_score}%</div>
+          </div>
+        )}
+      </div>
+
+      {data.final_decision === 'trade' && data.signal ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="space-y-2 p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20">
+              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Direction</p>
+              <p className={`text-sm font-black uppercase ${data.signal.direction === 'buy' ? 'text-brand-success' : 'text-brand-error'}`}>
+                {data.signal.order_type.replace('_', ' ')}
+              </p>
+            </div>
+            <div className="space-y-2 p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20">
+              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Entry Zone</p>
+              <p className="text-sm font-black text-brand-charcoal">{fmt(data.signal.entry_price)}</p>
+            </div>
+            <div className="space-y-2 p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20">
+              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Stop Loss</p>
+              <p className="text-sm font-black text-brand-error">{fmt(data.signal.stop_loss)}</p>
+            </div>
+            <div className="space-y-2 p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20">
+              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Risk / Reward</p>
+              <p className="text-sm font-black text-brand-charcoal">1:{data.signal.risk_reward_ratio}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Take Profit Targets</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {data.signal.take_profits.map((tp, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-3 bg-brand-success/5 border border-brand-success/20 rounded-lg">
+                    <span className="text-[9px] font-black text-brand-success uppercase">{tp.level}</span>
+                    <span className="text-xs font-bold text-brand-charcoal">{fmt(tp.price)}</span>
+                  </div>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="p-8 bg-brand-sage/10 rounded-xl text-center border-2 border-dashed border-brand-sage/30">
+            <p className="text-brand-charcoal font-black uppercase tracking-widest text-sm mb-2">Market Conditions Unfavorable</p>
+            <p className="text-brand-muted text-xs max-w-md mx-auto">The algorithm has determined that current price action does not meet the strict probability threshold required for a valid setup.</p>
+        </div>
+      )}
+
+      <div className="pt-8 border-t border-brand-sage/20 grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-2">
+          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Bias & Structure</p>
+          <p className="text-xs text-brand-charcoal leading-loose font-medium opacity-90">{data.reasoning.bias_explanation}</p>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Liquidity Logic</p>
+          <p className="text-xs text-brand-charcoal leading-loose font-medium opacity-90">{data.reasoning.liquidity_explanation}</p>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Entry Confirmation</p>
+          <p className="text-xs text-brand-charcoal leading-loose font-medium opacity-90">{data.reasoning.entry_explanation}</p>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Invalidation Point</p>
+          <p className="text-xs text-brand-charcoal leading-loose font-medium opacity-90">{data.reasoning.invalidation_explanation}</p>
+        </div>
+      </div>
+
+      <div className="pt-6 border-t border-brand-sage/10 flex justify-between items-center text-[8px] text-brand-muted uppercase font-bold tracking-widest opacity-50">
+          <span>Engine: {data.meta?.analysis_engine_version || 'v5.0'}</span>
+          <span>Generated: {data.timestamp ? new Date(data.timestamp).toLocaleString() : new Date().toLocaleTimeString()}</span>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-7xl mx-auto">
+    <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-7xl mx-auto pb-24">
       <div className="space-y-2">
         <h2 className="text-4xl font-black text-brand-charcoal uppercase tracking-tighter">AI Assistant</h2>
         <p className="text-brand-muted font-medium text-sm uppercase tracking-widest">Generate high-precision neural market setups.</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
-        <section className="w-full lg:w-1/3">
+        <section className="w-full lg:w-1/3 space-y-8">
           <div className="athenix-card p-8 space-y-8">
             <h3 className="text-xs font-black text-brand-gold uppercase tracking-[0.3em] border-l-4 border-brand-gold pl-4">Analysis Configuration</h3>
             
             <div className="space-y-6">
+              
+              {/* MARKET TYPE SELECTION */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">Market</label>
-                <div className="relative">
-                  <select 
-                    value={symbol}
-                    onChange={handleSymbolChange}
-                    className="w-full px-5 py-4 bg-brand-sage/5 border border-brand-sage rounded-xl outline-none font-bold text-brand-charcoal hover:border-brand-gold transition-colors appearance-none cursor-pointer"
+                <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">Select Market Sector</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => setMarketType('forex')}
+                    className={`py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                      marketType === 'forex' 
+                        ? 'bg-brand-charcoal text-white shadow-lg' 
+                        : 'bg-brand-sage/5 text-brand-muted hover:bg-brand-sage/10'
+                    }`}
                   >
-                    <option value="" disabled>Select pair or stock</option>
-                    <option value="XAUUSD">XAU/USD (Gold)</option>
-                    <option value="EURUSD">EUR/USD</option>
-                    <option value="GBPUSD">GBP/USD</option>
-                    <option value="NAS100">NAS100</option>
-                    <option value="US30">US30</option>
-                    <option value="BTCUSD">BTC/USD</option>
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-brand-muted">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
+                    Forex & Metals
+                  </button>
+                  <button 
+                    onClick={() => setMarketType('stock')}
+                    className={`py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                      marketType === 'stock' 
+                        ? 'bg-brand-charcoal text-white shadow-lg' 
+                        : 'bg-brand-sage/5 text-brand-muted hover:bg-brand-sage/10'
+                    }`}
+                  >
+                    Stock Market
+                  </button>
                 </div>
               </div>
 
-              {/* Live Price Display - Enhanced Aesthetics */}
+              {/* INSTRUMENT SEARCH */}
+              <div className="space-y-2" ref={dropdownRef}>
+                <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">Instrument</label>
+                <div className="relative">
+                  <div className="relative">
+                     <input 
+                       type="text"
+                       value={searchQuery}
+                       onChange={(e) => {
+                         setSearchQuery(e.target.value);
+                         setIsDropdownOpen(true);
+                       }}
+                       onFocus={() => setIsDropdownOpen(true)}
+                       placeholder={marketType ? "Search pair or symbol..." : "Select market sector first"}
+                       disabled={!marketType}
+                       className="w-full pl-5 pr-10 py-4 bg-brand-sage/5 border border-brand-sage rounded-xl outline-none font-bold text-brand-charcoal text-xs placeholder:text-brand-muted/50 focus:border-brand-gold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                     />
+                     <div className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none">
+                       <ICONS.Search />
+                     </div>
+                  </div>
+
+                  {isDropdownOpen && marketType && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-brand-sage rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+                      {getFilteredInstruments().length > 0 ? (
+                        getFilteredInstruments().map((item) => (
+                          <button
+                            key={item.symbol}
+                            onClick={() => handleInstrumentSelect(item)}
+                            className="w-full text-left px-5 py-3 hover:bg-brand-sage/5 transition-colors flex justify-between items-center group border-b border-brand-sage/5 last:border-0"
+                          >
+                            <span className="text-xs font-black text-brand-charcoal">{item.symbol}</span>
+                            <span className="text-[10px] text-brand-muted font-bold uppercase tracking-wide group-hover:text-brand-gold">{item.name}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-5 py-4 text-[10px] text-brand-muted font-medium text-center">
+                          No instruments found matching "{searchQuery}"
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Live Price Display */}
               <div className="relative overflow-hidden p-6 bg-brand-charcoal text-white rounded-2xl shadow-xl border border-brand-charcoal group">
-                 {/* Background Glow Effect */}
                  <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/10 blur-[50px] rounded-full -mr-10 -mt-10 pointer-events-none"></div>
-                 
                  <div className="flex justify-between items-start relative z-10">
                    <div>
                      <div className="flex items-center gap-2 mb-2">
                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-gold">Live Market Data</span>
                        <div className={`w-1.5 h-1.5 rounded-full ${isPriceLoading ? 'bg-brand-warning animate-ping' : (currentPrice ? 'bg-brand-success' : 'bg-brand-muted')}`}></div>
                      </div>
-                     
                      <div className="h-10 flex items-center">
                        {isPriceLoading ? (
                          <div className="w-6 h-6 border-2 border-white/20 border-t-brand-gold rounded-full animate-spin"></div>
                        ) : (
-                         <span className="text-3xl font-black tracking-tighter font-mono">
-                           {currentPrice 
-                             ? `$${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 5 })}` 
-                             : '---'}
-                         </span>
+                         <span className="text-3xl font-black tracking-tighter font-mono">{currentPrice ? `$${fmt(currentPrice)}` : '---'}</span>
                        )}
                      </div>
                    </div>
-                   
-                   {currentPrice && (
-                     <div className="text-right">
-                       <p className="text-[9px] text-white/40 font-bold uppercase tracking-widest">Quote</p>
-                       <p className="text-xs font-bold text-white/80 tracking-wide">USD</p>
-                     </div>
-                   )}
                  </div>
-
                  <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-end">
                    <div>
                      <p className="text-[8px] text-white/40 font-bold uppercase tracking-widest">Last Update</p>
-                     <p className="text-[10px] text-white/80 font-mono tracking-wide">
-                       {priceTimestamp || '--:--:--'}
-                     </p>
+                     <p className="text-[10px] text-white/80 font-mono tracking-wide">{priceTimestamp || '--:--:--'}</p>
                    </div>
-                   <div className="bg-brand-gold/20 px-2 py-1 rounded text-[8px] font-black text-brand-gold uppercase tracking-widest">
-                     REAL-TIME
-                   </div>
+                   <div className="bg-brand-gold/20 px-2 py-1 rounded text-[8px] font-black text-brand-gold uppercase tracking-widest">REAL-TIME</div>
                  </div>
               </div>
 
@@ -261,50 +481,19 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
           </div>
         </section>
 
-        <section className="flex-1">
+        <section className="flex-1 space-y-8">
           <div className="athenix-card min-h-[500px] p-8 flex flex-col">
             <h3 className="text-xs font-black text-brand-muted uppercase tracking-[0.3em] mb-10">Neural Analysis Output</h3>
             
             {analysis ? (
-              <div className="border border-brand-sage rounded-2xl p-10 space-y-12 relative overflow-hidden bg-white animate-slide-up">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/5 -mr-16 -mt-16 rounded-full"></div>
-                
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="text-2xl font-black text-brand-charcoal tracking-tighter mb-1 uppercase">{analysis.pair} Setup</h4>
-                    <p className="text-[10px] text-brand-success font-black uppercase tracking-widest">{analysis.direction} • {analysis.timeframe}</p>
-                  </div>
-                  <div className="px-3 py-1 bg-brand-gold/10 text-brand-gold text-[9px] font-black rounded">CONFIRMED</div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                    <p className="text-[10px] text-brand-gold uppercase font-black tracking-widest">Entry Level</p>
-                    <div className="h-12 w-full bg-brand-sage/5 border border-brand-sage/30 rounded-xl flex items-center px-4 font-black text-brand-charcoal text-xs">{analysis.entry}</div>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-[10px] text-brand-gold uppercase font-black tracking-widest">Stop Loss</p>
-                    <div className="h-12 w-full bg-brand-sage/5 border border-brand-sage/30 rounded-xl flex items-center px-4 font-black text-brand-error text-xs">{analysis.stopLoss}</div>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-[10px] text-brand-gold uppercase font-black tracking-widest">Take Profit</p>
-                    <div className="h-12 w-full bg-brand-sage/5 border border-brand-sage/30 rounded-xl flex items-center px-4 font-black text-brand-success text-xs">{analysis.takeProfit}</div>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-[10px] text-brand-gold uppercase font-black tracking-widest">Risk / Reward Ratio</p>
-                    <div className="h-12 w-full bg-brand-sage/5 border border-brand-sage/30 rounded-xl flex items-center px-4 font-black text-brand-charcoal text-xs">{analysis.riskReward}</div>
-                  </div>
-                </div>
-
-                <div className="pt-8 border-t border-brand-sage/20">
-                  <p className="text-[10px] text-brand-muted uppercase font-black tracking-[0.2em] mb-4">Neural Reasoning Matrix</p>
-                  <p className="text-xs text-brand-charcoal leading-loose font-medium opacity-90">{analysis.reasoning}</p>
-                </div>
-              </div>
+              <AnalysisDetailView data={analysis} />
             ) : isAnalyzing ? (
               <div className="flex-1 flex flex-col items-center justify-center space-y-6">
                 <div className="w-16 h-16 border-4 border-brand-sage border-t-brand-gold rounded-full animate-spin"></div>
-                <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Processing Neural Node...</p>
+                <div className="text-center space-y-2">
+                   <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Processing Neural Node...</p>
+                   <p className="text-[9px] font-medium text-brand-sage uppercase tracking-widest">Scanning Liquidity Pools</p>
+                </div>
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-12 opacity-40">
@@ -316,6 +505,105 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                 <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] max-w-xs mx-auto">
                   Configure parameters and initialize neural analysis to populate terminal output.
                 </p>
+              </div>
+            )}
+          </div>
+
+          <div className="athenix-card p-8 bg-brand-sage/5 space-y-6">
+            <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Analysis History</h3>
+            
+            {historyLoading ? (
+              <div className="text-center p-8 text-[10px] font-black uppercase text-brand-muted tracking-widest">Syncing History...</div>
+            ) : history.length === 0 ? (
+              <div className="text-center p-8 text-[10px] font-black uppercase text-brand-muted tracking-widest border border-dashed border-brand-sage/30 rounded-xl">No previous analysis data found.</div>
+            ) : (
+              <div className="space-y-4">
+                {history.map((item) => (
+                  <div key={item.id} className="bg-white rounded-xl border border-brand-sage/20 overflow-hidden">
+                    <div 
+                      className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-brand-sage/5 transition-colors"
+                      onClick={() => setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id as string)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-[9px] font-black text-white uppercase ${
+                          item.final_decision === 'trade' 
+                            ? (item.signal?.direction === 'buy' ? 'bg-brand-success' : 'bg-brand-error') 
+                            : 'bg-brand-muted'
+                        }`}>
+                          {item.final_decision === 'trade' ? item.signal?.direction : 'NO'}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-brand-charcoal uppercase">{item.instrument}</p>
+                          <p className="text-[9px] text-brand-muted font-bold uppercase tracking-widest">
+                             {item.execution_timeframe} • {item.timestamp ? new Date(item.timestamp).toLocaleDateString() : 'Recent'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        {item.feedback ? (
+                           <div className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest ${
+                             item.feedback.status === 'successful' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-error/10 text-brand-error'
+                           }`}>
+                             Feedback: {item.feedback.status === 'successful' ? 'Success' : 'Failed'}
+                           </div>
+                        ) : (
+                           <span className="text-[8px] font-bold text-brand-muted uppercase tracking-widest opacity-50">Pending Feedback</span>
+                        )}
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          className={`w-4 h-4 text-brand-muted transition-transform ${expandedHistoryId === item.id ? 'rotate-180' : ''}`} 
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+
+                    {expandedHistoryId === item.id && (
+                      <div className="border-t border-brand-sage/10">
+                        <div className="p-6 bg-brand-sage/5">
+                          <AnalysisDetailView data={item} isHistory={true} />
+                        </div>
+                        
+                        {!item.feedback && (
+                          <div className="p-6 border-t border-brand-sage/10 bg-white">
+                            {activeFeedbackId === item.id ? (
+                              <div className="space-y-4">
+                                <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Provide Outcome Feedback</p>
+                                <textarea
+                                  value={feedbackComment}
+                                  onChange={(e) => setFeedbackComment(e.target.value)}
+                                  placeholder="Optional comment on result..."
+                                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-xs outline-none focus:border-brand-gold"
+                                />
+                                <div className="flex gap-2">
+                                  <button onClick={() => submitFeedback(item.id!, 'successful')} className="flex-1 py-3 bg-brand-success/10 text-brand-success rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-success hover:text-white transition-colors">Successful</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'not_successful')} className="flex-1 py-3 bg-brand-error/10 text-brand-error rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-error hover:text-white transition-colors">Failed</button>
+                                  <button onClick={() => setActiveFeedbackId(null)} className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-brand-muted">Cancel</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button 
+                                onClick={() => setActiveFeedbackId(item.id as string)}
+                                className="w-full py-3 border border-brand-sage text-brand-muted rounded-xl text-[9px] font-black uppercase tracking-widest hover:border-brand-gold hover:text-brand-gold transition-colors"
+                              >
+                                Rate Analysis Accuracy
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        
+                        {item.feedback && item.feedback.comment && (
+                          <div className="p-6 border-t border-brand-sage/10 bg-white">
+                             <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1">Your Notes</p>
+                             <p className="text-xs text-brand-charcoal italic">"{item.feedback.comment}"</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </div>

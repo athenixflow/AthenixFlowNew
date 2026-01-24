@@ -62,5 +62,110 @@ export const ICONS = {
     <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
     </svg>
+  ),
+  Search: () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+    </svg>
   )
 };
+
+export const FOREX_INSTRUMENTS = [
+  // Majors
+  { symbol: 'EURUSD', name: 'Euro / US Dollar' },
+  { symbol: 'GBPUSD', name: 'British Pound / US Dollar' },
+  { symbol: 'USDJPY', name: 'US Dollar / Japanese Yen' },
+  { symbol: 'USDCHF', name: 'US Dollar / Swiss Franc' },
+  { symbol: 'USDCAD', name: 'US Dollar / Canadian Dollar' },
+  { symbol: 'AUDUSD', name: 'Australian Dollar / US Dollar' },
+  { symbol: 'NZDUSD', name: 'New Zealand Dollar / US Dollar' },
+  
+  // Metals
+  { symbol: 'XAUUSD', name: 'Gold / US Dollar' },
+  { symbol: 'XAGUSD', name: 'Silver / US Dollar' },
+  { symbol: 'XPTUSD', name: 'Platinum / US Dollar' },
+  { symbol: 'XPDUSD', name: 'Palladium / US Dollar' },
+
+  // EUR Crosses
+  { symbol: 'EURGBP', name: 'Euro / British Pound' },
+  { symbol: 'EURJPY', name: 'Euro / Japanese Yen' },
+  { symbol: 'EURCHF', name: 'Euro / Swiss Franc' },
+  { symbol: 'EURAUD', name: 'Euro / Australian Dollar' },
+  { symbol: 'EURNZD', name: 'Euro / New Zealand Dollar' },
+  { symbol: 'EURCAD', name: 'Euro / Canadian Dollar' },
+
+  // GBP Crosses
+  { symbol: 'GBPJPY', name: 'British Pound / Japanese Yen' },
+  { symbol: 'GBPCHF', name: 'British Pound / Swiss Franc' },
+  { symbol: 'GBPAUD', name: 'British Pound / Australian Dollar' },
+  { symbol: 'GBPNZD', name: 'British Pound / New Zealand Dollar' },
+  { symbol: 'GBPCAD', name: 'British Pound / Canadian Dollar' },
+
+  // AUD Crosses
+  { symbol: 'AUDJPY', name: 'Australian Dollar / Japanese Yen' },
+  { symbol: 'AUDCHF', name: 'Australian Dollar / Swiss Franc' },
+  { symbol: 'AUDCAD', name: 'Australian Dollar / Canadian Dollar' },
+  { symbol: 'AUDNZD', name: 'Australian Dollar / New Zealand Dollar' },
+
+  // CAD/NZD/CHF Crosses
+  { symbol: 'CADJPY', name: 'Canadian Dollar / Japanese Yen' },
+  { symbol: 'CADCHF', name: 'Canadian Dollar / Swiss Franc' },
+  { symbol: 'NZDJPY', name: 'New Zealand Dollar / Japanese Yen' },
+  { symbol: 'NZDCHF', name: 'New Zealand Dollar / Swiss Franc' },
+  { symbol: 'NZDCAD', name: 'New Zealand Dollar / Canadian Dollar' },
+  { symbol: 'CHFJPY', name: 'Swiss Franc / Japanese Yen' },
+];
+
+export const STOCK_INSTRUMENTS = [
+  // Tech
+  { symbol: 'AAPL', name: 'Apple Inc' },
+  { symbol: 'MSFT', name: 'Microsoft Corp' },
+  { symbol: 'GOOGL', name: 'Alphabet Inc' },
+  { symbol: 'AMZN', name: 'Amazon.com Inc' },
+  { symbol: 'META', name: 'Meta Platforms Inc' },
+  { symbol: 'TSLA', name: 'Tesla Inc' },
+  { symbol: 'NVDA', name: 'NVIDIA Corp' },
+  { symbol: 'NFLX', name: 'Netflix Inc' },
+  { symbol: 'ADBE', name: 'Adobe Inc' },
+  { symbol: 'INTC', name: 'Intel Corp' },
+  { symbol: 'AMD', name: 'Advanced Micro Devices' },
+  { symbol: 'QCOM', name: 'Qualcomm Inc' },
+  { symbol: 'AVGO', name: 'Broadcom Inc' },
+  { symbol: 'ORCL', name: 'Oracle Corp' },
+  { symbol: 'IBM', name: 'IBM' },
+  { symbol: 'CRM', name: 'Salesforce Inc' },
+  { symbol: 'PYPL', name: 'PayPal Holdings' },
+  { symbol: 'SQ', name: 'Block Inc' },
+  { symbol: 'UBER', name: 'Uber Technologies' },
+  { symbol: 'ABNB', name: 'Airbnb Inc' },
+
+  // Financial
+  { symbol: 'JPM', name: 'JPMorgan Chase' },
+  { symbol: 'BAC', name: 'Bank of America' },
+  { symbol: 'GS', name: 'Goldman Sachs' },
+  { symbol: 'MS', name: 'Morgan Stanley' },
+  { symbol: 'WFC', name: 'Wells Fargo' },
+  { symbol: 'V', name: 'Visa Inc' },
+  { symbol: 'MA', name: 'Mastercard Inc' },
+
+  // Consumer & Industrial
+  { symbol: 'KO', name: 'Coca-Cola Co' },
+  { symbol: 'PEP', name: 'PepsiCo Inc' },
+  { symbol: 'PG', name: 'Procter & Gamble' },
+  { symbol: 'NKE', name: 'Nike Inc' },
+  { symbol: 'MCD', name: "McDonald's Corp" },
+  { symbol: 'BA', name: 'Boeing Co' },
+  { symbol: 'CAT', name: 'Caterpillar Inc' },
+
+  // Energy
+  { symbol: 'XOM', name: 'Exxon Mobil' },
+  { symbol: 'CVX', name: 'Chevron Corp' },
+  { symbol: 'SHEL', name: 'Shell PLC' },
+  { symbol: 'BP', name: 'BP PLC' },
+
+  // Auto
+  { symbol: 'F', name: 'Ford Motor Co' },
+  { symbol: 'GM', name: 'General Motors' },
+  { symbol: 'RIVN', name: 'Rivian Automotive' },
+  { symbol: 'LCID', name: 'Lucid Group' },
+];
