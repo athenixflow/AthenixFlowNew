@@ -1,9 +1,9 @@
 
-import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, deleteDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, deleteDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse } from './geminiService';
 import { getMarketData } from './marketData';
-import { SubscriptionPlan, UserProfile, UserRole } from '../types';
+import { UserProfile, UserRole } from '../types';
 import { saveAnalysisToHistory, saveEducationInteraction } from './firestore';
 
 export interface BackendResponse<T = any> {
@@ -28,71 +28,53 @@ export const analyzeMarket = async (
   try {
     const userRef = doc(firestore, 'users', userId);
     const userSnap = await getDoc(userRef);
-    if (!userSnap.exists()) return { status: 'error', message: 'User not found' };
+    if (!userSnap.exists()) return { status: 'error', message: 'User not found in neural network.' };
     
     const user = userSnap.data() as UserProfile;
-    if (user.analysisTokens < 1) return { status: 'error', message: 'Insufficient analysis tokens.' };
+    if (user.analysisTokens < 1) return { status: 'error', message: 'Insufficient analysis units. Please refill in the Billing terminal.' };
 
     // 1. Fetch Real-Time Market Data
     let marketContext = '';
     try {
-      let type: 'forex' | 'stock' = marketType || 'forex';
-      let searchSymbol = symbol;
-
-      // Auto-detection fallback if marketType is not provided
-      if (!marketType) {
-        if (['NAS100', 'US30'].includes(symbol) || symbol.length < 5) {
-           type = 'stock';
-        } else {
-           type = 'forex';
-        }
-      }
-
-      // Symbol Normalization for API
-      if (type === 'forex') {
-         // Some forex APIs need "EUR" instead of "EURUSD" if source=USD
-         // But sticking to passing what was selected to let the proxy handle or fail gracefully
-         // If symbol contains USD, we can try to strip it for better matching if the API requires
-         if (symbol.includes('USD') && symbol.length === 6) {
-           searchSymbol = symbol.replace('USD', '');
-         }
-      }
-
-      console.log(`Athenix: Fetching ${type} data for ${searchSymbol}...`);
-      const marketData = await getMarketData(type, searchSymbol);
+      const type = marketType || (symbol.length < 5 ? 'stock' : 'forex');
+      const marketData = await getMarketData(type, symbol);
       
       if (marketData && !marketData.error) {
         marketContext = JSON.stringify(marketData);
-      } else {
-        console.warn("Athenix: Market data fetch returned empty or error.");
       }
     } catch (err) {
-      console.warn("Athenix: Market data fetch failed, proceeding with pure AI analysis.", err);
+      console.warn("Athenix: Live price context unavailable, using historical neural weights.");
     }
 
-    // 2. Call Gemini with Market Context
+    // 2. Call Gemini Analysis Engine
     const result = await callGeminiAnalysis(symbol, timeframe, includeFundamentals, marketContext);
     
-    // 3. Prepare Analysis Record with Persistence Data
+    // 3. Prepare full record for persistence
     const fullAnalysis = {
       ...result,
       userId: userId,
       timestamp: new Date().toISOString()
     };
 
-    // 4. Save to History (Persistence)
+    // 4. Persistence: Save to analysisHistory collection
     const historyId = await saveAnalysisToHistory(fullAnalysis);
     if (historyId) {
-      fullAnalysis.id = historyId; // Attach the ID for frontend use
+      fullAnalysis.id = historyId; // Attach document ID for UI tracking
+    } else {
+      console.warn("Athenix: Failed to commit analysis to history ledger.");
     }
 
-    // 5. Deduct Token
+    // 5. Atomic Unit Deduction
     await updateDoc(userRef, { analysisTokens: increment(-1) });
     
-    return { status: 'success', message: 'Analysis complete', data: fullAnalysis };
+    return { 
+      status: 'success', 
+      message: 'Neural analysis synthesized and committed to ledger.', 
+      data: fullAnalysis 
+    };
   } catch (error: any) {
-    console.error(error);
-    return { status: 'error', message: error.message || 'Analysis error' };
+    console.error("Critical Analysis Failure:", error);
+    return { status: 'error', message: error.message || 'The neural engine encountered an unexpected exception.' };
   }
 };
 
@@ -106,13 +88,12 @@ export const getAILessonContent = async (userId: string, question: string, conte
     
     const result = await getEducationResponse(question, context);
     
-    // Save to history
     await saveEducationInteraction({
       userId,
       question,
       answer: result,
       context: context || 'Direct Query',
-      timestamp: new Date().toISOString() // Will be overwritten by serverTimestamp in firestore fn
+      timestamp: new Date().toISOString()
     });
     
     await updateDoc(userRef, { educationTokens: increment(-1) });
@@ -129,9 +110,9 @@ export const refillTokens = async (userId: string, type: 'analysis' | 'education
     await runTransaction(firestore, async (transaction) => {
       transaction.update(userRef, { [type === 'analysis' ? 'analysisTokens' : 'educationTokens']: increment(tokenIncrement) });
     });
-    return { status: 'success', message: `${tokenIncrement} tokens added.` };
+    return { status: 'success', message: `${tokenIncrement} units credited to terminal.` };
   } catch (error: any) {
-    return { status: 'error', message: 'Transaction failed' };
+    return { status: 'error', message: 'Transaction protocol failed.' };
   }
 };
 

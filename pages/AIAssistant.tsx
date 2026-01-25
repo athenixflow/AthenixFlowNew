@@ -1,4 +1,5 @@
 
+// Add React to the import list to fix "Cannot find namespace 'React'" error.
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, TradeAnalysis, AnalysisFeedback } from '../types';
 import { analyzeMarket } from '../services/backend';
@@ -105,75 +106,23 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
 
     try {
       const type = marketType === 'forex' ? 'forex' : 'stock';
-      let searchSymbol = selected.symbol;
-      
-      // Prepare symbol for API
-      // If Forex and using a source=USD API, we might need to strip USD to get the quote
-      if (type === 'forex') {
-        if (selected.symbol.endsWith('USD')) searchSymbol = selected.symbol.replace('USD', '');
-        else if (selected.symbol.startsWith('USD')) searchSymbol = selected.symbol.replace('USD', '');
-      }
+      const data = await getMarketData(type, selected.symbol);
 
-      const data = await getMarketData(type, searchSymbol);
-
-      if (data) {
-        if (data.error) {
-          setError(`Market Data Error: ${typeof data.error === 'object' ? JSON.stringify(data.error) : data.error}`);
-        } else {
-            // Handle Timestamp
-            if (data.timestamp) {
-              const date = new Date(data.timestamp * 1000);
-              setPriceTimestamp(date.toLocaleTimeString());
-            } else if (data.date) {
-              setPriceTimestamp(new Date(data.date).toLocaleDateString());
-            } else {
+      if (data && !data.error) {
+          if (type === 'stock' && data.data && data.data.length > 0) {
+            setCurrentPrice(data.data[0].close);
+            setPriceTimestamp(new Date().toLocaleTimeString());
+          } else if (type === 'forex') {
+            const quoteKey = `USD${selected.symbol.replace('USD', '')}`;
+            const rate = data.quotes?.[quoteKey] || data.rates?.[selected.symbol.replace('USD', '')];
+            if (rate) {
+              setCurrentPrice(selected.symbol.endsWith('USD') ? 1/rate : rate);
               setPriceTimestamp(new Date().toLocaleTimeString());
             }
-
-            // Handle Price Extraction logic for USD-based source
-            if (type === 'forex') {
-              const quoteKey = `USD${searchSymbol}`;
-              // API returns USD -> XXX. 
-              // If we want XXX -> USD (e.g. EURUSD), we need 1 / rate.
-              // If we want USD -> XXX (e.g. USDJPY), we need rate.
-              
-              let rate: number | null = null;
-              
-              // Try to find the rate in response
-              if (data.quotes && data.quotes[quoteKey]) rate = data.quotes[quoteKey];
-              else if (data.rates && data.rates[searchSymbol]) rate = data.rates[searchSymbol];
-
-              if (rate !== null) {
-                 if (selected.symbol.endsWith('USD')) {
-                   // e.g. EURUSD, GBPUSD, XAUUSD. We fetched USDEUR. We want EURUSD.
-                   setCurrentPrice(1 / rate);
-                 } else {
-                   // e.g. USDJPY. We fetched USDJPY. We want USDJPY.
-                   setCurrentPrice(rate);
-                 }
-              } else {
-                 // Try exact match (for crosses if supported)
-                 if (data.quotes && data.quotes[selected.symbol]) {
-                     setCurrentPrice(data.quotes[selected.symbol]);
-                 } else {
-                     // Fallback/Error - Proceeding without live price visual but passing symbol to AI
-                     console.warn(`Could not extract price for ${selected.symbol}`);
-                 }
-              }
-            } else if (type === 'stock') {
-               if (data.data && data.data.length > 0) {
-                  setCurrentPrice(data.data[0].close);
-               } else {
-                  setError("Stock data unavailable from provider.");
-               }
-            }
-        }
-      } else {
-        setError("Failed to reach market data service.");
+          }
       }
     } catch (err: any) {
-      console.error("Failed to fetch price", err);
-      setError(`System Error: ${err.message}`);
+      console.warn("Athenix: Market price sync failed.");
     } finally {
       setIsPriceLoading(false);
     }
@@ -193,8 +142,14 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
     const response = await analyzeMarket(user.uid, symbol, timeframe, fundamentalToggle, marketType);
 
     if (response.status === 'success') {
-      setAnalysis(response.data);
-      loadHistory();
+      const newAnalysis = response.data;
+      setAnalysis(newAnalysis);
+      // POPULATE IMMEDIATELY: Prepend to history for real-time feedback
+      setHistory(prev => [newAnalysis, ...prev]);
+      // Optional: Auto-expand the history entry after a short delay
+      setTimeout(() => {
+        setExpandedHistoryId(newAnalysis.id);
+      }, 500);
     } else {
       setError(response.message);
     }
@@ -312,7 +267,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
 
       <div className="pt-6 border-t border-brand-sage/10 flex justify-between items-center text-[8px] text-brand-muted uppercase font-bold tracking-widest opacity-50">
           <span>Engine: {data.meta?.analysis_engine_version || 'v5.0'}</span>
-          <span>Generated: {data.timestamp ? new Date(data.timestamp).toLocaleString() : new Date().toLocaleTimeString()}</span>
+          <span>Generated: {data.timestamp ? (typeof data.timestamp === 'string' ? new Date(data.timestamp).toLocaleString() : 'Recent') : new Date().toLocaleTimeString()}</span>
       </div>
     </div>
   );
@@ -475,7 +430,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                 onClick={handleGenerate}
                 className="btn-primary w-full py-5 font-black text-xs rounded-xl shadow-xl uppercase tracking-[0.2em] mt-4 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform"
               >
-                {isAnalyzing ? 'Processing...' : 'Generate Analysis'}
+                {isAnalyzing ? 'Synthesizing Analysis...' : 'Generate Analysis'}
               </button>
             </div>
           </div>
@@ -491,8 +446,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
               <div className="flex-1 flex flex-col items-center justify-center space-y-6">
                 <div className="w-16 h-16 border-4 border-brand-sage border-t-brand-gold rounded-full animate-spin"></div>
                 <div className="text-center space-y-2">
-                   <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Processing Neural Node...</p>
-                   <p className="text-[9px] font-medium text-brand-sage uppercase tracking-widest">Scanning Liquidity Pools</p>
+                   <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Querying Neural Nodes...</p>
+                   <p className="text-[9px] font-medium text-brand-sage uppercase tracking-widest">Scanning Liquidity & Structural Shifts</p>
                 </div>
               </div>
             ) : (
@@ -503,23 +458,34 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                   </svg>
                 </div>
                 <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] max-w-xs mx-auto">
-                  Configure parameters and initialize neural analysis to populate terminal output.
+                  Initialize neural analysis to populate the terminal output and history ledger.
                 </p>
               </div>
             )}
           </div>
 
           <div className="athenix-card p-8 bg-brand-sage/5 space-y-6">
-            <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Analysis History</h3>
+            <div className="flex justify-between items-center border-b border-brand-sage/10 pb-4">
+              <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Analysis History Ledger</h3>
+              <button 
+                onClick={loadHistory}
+                className="text-[9px] font-black text-brand-gold uppercase tracking-widest hover:underline flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 ${historyLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Sync
+              </button>
+            </div>
             
-            {historyLoading ? (
-              <div className="text-center p-8 text-[10px] font-black uppercase text-brand-muted tracking-widest">Syncing History...</div>
+            {historyLoading && history.length === 0 ? (
+              <div className="text-center p-8 text-[10px] font-black uppercase text-brand-muted tracking-widest">Accessing Node Network...</div>
             ) : history.length === 0 ? (
-              <div className="text-center p-8 text-[10px] font-black uppercase text-brand-muted tracking-widest border border-dashed border-brand-sage/30 rounded-xl">No previous analysis data found.</div>
+              <div className="text-center p-8 text-[10px] font-black uppercase text-brand-muted tracking-widest border border-dashed border-brand-sage/30 rounded-xl">No previous neural scans committed to ledger.</div>
             ) : (
               <div className="space-y-4">
                 {history.map((item) => (
-                  <div key={item.id} className="bg-white rounded-xl border border-brand-sage/20 overflow-hidden">
+                  <div key={item.id} className="bg-white rounded-xl border border-brand-sage/20 overflow-hidden shadow-sm hover:border-brand-gold/30 transition-all">
                     <div 
                       className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer hover:bg-brand-sage/5 transition-colors"
                       onClick={() => setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id as string)}
@@ -527,15 +493,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                       <div className="flex items-center gap-4">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-[9px] font-black text-white uppercase ${
                           item.final_decision === 'trade' 
-                            ? (item.signal?.direction === 'buy' ? 'bg-brand-success' : 'bg-brand-error') 
-                            : 'bg-brand-muted'
+                            ? (item.signal?.direction === 'buy' ? 'bg-brand-success shadow-lg shadow-brand-success/20' : 'bg-brand-error shadow-lg shadow-brand-error/20') 
+                            : 'bg-brand-muted/40'
                         }`}>
-                          {item.final_decision === 'trade' ? item.signal?.direction : 'NO'}
+                          {item.final_decision === 'trade' ? item.signal?.direction : 'NONE'}
                         </div>
                         <div>
                           <p className="text-sm font-black text-brand-charcoal uppercase">{item.instrument}</p>
                           <p className="text-[9px] text-brand-muted font-bold uppercase tracking-widest">
-                             {item.execution_timeframe} • {item.timestamp ? new Date(item.timestamp).toLocaleDateString() : 'Recent'}
+                             {item.execution_timeframe} • {item.timestamp ? (typeof item.timestamp === 'string' ? new Date(item.timestamp).toLocaleDateString() : 'Recent') : 'Syncing...'}
                           </p>
                         </div>
                       </div>
@@ -548,14 +514,14 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                              item.feedback.outcome === 'BE' ? 'bg-brand-gold/10 text-brand-gold' :
                              'bg-brand-sage/10 text-brand-muted'
                            }`}>
-                             Outcome: {item.feedback.outcome}
+                             Result: {item.feedback.outcome}
                            </div>
                         ) : (
-                           <span className="text-[8px] font-bold text-brand-muted uppercase tracking-widest opacity-50">Pending Outcome</span>
+                           <span className="text-[8px] font-bold text-brand-muted uppercase tracking-widest opacity-50 px-2">Unreported</span>
                         )}
                         <svg 
                           xmlns="http://www.w3.org/2000/svg" 
-                          className={`w-4 h-4 text-brand-muted transition-transform ${expandedHistoryId === item.id ? 'rotate-180' : ''}`} 
+                          className={`w-4 h-4 text-brand-muted transition-transform ${expandedHistoryId === item.id ? 'rotate-180 text-brand-gold' : ''}`} 
                           fill="none" viewBox="0 0 24 24" stroke="currentColor"
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -564,7 +530,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                     </div>
 
                     {expandedHistoryId === item.id && (
-                      <div className="border-t border-brand-sage/10">
+                      <div className="border-t border-brand-sage/10 animate-fade-in">
                         <div className="p-6 bg-brand-sage/5">
                           <AnalysisDetailView data={item} isHistory={true} />
                         </div>
@@ -572,30 +538,30 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                         {!item.feedback && (
                           <div className="p-6 border-t border-brand-sage/10 bg-white">
                             {activeFeedbackId === item.id ? (
-                              <div className="space-y-4">
+                              <div className="space-y-4 animate-slide-up">
                                 <div className="flex justify-between items-center">
-                                   <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Report Trade Outcome</p>
+                                   <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Commit Outcome To Ledger</p>
                                    <button onClick={() => setActiveFeedbackId(null)} className="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-charcoal">Cancel</button>
                                 </div>
                                 <textarea
                                   value={feedbackComment}
                                   onChange={(e) => setFeedbackComment(e.target.value)}
-                                  placeholder="Optional context (e.g. 'News event caused reversal')"
-                                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-xs outline-none focus:border-brand-gold min-h-[80px]"
+                                  placeholder="Contextual notes (e.g. Fundamental reversal, High impact news shift)"
+                                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-xs outline-none focus:border-brand-gold min-h-[80px] resize-none"
                                 />
                                 <div className="grid grid-cols-4 gap-2">
-                                  <button onClick={() => submitFeedback(item.id!, 'TP')} className="py-3 bg-brand-success/10 text-brand-success rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-success hover:text-white transition-colors">TP</button>
-                                  <button onClick={() => submitFeedback(item.id!, 'SL')} className="py-3 bg-brand-error/10 text-brand-error rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-error hover:text-white transition-colors">SL</button>
-                                  <button onClick={() => submitFeedback(item.id!, 'BE')} className="py-3 bg-brand-gold/10 text-brand-gold rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-gold hover:text-white transition-colors">BE</button>
-                                  <button onClick={() => submitFeedback(item.id!, 'IGNORED')} className="py-3 bg-brand-sage/10 text-brand-muted rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-muted hover:text-white transition-colors">Skip</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'TP')} className="py-3 bg-brand-success text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">TP</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'SL')} className="py-3 bg-brand-error text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">SL</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'BE')} className="py-3 bg-brand-gold text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">BE</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'IGNORED')} className="py-3 bg-brand-muted text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">Skip</button>
                                 </div>
                               </div>
                             ) : (
                               <button 
                                 onClick={() => setActiveFeedbackId(item.id as string)}
-                                className="w-full py-3 border border-brand-sage text-brand-muted rounded-xl text-[9px] font-black uppercase tracking-widest hover:border-brand-gold hover:text-brand-gold transition-colors"
+                                className="w-full py-4 border border-brand-sage text-brand-muted rounded-xl text-[9px] font-black uppercase tracking-widest hover:border-brand-gold hover:text-brand-gold transition-all"
                               >
-                                Log Trade Result
+                                Log Final Trade Outcome
                               </button>
                             )}
                           </div>
@@ -603,8 +569,10 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                         
                         {item.feedback && item.feedback.comment && (
                           <div className="p-6 border-t border-brand-sage/10 bg-white">
-                             <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1">Your Context Notes</p>
-                             <p className="text-xs text-brand-charcoal italic">"{item.feedback.comment}"</p>
+                             <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-2">Historical Context Notes</p>
+                             <div className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10">
+                                <p className="text-xs text-brand-charcoal italic leading-relaxed">"{item.feedback.comment}"</p>
+                             </div>
                           </div>
                         )}
                       </div>
