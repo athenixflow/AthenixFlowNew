@@ -4,7 +4,7 @@ import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse } from './geminiService';
 import { getMarketData } from './marketData';
 import { SubscriptionPlan, UserProfile, UserRole } from '../types';
-import { saveAnalysisToHistory } from './firestore';
+import { saveAnalysisToHistory, saveEducationInteraction } from './firestore';
 
 export interface BackendResponse<T = any> {
   message: string;
@@ -103,7 +103,18 @@ export const getAILessonContent = async (userId: string, question: string, conte
     if (!userSnap.exists()) return { status: 'error', message: 'User not found' };
     const user = userSnap.data() as UserProfile;
     if (user.educationTokens < 1) return { status: 'error', message: 'Insufficient education tokens.' };
+    
     const result = await getEducationResponse(question, context);
+    
+    // Save to history
+    await saveEducationInteraction({
+      userId,
+      question,
+      answer: result,
+      context: context || 'Direct Query',
+      timestamp: new Date().toISOString() // Will be overwritten by serverTimestamp in firestore fn
+    });
+    
     await updateDoc(userRef, { educationTokens: increment(-1) });
     return { status: 'success', message: 'Lesson generated', data: result };
   } catch (error: any) {

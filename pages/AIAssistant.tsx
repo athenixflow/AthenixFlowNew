@@ -201,9 +201,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
     setIsAnalyzing(false);
   };
 
-  const submitFeedback = async (analysisId: string, status: 'successful' | 'not_successful') => {
+  const submitFeedback = async (analysisId: string, outcome: 'TP' | 'SL' | 'BE' | 'IGNORED') => {
     const feedback: AnalysisFeedback = {
-      status,
+      outcome,
       comment: feedbackComment,
       timestamp: new Date().toISOString()
     };
@@ -543,12 +543,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                       <div className="flex items-center gap-4">
                         {item.feedback ? (
                            <div className={`px-3 py-1 rounded text-[8px] font-black uppercase tracking-widest ${
-                             item.feedback.status === 'successful' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-error/10 text-brand-error'
+                             item.feedback.outcome === 'TP' ? 'bg-brand-success/10 text-brand-success' :
+                             item.feedback.outcome === 'SL' ? 'bg-brand-error/10 text-brand-error' :
+                             item.feedback.outcome === 'BE' ? 'bg-brand-gold/10 text-brand-gold' :
+                             'bg-brand-sage/10 text-brand-muted'
                            }`}>
-                             Feedback: {item.feedback.status === 'successful' ? 'Success' : 'Failed'}
+                             Outcome: {item.feedback.outcome}
                            </div>
                         ) : (
-                           <span className="text-[8px] font-bold text-brand-muted uppercase tracking-widest opacity-50">Pending Feedback</span>
+                           <span className="text-[8px] font-bold text-brand-muted uppercase tracking-widest opacity-50">Pending Outcome</span>
                         )}
                         <svg 
                           xmlns="http://www.w3.org/2000/svg" 
@@ -570,17 +573,21 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                           <div className="p-6 border-t border-brand-sage/10 bg-white">
                             {activeFeedbackId === item.id ? (
                               <div className="space-y-4">
-                                <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Provide Outcome Feedback</p>
+                                <div className="flex justify-between items-center">
+                                   <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Report Trade Outcome</p>
+                                   <button onClick={() => setActiveFeedbackId(null)} className="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-charcoal">Cancel</button>
+                                </div>
                                 <textarea
                                   value={feedbackComment}
                                   onChange={(e) => setFeedbackComment(e.target.value)}
-                                  placeholder="Optional comment on result..."
-                                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-xs outline-none focus:border-brand-gold"
+                                  placeholder="Optional context (e.g. 'News event caused reversal')"
+                                  className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-xs outline-none focus:border-brand-gold min-h-[80px]"
                                 />
-                                <div className="flex gap-2">
-                                  <button onClick={() => submitFeedback(item.id!, 'successful')} className="flex-1 py-3 bg-brand-success/10 text-brand-success rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-success hover:text-white transition-colors">Successful</button>
-                                  <button onClick={() => submitFeedback(item.id!, 'not_successful')} className="flex-1 py-3 bg-brand-error/10 text-brand-error rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-error hover:text-white transition-colors">Failed</button>
-                                  <button onClick={() => setActiveFeedbackId(null)} className="px-4 py-3 text-[9px] font-black uppercase tracking-widest text-brand-muted">Cancel</button>
+                                <div className="grid grid-cols-4 gap-2">
+                                  <button onClick={() => submitFeedback(item.id!, 'TP')} className="py-3 bg-brand-success/10 text-brand-success rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-success hover:text-white transition-colors">TP</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'SL')} className="py-3 bg-brand-error/10 text-brand-error rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-error hover:text-white transition-colors">SL</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'BE')} className="py-3 bg-brand-gold/10 text-brand-gold rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-gold hover:text-white transition-colors">BE</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'IGNORED')} className="py-3 bg-brand-sage/10 text-brand-muted rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-muted hover:text-white transition-colors">Skip</button>
                                 </div>
                               </div>
                             ) : (
@@ -588,7 +595,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                                 onClick={() => setActiveFeedbackId(item.id as string)}
                                 className="w-full py-3 border border-brand-sage text-brand-muted rounded-xl text-[9px] font-black uppercase tracking-widest hover:border-brand-gold hover:text-brand-gold transition-colors"
                               >
-                                Rate Analysis Accuracy
+                                Log Trade Result
                               </button>
                             )}
                           </div>
@@ -596,7 +603,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                         
                         {item.feedback && item.feedback.comment && (
                           <div className="p-6 border-t border-brand-sage/10 bg-white">
-                             <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1">Your Notes</p>
+                             <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1">Your Context Notes</p>
                              <p className="text-xs text-brand-charcoal italic">"{item.feedback.comment}"</p>
                           </div>
                         )}

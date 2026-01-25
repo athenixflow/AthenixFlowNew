@@ -1,7 +1,7 @@
 
 import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc } from "firebase/firestore";
 import { firestore } from "../firebase";
-import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback } from "../types";
+import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction } from "../types";
 
 export const initializeUserDocument = async (uid: string, data: { fullName: string; email: string }) => {
   try {
@@ -33,24 +33,56 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 };
 
 export const getActiveSignals = async (): Promise<TradingSignal[]> => {
-  const q = query(collection(firestore, "signals"), orderBy("timestamp", "desc"), limit(30));
-  const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TradingSignal));
+  try {
+    // Fetch all signals without server-side ordering/limit to avoid index issues
+    const q = query(collection(firestore, "signals"));
+    const snap = await getDocs(q);
+    
+    const signals = snap.docs.map(doc => {
+      const data = doc.data();
+      // Handle timestamp normalization
+      let ts = new Date().toISOString();
+      if (data.timestamp && typeof data.timestamp.toDate === 'function') {
+        ts = data.timestamp.toDate().toISOString();
+      } else if (data.timestamp) {
+        ts = new Date(data.timestamp).toISOString();
+      }
+
+      return { 
+        id: doc.id, 
+        ...data,
+        // Map legacy 'pair' to 'instrument' if needed
+        instrument: data.instrument || data.pair || 'Unknown',
+        timestamp: ts
+      } as TradingSignal;
+    });
+
+    // Client-side sort: Newest first
+    return signals.sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return timeB - timeA;
+    });
+  } catch (error) {
+    console.error("Error fetching signals:", error);
+    return [];
+  }
 };
 
 // --- JOURNAL SERVICES ---
 
 export const getJournalEntries = async (userId: string): Promise<JournalEntry[]> => {
   try {
+    // Query without orderBy to prevent "Missing Index" errors which block data from showing
+    // We filter strictly by userId to ensure user specificity
     const q = query(
       collection(firestore, "tradeJournal"), 
-      where("userId", "==", userId), 
-      orderBy("createdAt", "desc")
+      where("userId", "==", userId)
     );
     
     const snap = await getDocs(q);
     
-    return snap.docs.map(doc => {
+    const entries = snap.docs.map(doc => {
       const data = doc.data();
       let createdDate = new Date().toISOString();
       if (data.createdAt && typeof data.createdAt.toDate === 'function') {
@@ -75,6 +107,13 @@ export const getJournalEntries = async (userId: string): Promise<JournalEntry[]>
         
         createdAt: createdDate
       } as JournalEntry;
+    });
+
+    // Client-side sort: Newest first
+    return entries.sort((a, b) => {
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return timeB - timeA;
     });
   } catch (error) {
     console.error("Error fetching journal entries:", error);
@@ -129,18 +168,27 @@ export const saveAnalysisToHistory = async (analysis: TradeAnalysis) => {
 
 export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnalysis[]> => {
   try {
+    // Query without orderBy to prevent "Missing Index" errors which block data from showing
+    // We filter strictly by userId to ensure user specificity
     const q = query(
       collection(firestore, "analysisHistory"),
-      where("userId", "==", userId),
-      orderBy("timestamp", "desc"),
-      limit(50)
+      where("userId", "==", userId)
     );
+    
     const snap = await getDocs(q);
     
-    return snap.docs.map(doc => {
+    const analyses = snap.docs.map(doc => {
       const data = doc.data();
-      let ts = new Date().toISOString();
-      if (data.timestamp?.toDate) ts = data.timestamp.toDate().toISOString();
+      let ts = new Date().toISOString(); // Default fallback
+      
+      // Robust timestamp handling for mixed serverTimestamp/string data
+      if (data.timestamp && typeof data.timestamp.toDate === 'function') {
+        ts = data.timestamp.toDate().toISOString();
+      } else if (data.timestamp && typeof data.timestamp === 'string') {
+        ts = data.timestamp;
+      } else if (data.timestamp && typeof data.timestamp === 'number') {
+        ts = new Date(data.timestamp).toISOString();
+      }
       
       return {
         id: doc.id,
@@ -148,6 +196,14 @@ export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnaly
         timestamp: ts
       } as TradeAnalysis;
     });
+
+    // Client-side sort: Newest first
+    return analyses.sort((a, b) => {
+      const timeA = new Date(a.timestamp || 0).getTime();
+      const timeB = new Date(b.timestamp || 0).getTime();
+      return timeB - timeA;
+    });
+
   } catch (e) {
     console.error("Failed to fetch analysis history:", e);
     return [];
@@ -164,12 +220,55 @@ export const submitAnalysisFeedback = async (analysisId: string, feedback: Analy
   }
 };
 
-// --- EDUCATION & ADMIN ---
+// --- EDUCATION SERVICES ---
 
 export const getEducationLessons = async (): Promise<Lesson[]> => {
   const snap = await getDocs(collection(firestore, "educationContent"));
   return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lesson));
 };
+
+export const saveEducationInteraction = async (interaction: EducationInteraction) => {
+    try {
+        const docRef = await addDoc(collection(firestore, "educationHistory"), {
+            ...interaction,
+            timestamp: serverTimestamp()
+        });
+        return docRef.id;
+    } catch (e) {
+        console.error("Failed to save education history", e);
+        return null;
+    }
+}
+
+export const getUserEducationHistory = async (userId: string): Promise<EducationInteraction[]> => {
+    try {
+        const q = query(
+          collection(firestore, "educationHistory"), 
+          where("userId", "==", userId)
+        );
+        
+        const snap = await getDocs(q);
+        
+        const history = snap.docs.map(doc => {
+             const data = doc.data();
+             let ts = new Date().toISOString();
+             if (data.timestamp && typeof data.timestamp.toDate === 'function') {
+                ts = data.timestamp.toDate().toISOString();
+             } else if (data.timestamp) {
+                ts = new Date(data.timestamp).toISOString();
+             }
+             return { id: doc.id, ...data, timestamp: ts } as EducationInteraction;
+        });
+        
+        // Client side sort: Newest first
+        return history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    } catch (e) {
+        console.error("Failed to fetch education history", e);
+        return [];
+    }
+}
+
+// --- ADMIN & SYSTEM ---
 
 export const getAllUsers = async (): Promise<UserProfile[]> => {
   const snap = await getDocs(collection(firestore, "users"));

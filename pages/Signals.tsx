@@ -52,10 +52,10 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
                     {signal.direction}
                   </div>
                   <div>
-                    <h4 className="text-2xl font-black text-brand-charcoal tracking-tighter uppercase">{signal.pair}</h4>
+                    <h4 className="text-2xl font-black text-brand-charcoal tracking-tighter uppercase">{signal.instrument}</h4>
                     <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest flex items-center gap-2">
                       <span className="w-1.5 h-1.5 bg-brand-gold rounded-full animate-pulse"></span>
-                      Verified Setup
+                      Verified • {signal.orderType || 'MARKET'}
                     </p>
                   </div>
                 </div>
@@ -75,10 +75,13 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
                   </div>
                 </div>
 
-                <div className="text-right border-t border-brand-sage/10 md:border-t-0 pt-4 md:pt-0">
-                  <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Author</p>
+                <div className="flex flex-col items-end justify-between border-t border-brand-sage/10 md:border-t-0 pt-4 md:pt-0 gap-2">
+                  <div className="text-right">
+                     <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Confidence</p>
+                     <p className="text-xl font-black text-brand-charcoal">{signal.confidence || 90}%</p>
+                  </div>
                   <div className="flex items-center justify-end gap-2">
-                    <span className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">{signal.author}</span>
+                    <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">{signal.author} • {new Date(signal.timestamp).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>

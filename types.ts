@@ -35,13 +35,19 @@ export interface TokenTransaction {
 
 export interface TradingSignal {
   id: string;
-  pair: string;
+  instrument: string; // standardized from 'pair'
   direction: 'BUY' | 'SELL';
+  orderType: string;
   entry: string;
   stopLoss: string;
   takeProfit: string;
+  confidence: number;
   author: string;
+  authorId?: string;
   timestamp: string;
+  
+  // Optional legacy mapping
+  pair?: string; 
 }
 
 export interface JournalEntry {
@@ -72,8 +78,17 @@ export interface Lesson {
   updatedAt: string;
 }
 
+export interface EducationInteraction {
+  id?: string;
+  userId: string;
+  question: string;
+  answer: string;
+  context?: string;
+  timestamp: string;
+}
+
 export interface AnalysisFeedback {
-  status: 'successful' | 'not_successful';
+  outcome: 'TP' | 'SL' | 'BE' | 'IGNORED';
   comment?: string;
   timestamp: string;
 }

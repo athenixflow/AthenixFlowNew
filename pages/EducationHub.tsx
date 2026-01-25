@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
-import { getEducationLessons } from '../services/firestore';
+import { getEducationLessons, getUserEducationHistory } from '../services/firestore';
 import { getAILessonContent } from '../services/backend';
-import { Lesson, UserProfile } from '../types';
+import { Lesson, UserProfile, EducationInteraction } from '../types';
 
 interface EducationHubProps {
   user: UserProfile | null;
@@ -17,13 +18,20 @@ const EducationHub: React.FC<EducationHubProps> = ({ user, onNavigate }) => {
   const [isAsking, setIsAsking] = useState(false);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // History State
+  const [history, setHistory] = useState<EducationInteraction[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Expanded History Item State
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchLessons = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const data = await getEducationLessons();
-      // Ensure authority metadata is present for SEO
-      const enriched = data.map(l => ({
+      // Fetch Lessons
+      const lessonData = await getEducationLessons();
+      const enriched = lessonData.map(l => ({
         ...l,
         author: l.author || 'Athenix Neural Research',
         updatedAt: l.updatedAt || new Date().toISOString(),
@@ -31,14 +39,29 @@ const EducationHub: React.FC<EducationHubProps> = ({ user, onNavigate }) => {
       }));
       setLessons(enriched);
       
-      // Auto-select first lesson for SEO visibility if none selected
       if (enriched.length > 0 && !selectedLesson) {
         setSelectedLesson(enriched[0]);
       }
+      
       setLoading(false);
     };
-    fetchLessons();
+    fetchData();
   }, []);
+
+  // Separate effect for history to allow independent reloading
+  useEffect(() => {
+    if (user) {
+        loadHistory();
+    }
+  }, [user]);
+
+  const loadHistory = async () => {
+      if (!user) return;
+      setHistoryLoading(true);
+      const data = await getUserEducationHistory(user.uid);
+      setHistory(data);
+      setHistoryLoading(false);
+  }
 
   const handleAskMentor = async () => {
     if (!user || !question.trim()) {
@@ -59,15 +82,12 @@ const EducationHub: React.FC<EducationHubProps> = ({ user, onNavigate }) => {
     if (response.status === 'success') {
       setAiResponse(response.data);
       setQuestion('');
+      loadHistory(); // Refresh history to show new interaction
     } else {
       setError(response.message);
     }
     setIsAsking(false);
   };
-
-  const relatedLessons = lessons
-    .filter(l => l.id !== selectedLesson?.id)
-    .slice(0, 3);
 
   return (
     <div className="p-6 md:p-10 space-y-12 animate-fade-in max-w-7xl mx-auto pb-24">
@@ -169,6 +189,57 @@ const EducationHub: React.FC<EducationHubProps> = ({ user, onNavigate }) => {
               </div>
             </div>
           )}
+
+          {/* Personal Learning Log */}
+          {user && (
+            <div className="mt-16 space-y-6">
+               <div className="flex items-center justify-between border-b border-brand-sage/20 pb-4">
+                 <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Personal Learning Log</h3>
+                 <span className="text-[9px] font-bold text-brand-muted uppercase tracking-widest">
+                    {historyLoading ? 'Syncing...' : `${history.length} Interactions`}
+                 </span>
+               </div>
+               
+               {history.length === 0 ? (
+                 <div className="p-8 border border-dashed border-brand-sage/30 rounded-2xl text-center">
+                   <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest">No previous mentorship sessions recorded.</p>
+                 </div>
+               ) : (
+                 <div className="space-y-4">
+                    {history.map(item => (
+                       <div key={item.id} className="bg-white rounded-xl border border-brand-sage/20 overflow-hidden hover:border-brand-gold/30 transition-colors">
+                          <button 
+                            onClick={() => setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id as string)}
+                            className="w-full text-left p-6 flex justify-between items-start hover:bg-brand-sage/5 transition-colors"
+                          >
+                             <div className="space-y-1">
+                                <p className="text-[10px] font-black text-brand-gold uppercase tracking-widest">Q: {item.question}</p>
+                                <p className="text-[9px] text-brand-muted font-bold uppercase tracking-tight">
+                                   {new Date(item.timestamp).toLocaleDateString()} • {item.context || 'General Query'}
+                                </p>
+                             </div>
+                             <svg 
+                                xmlns="http://www.w3.org/2000/svg" 
+                                className={`w-4 h-4 text-brand-muted transition-transform ${expandedHistoryId === item.id ? 'rotate-180' : ''}`} 
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                             >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                             </svg>
+                          </button>
+                          
+                          {expandedHistoryId === item.id && (
+                             <div className="p-6 pt-0 border-t border-brand-sage/10 bg-brand-sage/5">
+                                <div className="mt-4 prose prose-sm max-w-none">
+                                   <p className="text-xs text-brand-charcoal leading-loose whitespace-pre-wrap font-medium">{item.answer}</p>
+                                </div>
+                             </div>
+                          )}
+                       </div>
+                    ))}
+                 </div>
+               )}
+            </div>
+          )}
         </main>
 
         {/* Sidebar: Library & AI Query */}
@@ -192,6 +263,7 @@ const EducationHub: React.FC<EducationHubProps> = ({ user, onNavigate }) => {
             >
               {isAsking ? 'Decoding Node...' : 'Analyze Concept'}
             </button>
+            {error && <p className="text-[9px] text-brand-error font-black uppercase tracking-wide">{error}</p>}
           </div>
 
           {/* Module Library Index */}

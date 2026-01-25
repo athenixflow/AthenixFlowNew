@@ -21,7 +21,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
 
   // Form states
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  
+  // Updated initial state for full signal creation support
   const [editingSignal, setEditingSignal] = useState<Partial<TradingSignal> | null>(null);
+  
   const [editingLesson, setEditingLesson] = useState<Partial<Lesson> | null>(null);
 
   const refreshData = async () => {
@@ -61,6 +64,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
   };
 
   const handleSignalAction = async (action: 'create' | 'update' | 'delete', data: any) => {
+    // Ensure authorId is attached for new signals
+    if (action === 'create' && user) {
+        data.authorId = user.uid;
+    }
     const res = await adminManageSignal(user.uid, action, data);
     setActionStatus(res.message);
     if (res.status === 'success') {
@@ -237,7 +244,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
       <div className="flex justify-between items-center">
         <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em]">Institutional Feed Management</h3>
         <button 
-          onClick={() => setEditingSignal({ pair: '', direction: 'BUY', entry: '', stopLoss: '', takeProfit: '', author: 'Athenix Admin' })}
+          onClick={() => setEditingSignal({ 
+            instrument: '', 
+            direction: 'BUY', 
+            orderType: 'MARKET',
+            entry: '', 
+            stopLoss: '', 
+            takeProfit: '', 
+            confidence: 90,
+            author: 'Athenix Admin' 
+          })}
           className="btn-primary px-6 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl"
         >
           Inject New Vector
@@ -248,9 +264,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         {signals.map(s => (
           <div key={s.id} className="athenix-card p-6 flex justify-between items-center group">
             <div>
-              <p className="text-xl font-black text-brand-charcoal uppercase tracking-tighter">{s.pair}</p>
-              <p className={`text-[9px] font-black uppercase tracking-widest ${s.direction === 'BUY' ? 'text-brand-success' : 'text-brand-error'}`}>{s.direction}</p>
-              <p className="text-[8px] text-brand-muted font-bold mt-1">ENTRY: {s.entry}</p>
+              <p className="text-xl font-black text-brand-charcoal uppercase tracking-tighter">{s.instrument}</p>
+              <p className={`text-[9px] font-black uppercase tracking-widest ${s.direction === 'BUY' ? 'text-brand-success' : 'text-brand-error'}`}>{s.direction} • {s.orderType || 'MARKET'}</p>
+              <p className="text-[8px] text-brand-muted font-bold mt-1">ENTRY: {s.entry} • CONF: {s.confidence}%</p>
             </div>
             <div className="flex flex-col gap-2">
               <button onClick={() => setEditingSignal(s)} className="text-[9px] font-black text-brand-gold uppercase tracking-widest hover:underline">Edit</button>
@@ -264,17 +280,52 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user }) => {
         <div className="fixed inset-0 z-[100] bg-brand-charcoal/40 backdrop-blur-sm flex items-center justify-center p-6">
           <div className="athenix-card p-10 max-w-xl w-full space-y-6 animate-slide-up">
             <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">{editingSignal.id ? 'Edit Vector' : 'New Vector'}</h3>
+            
             <div className="grid grid-cols-2 gap-4">
-              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="PAIR" value={editingSignal.pair} onChange={e => setEditingSignal({...editingSignal, pair: e.target.value})} />
-              <select className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" value={editingSignal.direction} onChange={e => setEditingSignal({...editingSignal, direction: e.target.value as 'BUY' | 'SELL'})}>
-                <option value="BUY">BUY</option>
-                <option value="SELL">SELL</option>
-              </select>
-              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="ENTRY" value={editingSignal.entry} onChange={e => setEditingSignal({...editingSignal, entry: e.target.value})} />
-              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="STOP LOSS" value={editingSignal.stopLoss} onChange={e => setEditingSignal({...editingSignal, stopLoss: e.target.value})} />
-              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="TAKE PROFIT" value={editingSignal.takeProfit} onChange={e => setEditingSignal({...editingSignal, takeProfit: e.target.value})} />
-              <input className="p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="AUTHOR" value={editingSignal.author} onChange={e => setEditingSignal({...editingSignal, author: e.target.value})} />
+              <div className="space-y-1">
+                 <label className="text-[8px] font-black text-brand-muted uppercase tracking-widest">Instrument</label>
+                 <input className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="EURUSD" value={editingSignal.instrument || editingSignal.pair} onChange={e => setEditingSignal({...editingSignal, instrument: e.target.value})} />
+              </div>
+
+              <div className="space-y-1">
+                 <label className="text-[8px] font-black text-brand-muted uppercase tracking-widest">Direction</label>
+                 <select className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" value={editingSignal.direction} onChange={e => setEditingSignal({...editingSignal, direction: e.target.value as 'BUY' | 'SELL'})}>
+                    <option value="BUY">BUY</option>
+                    <option value="SELL">SELL</option>
+                 </select>
+              </div>
+
+              <div className="space-y-1">
+                 <label className="text-[8px] font-black text-brand-muted uppercase tracking-widest">Order Type</label>
+                 <input className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="MARKET" value={editingSignal.orderType} onChange={e => setEditingSignal({...editingSignal, orderType: e.target.value})} />
+              </div>
+
+              <div className="space-y-1">
+                 <label className="text-[8px] font-black text-brand-muted uppercase tracking-widest">Entry</label>
+                 <input className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="1.0500" value={editingSignal.entry} onChange={e => setEditingSignal({...editingSignal, entry: e.target.value})} />
+              </div>
+
+              <div className="space-y-1">
+                 <label className="text-[8px] font-black text-brand-muted uppercase tracking-widest">Stop Loss</label>
+                 <input className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="1.0450" value={editingSignal.stopLoss} onChange={e => setEditingSignal({...editingSignal, stopLoss: e.target.value})} />
+              </div>
+
+              <div className="space-y-1">
+                 <label className="text-[8px] font-black text-brand-muted uppercase tracking-widest">Take Profit</label>
+                 <input className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="1.0600" value={editingSignal.takeProfit} onChange={e => setEditingSignal({...editingSignal, takeProfit: e.target.value})} />
+              </div>
+
+              <div className="space-y-1">
+                 <label className="text-[8px] font-black text-brand-muted uppercase tracking-widest">Confidence %</label>
+                 <input type="number" className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="90" value={editingSignal.confidence} onChange={e => setEditingSignal({...editingSignal, confidence: parseInt(e.target.value)})} />
+              </div>
+
+              <div className="space-y-1">
+                 <label className="text-[8px] font-black text-brand-muted uppercase tracking-widest">Author</label>
+                 <input className="w-full p-4 bg-brand-sage/5 border border-brand-sage rounded-xl text-[10px] font-bold outline-none" placeholder="Admin Name" value={editingSignal.author} onChange={e => setEditingSignal({...editingSignal, author: e.target.value})} />
+              </div>
             </div>
+
             <div className="flex gap-4">
               <button onClick={() => setEditingSignal(null)} className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest border border-brand-sage rounded-xl">Cancel</button>
               <button onClick={() => handleSignalAction(editingSignal.id ? 'update' : 'create', editingSignal)} className="flex-1 py-4 text-[9px] font-black uppercase tracking-widest bg-brand-gold text-white rounded-xl">Commit Vector</button>
