@@ -28,11 +28,8 @@ service cloud.firestore {
     // --- 2. USERS COLLECTION ---
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      
-      // Allow initial creation of the user document
       allow create: if isOwner(userId);
-      
-      // Allow update if Admin OR if Owner (restricted on role/plan/status/ID, but allowed for tokens)
+      // Allow update if Admin OR if Owner (restricting sensitive fields like role/plan)
       allow update: if isAdmin() || (isOwner(userId) && 
         !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['role', 'subscriptionPlan', 'subscriptionStatus', 'uid', 'email']));
@@ -46,9 +43,7 @@ service cloud.firestore {
 
     // --- 4. TRADE JOURNAL ---
     match /tradeJournal/{entryId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid) && (request.resource == null || request.resource.data.userId == request.auth.uid);
     }
 
     // --- 5. EDUCATION CONTENT ---
@@ -59,22 +54,25 @@ service cloud.firestore {
 
     // --- 6. ANALYSIS HISTORY ---
     match /analysisHistory/{analysisId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Allow reading if the user is the owner
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
+      // Allow creation if the userId in the data matches the authenticated user
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Allow feedback updates for the owner
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid 
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['feedback']);
     }
 
     // --- 7. EDUCATION HISTORY ---
     match /educationHistory/{historyId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
 
     // --- 8. TOKEN LEDGERS ---
     match /tokenTransactions/{txId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow write: if false; // Only server/cloud function
+      allow write: if false;
     }
 
     // --- 9. FEEDBACK ---
@@ -87,10 +85,6 @@ service cloud.firestore {
     match /systemConfig/{configId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
-    }
-
-    match /adminSettings/{settingId} {
-      allow read, write: if isAdmin();
     }
   }
 }

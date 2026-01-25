@@ -1,4 +1,3 @@
-
 import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc } from "firebase/firestore";
 import { firestore } from "../firebase";
 import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction } from "../types";
@@ -34,13 +33,11 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 
 export const getActiveSignals = async (): Promise<TradingSignal[]> => {
   try {
-    // Fetch all signals without server-side ordering/limit to avoid index issues
     const q = query(collection(firestore, "signals"));
     const snap = await getDocs(q);
     
     const signals = snap.docs.map(doc => {
       const data = doc.data();
-      // Handle timestamp normalization
       let ts = new Date().toISOString();
       if (data.timestamp && typeof data.timestamp.toDate === 'function') {
         ts = data.timestamp.toDate().toISOString();
@@ -51,13 +48,11 @@ export const getActiveSignals = async (): Promise<TradingSignal[]> => {
       return { 
         id: doc.id, 
         ...data,
-        // Map legacy 'pair' to 'instrument' if needed
         instrument: data.instrument || data.pair || 'Unknown',
         timestamp: ts
       } as TradingSignal;
     });
 
-    // Client-side sort: Newest first
     return signals.sort((a, b) => {
       const timeA = new Date(a.timestamp).getTime();
       const timeB = new Date(b.timestamp).getTime();
@@ -73,8 +68,6 @@ export const getActiveSignals = async (): Promise<TradingSignal[]> => {
 
 export const getJournalEntries = async (userId: string): Promise<JournalEntry[]> => {
   try {
-    // Query without orderBy to prevent "Missing Index" errors which block data from showing
-    // We filter strictly by userId to ensure user specificity
     const q = query(
       collection(firestore, "tradeJournal"), 
       where("userId", "==", userId)
@@ -97,19 +90,15 @@ export const getJournalEntries = async (userId: string): Promise<JournalEntry[]>
         title: data.title || 'Untitled',
         market: data.market || '',
         notes: data.notes || '',
-        
-        // New Fields
         direction: data.direction || 'BUY',
         entryPrice: data.entryPrice || '',
         stopLoss: data.stopLoss || '',
         takeProfit: data.takeProfit || '',
         outcome: data.outcome || 'open',
-        
         createdAt: createdDate
       } as JournalEntry;
     });
 
-    // Client-side sort: Newest first
     return entries.sort((a, b) => {
       const timeA = new Date(a.createdAt).getTime();
       const timeB = new Date(b.createdAt).getTime();
@@ -130,14 +119,11 @@ export const addJournalEntry = async (userId: string, entry: Partial<JournalEntr
       title: entry.title,
       market: entry.market || '',
       notes: entry.notes || '',
-      
-      // New Fields
       direction: entry.direction || 'BUY',
       entryPrice: entry.entryPrice || '',
       stopLoss: entry.stopLoss || '',
       takeProfit: entry.takeProfit || '',
       outcome: entry.outcome || 'open',
-      
       createdAt: serverTimestamp()
     });
 
@@ -152,24 +138,31 @@ export const addJournalEntry = async (userId: string, entry: Partial<JournalEntr
 
 export const saveAnalysisToHistory = async (analysis: TradeAnalysis) => {
   try {
-    if (!analysis.userId) return null;
+    if (!analysis.userId) {
+      console.warn("Athenix: userId missing from analysis object, save aborted.");
+      return null;
+    }
+    
+    console.debug(`Athenix: Committing analysis for userId: ${analysis.userId}`);
     
     const docRef = await addDoc(collection(firestore, "analysisHistory"), {
       ...analysis,
-      timestamp: serverTimestamp() // Overwrite with server time for accuracy
+      timestamp: serverTimestamp()
     });
     
     return docRef.id;
-  } catch (e) {
-    console.error("Failed to save analysis history:", e);
+  } catch (e: any) {
+    console.error("Athenix Persistence Error (AnalysisHistory):", e.message || e);
     return null;
   }
 };
 
 export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnalysis[]> => {
   try {
-    // Query without orderBy to prevent "Missing Index" errors which block data from showing
-    // We filter strictly by userId to ensure user specificity
+    if (!userId) return [];
+    
+    console.debug(`Athenix: Fetching history for userId: ${userId}`);
+    
     const q = query(
       collection(firestore, "analysisHistory"),
       where("userId", "==", userId)
@@ -179,9 +172,8 @@ export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnaly
     
     const analyses = snap.docs.map(doc => {
       const data = doc.data();
-      let ts = new Date().toISOString(); // Default fallback
+      let ts = new Date().toISOString();
       
-      // Robust timestamp handling for mixed serverTimestamp/string data
       if (data.timestamp && typeof data.timestamp.toDate === 'function') {
         ts = data.timestamp.toDate().toISOString();
       } else if (data.timestamp && typeof data.timestamp === 'string') {
@@ -197,15 +189,14 @@ export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnaly
       } as TradeAnalysis;
     });
 
-    // Client-side sort: Newest first
     return analyses.sort((a, b) => {
       const timeA = new Date(a.timestamp || 0).getTime();
       const timeB = new Date(b.timestamp || 0).getTime();
       return timeB - timeA;
     });
 
-  } catch (e) {
-    console.error("Failed to fetch analysis history:", e);
+  } catch (e: any) {
+    console.error("Athenix Retrieval Error (AnalysisHistory):", e.message || e);
     return [];
   }
 };
@@ -260,7 +251,6 @@ export const getUserEducationHistory = async (userId: string): Promise<Education
              return { id: doc.id, ...data, timestamp: ts } as EducationInteraction;
         });
         
-        // Client side sort: Newest first
         return history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     } catch (e) {
         console.error("Failed to fetch education history", e);
