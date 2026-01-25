@@ -15,9 +15,18 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Server configuration error: Currency API key not found." });
       }
 
+      // Symbol Normalization Layer
+      // API Layer expects comma-separated ISO codes (e.g., "EUR,USD") not combined pairs ("EURUSD")
+      let currencies = symbol;
+      if (symbol && symbol.length === 6 && !symbol.includes(',')) {
+        const base = symbol.substring(0, 3);
+        const quote = symbol.substring(3, 6);
+        currencies = `${base},${quote}`;
+      }
+
       // APILayer (Currencylayer / Currency Data API)
       // Documentation: https://apilayer.com/marketplace/currency_data-api
-      const url = `https://api.apilayer.com/currency_data/live?source=USD&currencies=${symbol}`;
+      const url = `https://api.apilayer.com/currency_data/live?source=USD&currencies=${currencies}`;
       
       // Use plain object for headers for maximum Node.js compatibility
       const requestOptions = {

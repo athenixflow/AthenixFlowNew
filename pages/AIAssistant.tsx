@@ -114,10 +114,35 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
             setPriceTimestamp(new Date().toLocaleTimeString());
           } else if (type === 'forex') {
             const quoteKey = `USD${selected.symbol.replace('USD', '')}`;
+            // API returns quotes relative to USD (Source).
+            // Try direct retrieval first (for pairs containing USD)
             const rate = data.quotes?.[quoteKey] || data.rates?.[selected.symbol.replace('USD', '')];
+            
             if (rate) {
               setCurrentPrice(selected.symbol.endsWith('USD') ? 1/rate : rate);
               setPriceTimestamp(new Date().toLocaleTimeString());
+            } else {
+              // Cross Rate Calculation Logic
+              // If direct quote isn't found (common for crosses like GBPJPY when source is USD),
+              // calculate it using the two USD pairs returned by the normalized API call.
+              if (selected.symbol.length === 6) {
+                const base = selected.symbol.substring(0, 3);
+                const quote = selected.symbol.substring(3, 6);
+                const baseKey = `USD${base}`;
+                const quoteKey = `USD${quote}`;
+                
+                const baseRate = data.quotes?.[baseKey];
+                const quoteRate = data.quotes?.[quoteKey];
+                
+                if (baseRate && quoteRate) {
+                    // USD/Base = baseRate  => 1 Base = (1/baseRate) USD
+                    // USD/Quote = quoteRate => 1 USD  = quoteRate Quote
+                    // 1 Base = (1/baseRate) * quoteRate Quote
+                    // Rate = quoteRate / baseRate
+                    setCurrentPrice(quoteRate / baseRate);
+                    setPriceTimestamp(new Date().toLocaleTimeString());
+                }
+              }
             }
           }
       }
