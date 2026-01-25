@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- HELPER FUNCTIONS ---
+    // --- HELPERS ---
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -13,7 +13,6 @@ service cloud.firestore {
 
     // --- USERS COLLECTION ---
     match /users/{userId} {
-      // Allow users to read and update their own profile (tokens, settings, etc.)
       allow read, write: if isOwner(userId);
     }
 
@@ -23,40 +22,36 @@ service cloud.firestore {
       allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
-    // --- ANALYSIS HISTORY ---
+    // --- ANALYSIS HISTORY (Fixed) ---
     match /analysisHistory/{analysisId} {
-      // Allow creation only if the user is assigning it to themselves
+      // Allow users to save their AI analysis results
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      
-      // Allow reading only own history
+      // Allow users to view only their own analysis history
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      
-      // Allow updating feedback field only
+      // Allow users to update feedback on their own analysis
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid 
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['feedback']);
     }
 
-    // --- EDUCATION HISTORY ---
+    // --- EDUCATION HISTORY (Fixed) ---
     match /educationHistory/{historyId} {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
-    // --- SIGNALS (Public/Admin) ---
+    // --- PUBLIC DATA (Read-only for Authenticated Users) ---
     match /signals/{signalId} {
-      // Any verified trader can see signals
       allow read: if isAuthenticated();
-      // Only Admin role can create/edit (handled via custom claims or admin field)
-      allow write: if false; 
+      allow write: if false; // Managed by Admin SDK or Admin Users only
     }
 
-    // --- EDUCATION CONTENT (Public/Admin) ---
     match /educationContent/{contentId} {
       allow read: if isAuthenticated();
       allow write: if false;
     }
 
     // --- GLOBAL DENY ---
+    // This catch-all ensures any collection not listed above is locked down.
     match /{document=**} {
       allow read, write: if false;
     }
