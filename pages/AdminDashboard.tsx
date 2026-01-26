@@ -294,6 +294,163 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     );
   };
 
+  const renderUsers = () => (
+    <div className="space-y-10 animate-fade-in">
+      <div className="flex justify-between items-end border-b border-gray-200 pb-6">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight">User Management</h2>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Manage Identities & Access</p>
+        </div>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm overflow-x-auto">
+        <table className="w-full text-left min-w-[800px]">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">User Identity</th>
+              <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">Plan Status</th>
+              <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">Tokens (A/E)</th>
+              <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">Account State</th>
+              <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {users.map(u => (
+              <tr key={u.uid} className="hover:bg-gray-50">
+                <td className="p-4">
+                  <p className="text-xs font-bold text-gray-900">{u.fullName}</p>
+                  <p className="text-[10px] text-gray-500 font-mono">{u.email}</p>
+                </td>
+                <td className="p-4">
+                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase ${
+                    u.subscriptionPlan === 'Elite' ? 'bg-brand-gold/10 text-brand-gold' : 
+                    u.subscriptionPlan === 'Pro' ? 'bg-brand-charcoal/10 text-brand-charcoal' : 
+                    'bg-gray-100 text-gray-500'
+                  }`}>
+                    {u.subscriptionPlan}
+                  </span>
+                </td>
+                <td className="p-4 text-xs font-mono font-medium">
+                  {u.analysisTokens} / {u.educationTokens}
+                </td>
+                <td className="p-4">
+                  <span className={`text-[9px] font-black uppercase ${u.accountStatus === 'suspended' ? 'text-red-600' : 'text-green-600'}`}>
+                    {u.accountStatus}
+                  </span>
+                </td>
+                <td className="p-4 text-right flex justify-end gap-2">
+                  <button onClick={() => { setSelectedUser(u); setActionType('edit'); }} className="px-3 py-1 border rounded text-[9px] font-bold uppercase hover:bg-gray-50">Manage</button>
+                  <button onClick={() => { setSelectedUser(u); setActionType('tokens'); }} className="px-3 py-1 bg-brand-gold text-white rounded text-[9px] font-bold uppercase hover:brightness-110">Tokens</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ACTION MODAL */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-8 rounded-2xl w-full max-w-lg space-y-6 animate-slide-up">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="font-black uppercase tracking-widest text-lg">Manage User</h3>
+              <button onClick={() => { setSelectedUser(null); setActionType(null); }} className="text-gray-400 hover:text-black">✕</button>
+            </div>
+            
+            <div className="bg-gray-50 p-4 rounded-xl mb-4">
+              <p className="text-xs font-bold">{selectedUser.fullName}</p>
+              <p className="text-[10px] text-gray-500">{selectedUser.email}</p>
+            </div>
+
+            {actionType === 'edit' && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-gray-500">Subscription Plan</label>
+                  <div className="flex gap-2">
+                    {[SubscriptionPlan.LITE, SubscriptionPlan.PRO, SubscriptionPlan.ELITE].map(plan => (
+                      <button 
+                        key={plan}
+                        onClick={() => handleUpdateSubscription(plan)}
+                        className={`flex-1 py-3 text-[10px] font-black uppercase rounded border ${
+                          selectedUser.subscriptionPlan === plan ? 'bg-brand-charcoal text-white border-brand-charcoal' : 'text-gray-500 hover:border-brand-gold'
+                        }`}
+                      >
+                        {plan}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="pt-4 border-t">
+                  <button 
+                    onClick={handleToggleSuspension}
+                    className={`w-full py-3 font-bold text-xs uppercase rounded ${
+                      selectedUser.accountStatus === 'suspended' ? 'bg-green-600 text-white' : 'bg-red-50 text-red-600 border border-red-200'
+                    }`}
+                  >
+                    {selectedUser.accountStatus === 'suspended' ? 'Reactivate Account' : 'Suspend Account'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {actionType === 'tokens' && (
+              <div className="space-y-4">
+                <div className="flex gap-2 mb-4">
+                  <button onClick={() => setTokenType('analysis')} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${tokenType === 'analysis' ? 'bg-brand-gold text-white' : 'bg-gray-100'}`}>Analysis</button>
+                  <button onClick={() => setTokenType('education')} className={`flex-1 py-2 text-[10px] font-black uppercase rounded ${tokenType === 'education' ? 'bg-brand-gold text-white' : 'bg-gray-100'}`}>Education</button>
+                </div>
+                <input 
+                  type="number" 
+                  value={tokenAmount} 
+                  onChange={e => setTokenAmount(Number(e.target.value))}
+                  placeholder="Amount"
+                  className="w-full p-4 bg-gray-50 border rounded text-lg font-mono"
+                />
+                <button onClick={handleGrantTokens} className="w-full py-4 bg-brand-success text-white rounded font-black uppercase text-xs">Grant Tokens</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderRevenue = () => {
+    if (!revenueMetrics) return <div className="p-10 text-center">Loading Financials...</div>;
+    return (
+      <div className="space-y-10 animate-fade-in">
+        <div className="border-b border-gray-200 pb-6">
+          <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight">Revenue Analytics</h2>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Monthly Recurring Revenue & Token Sales</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           <div className="bg-brand-charcoal text-white p-8 rounded-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/10 rounded-full -mr-10 -mt-10"></div>
+              <p className="text-[10px] font-black text-brand-gold uppercase tracking-widest mb-2">Estimated MRR</p>
+              <p className="text-4xl font-black">${revenueMetrics.mrr.toLocaleString()}</p>
+              <p className="text-[10px] text-white/50 mt-4 font-bold uppercase">{revenueMetrics.activeSubscriptions} Active Subs</p>
+           </div>
+           
+           <div className="bg-white p-8 rounded-xl border border-gray-200">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Token Revenue (30d)</p>
+              <p className="text-4xl font-black text-brand-success">${revenueMetrics.tokenRevenue.last30Days.toLocaleString()}</p>
+              <p className="text-[10px] text-gray-400 mt-4 font-bold uppercase">Lifetime: ${revenueMetrics.tokenRevenue.totalLifetime.toLocaleString()}</p>
+           </div>
+
+           <div className="bg-white p-8 rounded-xl border border-gray-200">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Plan Distribution</p>
+              <div className="space-y-2">
+                 <div className="flex justify-between text-xs font-bold"><span className="text-gray-500">Lite</span><span>${revenueMetrics.breakdown.lite.revenue}</span></div>
+                 <div className="flex justify-between text-xs font-bold"><span className="text-brand-gold">Pro</span><span>${revenueMetrics.breakdown.pro.revenue}</span></div>
+                 <div className="flex justify-between text-xs font-bold"><span className="text-brand-charcoal">Elite</span><span>${revenueMetrics.breakdown.elite.revenue}</span></div>
+              </div>
+           </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderSignals = () => {
     // ... (Signal Code from previous prompt)
     const activeInstruments = newSignal.market === 'Forex' ? FOREX_INSTRUMENTS : STOCK_INSTRUMENTS;
@@ -440,7 +597,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-brand-gold" 
-                            style={{ width: `${(count / (aiMetrics.totalAnalyses || 1)) * 100}%` }}
+                            style={{ width: `${(Number(count) / (aiMetrics.totalAnalyses || 1)) * 100}%` }}
                           ></div>
                        </div>
                     </div>
@@ -460,7 +617,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                              <span>{item.count}</span>
                           </div>
                           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                             <div className="h-full bg-brand-charcoal" style={{ width: `${(item.count / (aiMetrics.popularInstruments[0]?.count || 1)) * 100}%` }}></div>
+                             <div className="h-full bg-brand-charcoal" style={{ width: `${(Number(item.count) / (aiMetrics.popularInstruments[0]?.count || 1)) * 100}%` }}></div>
                           </div>
                        </div>
                     </div>
@@ -628,6 +785,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     </div>
   );
 
+  const renderEducation = () => (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+         <h2 className="text-lg font-black text-gray-800 uppercase tracking-widest">Education Library</h2>
+         <button onClick={() => setEditingLesson({ title: '', content: [] })} className="px-4 py-2 bg-brand-gold text-white text-[10px] font-black uppercase tracking-widest rounded-lg">New Module</button>
+       </div>
+       <div className="space-y-3">
+         {lessons.map(l => (
+           <div key={l.id} className="p-4 bg-white border border-gray-200 rounded-xl flex justify-between">
+             <div className="text-xs font-bold text-gray-800">{l.title}</div>
+             <button onClick={() => setEditingLesson(l)} className="text-[9px] font-bold text-brand-gold uppercase">Edit</button>
+           </div>
+         ))}
+       </div>
+       {editingLesson && (
+         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+           <div className="bg-white p-8 rounded-2xl w-full max-w-lg space-y-6">
+             <h3 className="font-black uppercase tracking-widest">Edit Module</h3>
+             <input className="w-full p-3 bg-gray-50 border rounded text-xs" placeholder="Title" value={editingLesson.title} onChange={e => setEditingLesson({...editingLesson, title: e.target.value})} />
+             <textarea className="w-full p-3 bg-gray-50 border rounded text-xs min-h-[100px]" placeholder="Content paragraphs (one per line)..." value={editingLesson.content?.join('\n')} onChange={e => setEditingLesson({...editingLesson, content: e.target.value.split('\n')})} />
+             <div className="flex gap-4">
+               <button onClick={() => setEditingLesson(null)} className="flex-1 py-3 border rounded text-xs font-bold uppercase">Cancel</button>
+               <button onClick={() => handleLessonAction(editingLesson.id ? 'update' : 'create', editingLesson)} className="flex-1 py-3 bg-brand-gold text-white rounded text-xs font-bold uppercase">Save</button>
+             </div>
+           </div>
+         </div>
+       )}
+    </div>
+  );
+
   // --- MAIN RENDER ---
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900">
@@ -636,8 +823,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
         <AdminHeader user={user} onLogout={onLogout} />
         <main className="flex-1 overflow-auto p-8">
           {activeTab === 'overview' && renderOverview()}
-          {activeTab === 'users' && <div className="p-10 text-center text-xs text-gray-400 font-bold uppercase">User Manager (Prompt 3 Placeholder)</div>}
-          {activeTab === 'revenue' && <div className="p-10 text-center text-xs text-gray-400 font-bold uppercase">Revenue Manager (Prompt 3 Placeholder)</div>}
+          {activeTab === 'users' && renderUsers()}
+          {activeTab === 'revenue' && renderRevenue()}
           {activeTab === 'signals' && renderSignals()}
           {activeTab === 'education' && renderEducation()}
           {activeTab === 'ai_oversight' && renderAIOversight()}

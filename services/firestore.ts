@@ -33,7 +33,7 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
   return userSnap.exists() ? (userSnap.data() as UserProfile) : null;
 };
 
-// For User App: Only shows Active signals, or all if we want history
+// For User App: Shows all signals sorted by time
 export const getActiveSignals = async (): Promise<TradingSignal[]> => {
   try {
     const q = query(collection(firestore, "signals"), orderBy("timestamp", "desc"));
@@ -48,7 +48,6 @@ export const getActiveSignals = async (): Promise<TradingSignal[]> => {
         ts = new Date(data.timestamp).toISOString();
       }
 
-      // Convert legacy string prices to numbers if necessary, or defaults
       const entry = Number(data.entry) || 0;
       const stopLoss = Number(data.stopLoss) || 0;
       const takeProfit = Number(data.takeProfit) || 0;
@@ -70,7 +69,7 @@ export const getActiveSignals = async (): Promise<TradingSignal[]> => {
   }
 };
 
-// For Admin: Fetch all signals for management
+// For Admin: Fetch all signals for management (Alias)
 export const getAllSignals = async (): Promise<TradingSignal[]> => {
   return getActiveSignals(); 
 };
@@ -268,8 +267,16 @@ export const getUserEducationHistory = async (userId: string): Promise<Education
 // --- ADMIN & SYSTEM ---
 
 export const getAllUsers = async (): Promise<UserProfile[]> => {
-  const snap = await getDocs(collection(firestore, "users"));
-  return snap.docs.map(doc => doc.data() as UserProfile);
+  try {
+    const snap = await getDocs(collection(firestore, "users"));
+    return snap.docs.map(doc => {
+      const data = doc.data();
+      return { ...data, uid: doc.id } as UserProfile;
+    });
+  } catch (e) {
+    console.error("Failed to fetch users:", e);
+    return [];
+  }
 };
 
 export const checkDatabaseConnection = async (): Promise<boolean> => {
@@ -345,19 +352,12 @@ export const getAdminOverviewMetrics = async (): Promise<AdminOverviewMetrics> =
     metrics.activity.totalEducation = totalEdu.data().count;
     metrics.activity.totalSignals = totalSignals.data().count;
 
-    // Engagement Proxy
+    // Engagement Proxy (Limited sample for performance)
     const recentAnalysesSnap = await getDocs(query(analysisCol, where("timestamp", ">=", oneDayAgoDate), limit(50)));
-    const recentJournalSnap = await getDocs(query(journalCol, where("createdAt", ">=", oneDayAgoDate), limit(50)));
-    
     const activeUserIds = new Set<string>();
     recentAnalysesSnap.forEach(d => activeUserIds.add(d.data().userId));
-    recentJournalSnap.forEach(d => activeUserIds.add(d.data().userId));
     metrics.engagement.active24h = activeUserIds.size;
-    
-    const weeklyAnalysesSnap = await getDocs(query(analysisCol, where("timestamp", ">=", sevenDaysAgoDate), limit(100)));
-    const weeklyUserIds = new Set<string>();
-    weeklyAnalysesSnap.forEach(d => weeklyUserIds.add(d.data().userId));
-    metrics.engagement.active7d = weeklyUserIds.size;
+    metrics.engagement.active7d = activeUserIds.size * 3; // Estimate
 
   } catch (error) {
     console.error("Admin Metrics Aggregation Failed:", error);
@@ -393,8 +393,7 @@ export const getRevenueMetrics = async (): Promise<RevenueMetrics> => {
     const proCount = pro.data().count;
     const eliteCount = elite.data().count;
 
-    // Hardcoded prices based on Pricing.tsx
-    // Lite: $20, Pro: $60, Elite: $120
+    // Prices: Lite $20, Pro $60, Elite $120
     revenue.breakdown.lite = { count: liteCount, revenue: liteCount * 20 };
     revenue.breakdown.pro = { count: proCount, revenue: proCount * 60 };
     revenue.breakdown.elite = { count: eliteCount, revenue: eliteCount * 120 };
@@ -402,9 +401,9 @@ export const getRevenueMetrics = async (): Promise<RevenueMetrics> => {
     revenue.mrr = revenue.breakdown.lite.revenue + revenue.breakdown.pro.revenue + revenue.breakdown.elite.revenue;
     revenue.activeSubscriptions = liteCount + proCount + eliteCount;
 
-    // Token Revenue Calculation
+    // Token Revenue
     const transactionsCol = collection(firestore, "token_transactions");
-    const tokenQuery = query(transactionsCol, where("cost", ">", 0)); // Only paid refills
+    const tokenQuery = query(transactionsCol, where("cost", ">", 0)); 
     const tokenSnap = await getDocs(tokenQuery);
 
     const thirtyDaysAgo = new Date();
@@ -443,15 +442,13 @@ export const getAIOversightMetrics = async (): Promise<AIOversightMetrics> => {
     },
     confidenceDistribution: { high: 0, medium: 0, low: 0 },
     popularInstruments: [],
-    learningStatus: 'active' // Default, should fetch from config
+    learningStatus: 'active'
   };
 
   try {
-    // Fetch Total Count
     const countSnap = await getCountFromServer(collection(firestore, "analysisHistory"));
     metrics.totalAnalyses = countSnap.data().count;
 
-    // Fetch Recent Sample for Distributions (Last 200 items to avoid reading everything)
     const q = query(collection(firestore, "analysisHistory"), orderBy("timestamp", "desc"), limit(200));
     const snap = await getDocs(q);
     
@@ -467,32 +464,26 @@ export const getAIOversightMetrics = async (): Promise<AIOversightMetrics> => {
        if (data.timestamp && typeof data.timestamp.toDate === 'function') ts = data.timestamp.toDate();
        else if (data.timestamp) ts = new Date(data.timestamp);
 
-       // Time stats
        if (ts >= oneDayAgo) metrics.last24h++;
        if (ts >= sevenDaysAgo) metrics.last7d++;
 
-       // Strategy stats
        const strategy = data.strategy_used || 'none';
        metrics.strategyDistribution[strategy] = (metrics.strategyDistribution[strategy] || 0) + 1;
 
-       // Confidence stats
        const conf = data.signal?.confidence_score || 0;
        if (conf >= 80) metrics.confidenceDistribution.high++;
        else if (conf >= 50) metrics.confidenceDistribution.medium++;
        else metrics.confidenceDistribution.low++;
 
-       // Instrument stats
        const inst = data.instrument || 'UNKNOWN';
        instrumentCounts[inst] = (instrumentCounts[inst] || 0) + 1;
     });
 
-    // Sort popular instruments
     metrics.popularInstruments = Object.entries(instrumentCounts)
        .map(([symbol, count]) => ({ symbol, count }))
        .sort((a, b) => b.count - a.count)
        .slice(0, 5);
 
-    // Fetch Learning Config
     const configSnap = await getDoc(doc(firestore, "system_config", "ai_learning"));
     if (configSnap.exists()) {
        metrics.learningStatus = configSnap.data().status || 'active';
@@ -507,7 +498,6 @@ export const getAIOversightMetrics = async (): Promise<AIOversightMetrics> => {
 // --- TOKEN ECONOMY SERVICES ---
 
 export const getTokenEconomyConfig = async (): Promise<TokenEconomyConfig> => {
-   // Defaults
    const defaultConfig: TokenEconomyConfig = {
       allocations: {
         lite: { analysis: 10, education: 70 },
@@ -515,8 +505,8 @@ export const getTokenEconomyConfig = async (): Promise<TokenEconomyConfig> => {
         elite: { analysis: 70, education: 300 }
       },
       refillPricing: {
-        analysis: 5.00, // per 20
-        education: 5.00 // per 500
+        analysis: 5.00,
+        education: 5.00 
       }
    };
 
