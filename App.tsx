@@ -40,10 +40,10 @@ const App: React.FC = () => {
     if (path === '/register') return 'signup';
     if (path === '/onboarding') return 'onboarding';
     if (path === '/about') return 'about';
-    // Mapping new routes to internal identifiers
     if (path === '/privacy-policy' || path === '/privacy') return 'privacy';
     if (path === '/terms-of-service' || path === '/terms') return 'terms';
     if (path === '/pricing') return 'pricing';
+    if (path === '/admin') return 'admin';
     if (path.startsWith('/terminal/')) return path.replace('/terminal/', '');
     return 'landing';
   }, []);
@@ -54,10 +54,10 @@ const App: React.FC = () => {
     if (page === 'signup') return '/register';
     if (page === 'onboarding') return '/onboarding';
     if (page === 'about') return '/about';
-    // Using new public routes
     if (page === 'privacy') return '/privacy-policy';
     if (page === 'terms') return '/terms-of-service';
     if (page === 'pricing') return '/pricing';
+    if (page === 'admin') return '/admin';
     return `/terminal/${page}`;
   };
 
@@ -66,12 +66,14 @@ const App: React.FC = () => {
     const currentUser = userRef.current;
     
     // Admin Guard
-    if (page === 'admin' && currentUser?.role !== UserRole.ADMIN) {
-      // Recursive call, but safe as 'dashboard' != 'admin'
-      const dashPath = getPathFromPage('dashboard');
-      window.history.pushState({}, '', dashPath);
-      setCurrentPage('dashboard');
-      return;
+    if (page === 'admin') {
+      if (!currentUser || currentUser.role !== UserRole.ADMIN) {
+        // Redirect unauthorized access to dashboard if logged in, or login if not
+        const fallback = currentUser ? 'dashboard' : 'login';
+        window.history.pushState({}, '', getPathFromPage(fallback));
+        setCurrentPage(fallback);
+        return;
+      }
     }
     
     const path = getPathFromPage(page);
@@ -96,22 +98,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initialPage = getPageFromPath(window.location.pathname);
+    
+    // Immediate Admin Check on Load
+    // We defer slightly to allow auth to resolve, handled in onAuthStateChanged
     setCurrentPage(initialPage);
     verifyBackendConnectivity();
 
-    // Use a stable listener setup
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Don't set resolving to true immediately to avoid flash if state is stable
       if (!userRef.current && firebaseUser) setIsAuthResolving(true);
       
       if (firebaseUser) {
-        // Attempt to fetch profile
         let profile = await getUserProfile(firebaseUser.uid);
         
-        // AUTO-HEALING: If profile is missing, create it instead of kicking user out
         if (!profile) {
           console.log("Athenix: Profile missing. Attempting auto-creation...");
-          // Wait briefly to allow DB propagation if this is a fresh signup
           await new Promise(resolve => setTimeout(resolve, 1000));
           profile = await getUserProfile(firebaseUser.uid);
           
@@ -127,16 +127,22 @@ const App: React.FC = () => {
         if (profile) {
           console.log("Athenix: User Profile Authenticated");
           setUser(profile);
-          // If we are on an auth page, redirect to dashboard
+          
           const currentPathPage = getPageFromPath(window.location.pathname);
+          
+          // Strict Admin Route Check on Auth Load
+          if (currentPathPage === 'admin' && profile.role !== UserRole.ADMIN) {
+            navigateTo('dashboard');
+            setIsAuthResolving(false);
+            return;
+          }
+
           if (['landing', 'onboarding', 'login', 'signup', 'splash'].includes(currentPathPage)) {
             navigateTo('dashboard');
           } else {
-            // Stay on current page if it's a valid internal page
             setCurrentPage(currentPathPage);
           }
         } else {
-          // Absolute fail-safe
           console.warn("Athenix: Critical Profile Error. Resetting.");
           await signOut(auth);
           setUser(null);
@@ -149,7 +155,6 @@ const App: React.FC = () => {
         if (protectedPages.includes(current)) {
           navigateTo('landing');
         } else {
-           // Allow staying on login/signup/landing/about/terms/privacy/pricing
            if (current === 'splash') navigateTo('landing');
            else setCurrentPage(current);
         }
@@ -158,7 +163,7 @@ const App: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, []); // Run once on mount
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -169,10 +174,11 @@ const App: React.FC = () => {
   };
 
   const isPublicPage = ['landing', 'onboarding', 'login', 'signup', 'splash', 'education', 'about', 'privacy', 'terms', 'pricing'].includes(currentPage);
+  const isAdminPage = currentPage === 'admin';
+  const showMainLayout = !isPublicPage && !isAdminPage && !!user;
 
   const renderPage = () => {
     if (isAuthResolving && currentPage === 'splash') return <Splash />;
-    // Show spinner if resolving state but not on a public page (waiting for profile)
     if (isAuthResolving && !isPublicPage) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center space-y-4 min-h-[50vh]">
@@ -199,14 +205,14 @@ const App: React.FC = () => {
       case 'journal': return <Journal user={user} />;
       case 'billing': return <Billing user={user} />;
       case 'settings': return <Settings user={user} onLogout={handleLogout} />;
-      case 'admin': return <AdminDashboard user={user} />;
+      case 'admin': return <AdminDashboard user={user} onNavigate={navigateTo} onLogout={handleLogout} />;
       default: return <LandingPage onEnter={() => navigateTo(user ? 'dashboard' : 'onboarding')} onNavigate={navigateTo} />;
     }
   };
 
   return (
     <div className="min-h-screen bg-white text-brand-charcoal flex flex-col">
-      {!isPublicPage && user && (
+      {showMainLayout && (
         <Sidebar 
           user={user} 
           isOpen={isSidebarOpen} 
@@ -216,8 +222,8 @@ const App: React.FC = () => {
           onLogout={handleLogout} 
         />
       )}
-      <main className={`flex-1 flex flex-col min-w-0 transition-all duration-500 ${!isPublicPage && isSidebarOpen && user ? 'md:ml-80' : ''}`}>
-        {!isPublicPage && user && (
+      <main className={`flex-1 flex flex-col min-w-0 transition-all duration-500 ${showMainLayout && isSidebarOpen ? 'md:ml-80' : ''}`}>
+        {showMainLayout && (
           <Header 
             user={user} 
             onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 

@@ -18,36 +18,44 @@ export interface UserProfile {
   role: UserRole;
   subscriptionPlan: SubscriptionPlan;
   subscriptionStatus: 'active' | 'past_due' | 'canceled' | 'none';
+  accountStatus?: 'active' | 'suspended'; 
   analysisTokens: number;
   educationTokens: number;
   createdAt: string;
+  lastActiveAt?: string; 
 }
 
 export interface TokenTransaction {
   id?: string;
   userId: string;
-  type: 'refill' | 'deduction';
+  type: 'refill' | 'deduction' | 'admin_grant';
   resource: 'analysis' | 'education';
-  amount: number;
+  amount: number; 
+  cost?: number; 
   timestamp: string;
   description: string;
 }
 
 export interface TradingSignal {
   id: string;
-  instrument: string; // standardized from 'pair'
-  direction: 'BUY' | 'SELL';
-  orderType: string;
-  entry: string;
-  stopLoss: string;
-  takeProfit: string;
+  instrument: string; 
+  market: 'Forex' | 'Stocks' | 'Crypto';
+  timeframe: string;
+  signalType: 'Buy' | 'Sell' | 'Buy Limit' | 'Sell Limit' | 'Buy Stop' | 'Sell Stop';
+  entry: number;
+  stopLoss: number;
+  takeProfit: number;
+  rrRatio: number;
+  status: 'Active' | 'Completed' | 'Cancelled';
   confidence: number;
+  notes?: string;
   author: string;
   authorId?: string;
   timestamp: string;
   
-  // Optional legacy mapping
-  pair?: string; 
+  // Legacy compat
+  direction?: 'BUY' | 'SELL'; 
+  orderType?: string;
 }
 
 export interface JournalEntry {
@@ -55,14 +63,11 @@ export interface JournalEntry {
   userId: string;
   title: string;
   market: string;
-  
-  // Enhanced Journal Fields
   direction: 'BUY' | 'SELL';
   entryPrice: string;
   stopLoss: string;
   takeProfit: string;
   outcome: 'win' | 'loss' | 'partial' | 'open';
-  
   notes: string;
   createdAt: string;
 }
@@ -93,12 +98,10 @@ export interface AnalysisFeedback {
   timestamp: string;
 }
 
-// Updated TradeAnalysis based on Strict Product Definition & Persistence
 export interface TradeAnalysis {
-  // Persistence Fields
-  id?: string;       // Firestore Document ID
-  userId?: string;   // Owner
-  timestamp?: string;// Creation time
+  id?: string;       
+  userId?: string;   
+  timestamp?: string;
   
   analysis_id?: string;
   instrument: string;
@@ -156,6 +159,85 @@ export interface TradeAnalysis {
     analysis_engine_version: string;
   };
 
-  // Feedback Loop
   feedback?: AnalysisFeedback;
+}
+
+export interface AdminOverviewMetrics {
+  users: {
+    total: number;
+    paid: number;
+    free: number;
+    byPlan: {
+      lite: number;
+      pro: number;
+      elite: number;
+    };
+    newLast7Days: number;
+  };
+  activity: {
+    totalAnalysis: number;
+    totalJournal: number;
+    totalEducation: number;
+    totalSignals: number;
+    analysisLast7Days: number;
+  };
+  engagement: {
+    active24h: number;
+    active7d: number;
+  };
+}
+
+export interface RevenueMetrics {
+  mrr: number;
+  activeSubscriptions: number;
+  breakdown: {
+    lite: { count: number; revenue: number };
+    pro: { count: number; revenue: number };
+    elite: { count: number; revenue: number };
+  };
+  tokenRevenue: {
+    totalLifetime: number;
+    last30Days: number;
+  };
+}
+
+// --- NEW TYPES FOR PROMPT 5 ---
+
+export interface AIOversightMetrics {
+  totalAnalyses: number;
+  last24h: number;
+  last7d: number;
+  strategyDistribution: Record<string, number>;
+  confidenceDistribution: { high: number; medium: number; low: number };
+  popularInstruments: Array<{ symbol: string; count: number }>;
+  learningStatus: 'active' | 'paused';
+}
+
+export interface TokenEconomyConfig {
+  allocations: {
+    lite: { analysis: number; education: number };
+    pro: { analysis: number; education: number };
+    elite: { analysis: number; education: number };
+  };
+  refillPricing: {
+    analysis: number; // cost per 20 tokens
+    education: number; // cost per 500 tokens
+  };
+}
+
+export interface SystemHealth {
+  forexApi: 'operational' | 'degraded' | 'down';
+  stockApi: 'operational' | 'degraded' | 'down';
+  aiApi: 'operational' | 'degraded' | 'down';
+  database: 'connected' | 'error';
+  lastCheck: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  adminId: string;
+  adminName: string;
+  action: string;
+  details: string;
+  timestamp: string;
 }

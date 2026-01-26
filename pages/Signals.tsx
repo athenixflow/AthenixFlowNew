@@ -22,7 +22,7 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
   }, []);
 
   return (
-    <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-5xl mx-auto">
+    <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-5xl mx-auto pb-24">
       <section className="space-y-2">
         <h2 className="text-4xl font-black text-brand-charcoal uppercase tracking-tighter">Signals</h2>
         <p className="text-brand-muted font-medium text-sm uppercase tracking-widest">
@@ -34,7 +34,10 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
         <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] mb-4">Market Execution Feed</h3>
         
         {loading ? (
-          <div className="p-10 text-center text-brand-muted font-black uppercase text-[10px] tracking-widest">Accessing Node Network...</div>
+          <div className="p-10 text-center text-brand-muted font-black uppercase text-[10px] tracking-widest flex flex-col items-center gap-4">
+             <div className="w-8 h-8 border-4 border-brand-sage border-t-brand-gold rounded-full animate-spin"></div>
+             Accessing Node Network...
+          </div>
         ) : signals.length === 0 ? (
           <div className="athenix-card p-12 bg-brand-sage/5 border-dashed flex flex-col items-center justify-center text-center">
             <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] max-w-xs">
@@ -44,18 +47,29 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
         ) : (
           <div className="space-y-4">
             {signals.map((signal) => (
-              <div key={signal.id} className="athenix-card p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 group">
+              <div key={signal.id} className={`athenix-card p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 group relative overflow-hidden ${
+                 signal.status === 'Cancelled' ? 'opacity-60 grayscale' : ''
+              }`}>
+                {/* Status Ribbon */}
+                {signal.status !== 'Active' && (
+                  <div className={`absolute top-0 right-0 px-4 py-1 text-[9px] font-black uppercase tracking-widest ${
+                     signal.status === 'Completed' ? 'bg-brand-success text-white' : 'bg-brand-muted text-white'
+                  }`}>
+                    {signal.status}
+                  </div>
+                )}
+
                 <div className="flex items-center gap-6">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white text-xs tracking-widest shadow-lg ${
-                    signal.direction === 'BUY' ? 'bg-brand-success shadow-brand-success/20' : 'bg-brand-error shadow-brand-error/20'
+                    signal.signalType.includes('Buy') ? 'bg-brand-success shadow-brand-success/20' : 'bg-brand-error shadow-brand-error/20'
                   }`}>
-                    {signal.direction}
+                    {signal.signalType.includes('Buy') ? 'BUY' : 'SELL'}
                   </div>
                   <div>
                     <h4 className="text-2xl font-black text-brand-charcoal tracking-tighter uppercase">{signal.instrument}</h4>
                     <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-brand-gold rounded-full animate-pulse"></span>
-                      Verified • {signal.orderType || 'MARKET'}
+                      <span className={`w-1.5 h-1.5 rounded-full ${signal.status === 'Active' ? 'bg-brand-gold animate-pulse' : 'bg-brand-muted'}`}></span>
+                      {signal.timeframe} • {signal.signalType}
                     </p>
                   </div>
                 </div>
@@ -63,25 +77,25 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
                 <div className="flex-1 grid grid-cols-3 gap-4 border-l border-brand-sage/20 pl-0 md:pl-8">
                   <div className="space-y-1">
                     <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Entry</p>
-                    <p className="font-black text-brand-charcoal text-sm">{signal.entry}</p>
+                    <p className="font-black text-brand-charcoal text-sm font-mono">{signal.entry}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest">Stop Loss</p>
-                    <p className="font-black text-brand-error text-sm">{signal.stopLoss}</p>
+                    <p className="font-black text-brand-error text-sm font-mono">{signal.stopLoss}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest">Take Profit</p>
-                    <p className="font-black text-brand-success text-sm">{signal.takeProfit}</p>
+                    <p className="font-black text-brand-success text-sm font-mono">{signal.takeProfit}</p>
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end justify-between border-t border-brand-sage/10 md:border-t-0 pt-4 md:pt-0 gap-2">
                   <div className="text-right">
-                     <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Confidence</p>
-                     <p className="text-xl font-black text-brand-charcoal">{signal.confidence || 90}%</p>
+                     <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">R:R Ratio</p>
+                     <p className="text-xl font-black text-brand-charcoal">1:{signal.rrRatio}</p>
                   </div>
                   <div className="flex items-center justify-end gap-2">
-                    <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">{signal.author} • {new Date(signal.timestamp).toLocaleDateString()}</span>
+                    <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">{new Date(signal.timestamp).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
