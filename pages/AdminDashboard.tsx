@@ -101,6 +101,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   
   // -- SIGNAL ACTION STATES --
   const [isCreatingSignal, setIsCreatingSignal] = useState(false);
+  const [signalSubmitting, setSignalSubmitting] = useState(false);
   const [newSignal, setNewSignal] = useState<Partial<TradingSignal>>({
     market: 'Forex',
     signalType: 'Buy',
@@ -108,7 +109,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     timeframe: '1h',
     entry: 0,
     stopLoss: 0,
-    takeProfit: 0
+    takeProfit: 0,
+    instrument: '',
+    audience: 'all_users',
+    plans: []
   });
   
   const [editingLesson, setEditingLesson] = useState<Partial<Lesson> | null>(null);
@@ -191,15 +195,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const handleSignalSubmit = async () => {
+    // Validation
     if (!newSignal.instrument || !newSignal.entry || !newSignal.stopLoss || !newSignal.takeProfit) {
-      alert("Missing required signal fields");
+      alert("Missing required signal fields"); // Ideally replace with a UI error message state
       return;
     }
-    const res = await adminManageSignal(user.uid, 'create', { ...newSignal, author: user.fullName || 'Admin' });
-    if (res.status === 'success') {
-      setIsCreatingSignal(false);
-      setNewSignal({ market: 'Forex', signalType: 'Buy', confidence: 90, timeframe: '1h', entry: 0, stopLoss: 0, takeProfit: 0 });
-      refreshData();
+    
+    if (newSignal.audience === 'specific_plans' && (!newSignal.plans || newSignal.plans.length === 0)) {
+        alert("Please select at least one plan for the target audience.");
+        return;
+    }
+
+    setSignalSubmitting(true);
+    try {
+        const res = await adminManageSignal(user.uid, 'create', { ...newSignal, author: user.fullName || 'Admin' });
+        if (res.status === 'success') {
+          setIsCreatingSignal(false);
+          setNewSignal({ 
+              market: 'Forex', 
+              signalType: 'Buy', 
+              confidence: 90, 
+              timeframe: '1h', 
+              entry: 0, 
+              stopLoss: 0, 
+              takeProfit: 0,
+              instrument: '',
+              audience: 'all_users',
+              plans: []
+          });
+          refreshData();
+        } else {
+            alert("Error: " + res.message);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Submission failed. Check console.");
+    } finally {
+        setSignalSubmitting(false);
     }
   };
 
@@ -452,7 +484,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
   };
 
   const renderSignals = () => {
-    // ... (Signal Code from previous prompt)
     const activeInstruments = newSignal.market === 'Forex' ? FOREX_INSTRUMENTS : STOCK_INSTRUMENTS;
     let projectedRR = 0;
     const { entry, stopLoss, takeProfit } = newSignal;
@@ -506,8 +537,57 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                  <div className="space-y-2"><label className="text-[10px] font-black text-brand-muted uppercase tracking-widest">SL</label><input type="number" className="w-full p-3 bg-gray-50 border rounded text-xs font-bold" value={newSignal.stopLoss} onChange={(e) => setNewSignal({...newSignal, stopLoss: e.target.value as any})} /></div>
                  <div className="space-y-2"><label className="text-[10px] font-black text-brand-muted uppercase tracking-widest">TP</label><input type="number" className="w-full p-3 bg-gray-50 border rounded text-xs font-bold" value={newSignal.takeProfit} onChange={(e) => setNewSignal({...newSignal, takeProfit: e.target.value as any})} /></div>
               </div>
-              <div className="flex justify-end gap-4 pt-4 border-t border-gray-100">
-                 <button onClick={handleSignalSubmit} className="px-6 py-3 bg-brand-success text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Publish Signal</button>
+
+              {/* Audience Targeting */}
+              <div className="pt-4 border-t border-gray-100 space-y-4">
+                  <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-widest">Target Audience</h4>
+                  <div className="flex gap-6">
+                      {['all_users', 'paid_users', 'specific_plans'].map(opt => (
+                          <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                              <input 
+                                  type="radio" 
+                                  name="audience" 
+                                  value={opt}
+                                  checked={newSignal.audience === opt}
+                                  onChange={() => setNewSignal({...newSignal, audience: opt as any, plans: []})}
+                                  className="accent-brand-gold w-4 h-4"
+                              />
+                              <span className="text-[10px] font-bold uppercase tracking-wider">{opt.replace('_', ' ')}</span>
+                          </label>
+                      ))}
+                  </div>
+                  {newSignal.audience === 'specific_plans' && (
+                      <div className="flex gap-4 pl-4 border-l-2 border-brand-gold ml-1">
+                          {['Lite', 'Pro', 'Elite'].map(plan => (
+                              <label key={plan} className="flex items-center gap-2 cursor-pointer">
+                                  <input 
+                                      type="checkbox"
+                                      checked={newSignal.plans?.includes(plan)}
+                                      onChange={(e) => {
+                                          const current = newSignal.plans || [];
+                                          if (e.target.checked) {
+                                              setNewSignal({...newSignal, plans: [...current, plan]});
+                                          } else {
+                                              setNewSignal({...newSignal, plans: current.filter(p => p !== plan)});
+                                          }
+                                      }}
+                                      className="accent-brand-charcoal w-4 h-4"
+                                  />
+                                  <span className="text-[10px] font-bold uppercase">{plan}</span>
+                              </label>
+                          ))}
+                      </div>
+                  )}
+              </div>
+
+              <div className="flex justify-end gap-4 pt-6 border-t border-gray-100">
+                 <button 
+                    onClick={handleSignalSubmit} 
+                    disabled={signalSubmitting}
+                    className="px-8 py-3 bg-brand-success text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:scale-105 transition-transform disabled:opacity-50"
+                 >
+                    {signalSubmitting ? 'Publishing...' : 'Publish Signal'}
+                 </button>
               </div>
            </div>
          )}
@@ -520,16 +600,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                  <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">Status</th>
                  <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">Instrument</th>
                  <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">Type</th>
+                 <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">Target</th>
                  <th className="p-4 text-[9px] font-black text-gray-400 uppercase tracking-widest text-right">Actions</th>
                </tr>
              </thead>
              <tbody className="divide-y divide-gray-100">
                {signals.map(s => (
                  <tr key={s.id} className="hover:bg-gray-50">
-                   <td className="p-4"><span className="text-[9px] font-black uppercase">{s.status}</span></td>
+                   <td className="p-4"><span className={`text-[9px] font-black uppercase ${s.status === 'Active' ? 'text-brand-success' : 'text-brand-muted'}`}>{s.status}</span></td>
                    <td className="p-4 text-xs font-bold">{s.instrument}</td>
                    <td className="p-4 text-[10px] font-bold">{s.signalType}</td>
-                   <td className="p-4 text-right"><button onClick={() => handleSignalStatusUpdate(s.id, 'Completed')} className="text-[9px] font-bold text-brand-success uppercase">Complete</button></td>
+                   <td className="p-4 text-[9px] uppercase font-mono text-gray-500">{s.audience ? s.audience.replace('_', ' ') : 'ALL'}</td>
+                   <td className="p-4 text-right flex justify-end gap-3">
+                      {s.status === 'Active' && (
+                          <>
+                            <button onClick={() => handleSignalStatusUpdate(s.id, 'Completed')} className="text-[9px] font-bold text-brand-success uppercase hover:underline">Complete</button>
+                            <button onClick={() => handleSignalStatusUpdate(s.id, 'Cancelled')} className="text-[9px] font-bold text-brand-error uppercase hover:underline">Cancel</button>
+                          </>
+                      )}
+                   </td>
                  </tr>
                ))}
              </tbody>

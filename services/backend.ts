@@ -239,19 +239,30 @@ export const adminManageSignal = async (adminId: string, action: 'create' | 'upd
       const direction = (data.signalType && data.signalType.toUpperCase().includes('BUY')) ? 'BUY' : 'SELL';
 
       const payload = {
-        ...data,
-        authorId: adminId,
+        instrument: data.instrument,
+        market: data.market,
+        timeframe: data.timeframe,
+        signalType: data.signalType,
         entry: entry,
         stopLoss: sl,
         takeProfit: tp,
         rrRatio: parseFloat(rrRatio.toFixed(2)),
         status: 'Active',
         direction: direction,
-        timestamp: new Date().toISOString()
+        confidence: data.confidence || 90,
+        
+        // Audience Targeting
+        audience: data.audience || 'all_users',
+        plans: data.plans || [],
+
+        authorId: adminId,
+        author: data.author || 'Admin',
+        timestamp: new Date().toISOString(), // Display timestamp
+        createdAt: serverTimestamp() // Audit timestamp
       };
       
-      await addDoc(signalsRef, payload);
-      await logAdminAction(adminId, 'Admin', 'Create Signal', `Created ${data.instrument} ${data.signalType}`);
+      const docRef = await addDoc(signalsRef, payload);
+      await logAdminAction(adminId, 'Admin', 'signal_published', `Created signal for ${data.instrument} targeting ${data.audience} (ID: ${docRef.id})`);
     }
     else if (action === 'update') {
       // Primarily used for status updates
@@ -264,6 +275,7 @@ export const adminManageSignal = async (adminId: string, action: 'create' | 'upd
     }
     return { status: 'success', message: `Signal ${action}d` };
   } catch (e: any) {
+    console.error("Signal Ops Error:", e);
     return { status: 'error', message: e.message };
   }
 };

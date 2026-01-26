@@ -56,6 +56,10 @@ export interface TradingSignal {
   // Legacy compat
   direction?: 'BUY' | 'SELL'; 
   orderType?: string;
+
+  // Audience Targeting
+  audience?: 'all_users' | 'paid_users' | 'specific_plans';
+  plans?: string[];
 }
 
 export interface JournalEntry {
