@@ -36,6 +36,19 @@ export interface TokenTransaction {
   description: string;
 }
 
+export type SignalStatus = 
+  | 'pending' 
+  | 'active' 
+  | 'triggered' 
+  | 'completed_tp' 
+  | 'completed_sl' 
+  | 'completed_be' 
+  | 'cancelled' 
+  | 'expired'
+  | 'Active'     // Legacy
+  | 'Completed'  // Legacy
+  | 'Cancelled'; // Legacy
+
 export interface TradingSignal {
   id: string;
   instrument: string; 
@@ -46,7 +59,7 @@ export interface TradingSignal {
   stopLoss: number;
   takeProfit: number;
   rrRatio: number;
-  status: 'Active' | 'Completed' | 'Cancelled';
+  status: SignalStatus;
   confidence: number;
   notes?: string;
   author: string;
@@ -60,6 +73,14 @@ export interface TradingSignal {
   // Audience Targeting
   audience?: 'all_users' | 'paid_users' | 'specific_plans';
   plans?: string[];
+
+  // Lifecycle Management
+  triggeredAt?: string;
+  closedAt?: string;
+  exitPrice?: number;
+  outcomeComment?: string;
+  finalOutcome?: 'win' | 'loss' | 'be';
+  isDeleted?: boolean;
 }
 
 export interface JournalEntry {
@@ -79,7 +100,7 @@ export interface JournalEntry {
 export interface Lesson {
   id: string;
   slug: string;
-  category: 'SMC' | 'Psychology' | 'Technical' | 'Fundamentals';
+  category: string;
   title: string;
   description: string;
   content: string[];
@@ -204,8 +225,6 @@ export interface RevenueMetrics {
     last30Days: number;
   };
 }
-
-// --- NEW TYPES FOR PROMPT 5 ---
 
 export interface AIOversightMetrics {
   totalAnalyses: number;

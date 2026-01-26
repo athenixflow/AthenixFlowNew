@@ -1,9 +1,8 @@
-
 import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, deleteDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse } from './geminiService';
 import { getMarketData, testMarketConnection } from './marketData';
-import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth } from '../types';
+import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth, TradingSignal } from '../types';
 import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection } from './firestore';
 
 export interface BackendResponse<T = any> {
@@ -214,8 +213,7 @@ export const adminGrantTokens = async (adminId: string, targetUid: string, type:
   }
 };
 
-
-export const adminManageSignal = async (adminId: string, action: 'create' | 'update' | 'delete', data: any): Promise<BackendResponse> => {
+export const adminManageSignal = async (adminId: string, action: 'create' | 'update' | 'delete' | 'soft_delete', data: any): Promise<BackendResponse> => {
   if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
   const signalsRef = collection(firestore, 'signals');
   
@@ -227,7 +225,6 @@ export const adminManageSignal = async (adminId: string, action: 'create' | 'upd
       
       let rrRatio = 0;
       if (!isNaN(entry) && !isNaN(sl) && !isNaN(tp) && entry !== sl) {
-        // Simple Risk/Reward calculation
         const risk = Math.abs(entry - sl);
         const reward = Math.abs(tp - entry);
         if (risk > 0) {
@@ -235,7 +232,17 @@ export const adminManageSignal = async (adminId: string, action: 'create' | 'upd
         }
       }
 
-      // Legacy field mapping for compatibility
+      // Default status logic: 'pending' for limit orders, 'active' for market orders
+      let initialStatus = 'pending';
+      let triggeredAtVal = null;
+      if (data.signalType && (data.signalType.toLowerCase().includes('limit') || data.signalType.toLowerCase().includes('stop'))) {
+         initialStatus = 'pending';
+      } else {
+         initialStatus = 'active';
+         triggeredAtVal = new Date().toISOString();
+      }
+
+      // Legacy field mapping
       const direction = (data.signalType && data.signalType.toUpperCase().includes('BUY')) ? 'BUY' : 'SELL';
 
       const payload = {
@@ -247,33 +254,54 @@ export const adminManageSignal = async (adminId: string, action: 'create' | 'upd
         stopLoss: sl,
         takeProfit: tp,
         rrRatio: parseFloat(rrRatio.toFixed(2)),
-        status: 'Active',
+        status: initialStatus,
+        triggeredAt: triggeredAtVal,
+        
         direction: direction,
         confidence: data.confidence || 90,
-        
-        // Audience Targeting
         audience: data.audience || 'all_users',
         plans: data.plans || [],
+        notes: data.notes || '',
 
         authorId: adminId,
         author: data.author || 'Admin',
-        timestamp: new Date().toISOString(), // Display timestamp
-        createdAt: serverTimestamp() // Audit timestamp
+        timestamp: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        isDeleted: false
       };
       
       const docRef = await addDoc(signalsRef, payload);
-      await logAdminAction(adminId, 'Admin', 'signal_published', `Created signal for ${data.instrument} targeting ${data.audience} (ID: ${docRef.id})`);
+      await logAdminAction(adminId, 'Admin', 'signal_published', `Created ${initialStatus} signal for ${data.instrument} (ID: ${docRef.id})`);
     }
     else if (action === 'update') {
-      // Primarily used for status updates
-      await updateDoc(doc(firestore, 'signals', data.id), data);
-      await logAdminAction(adminId, 'Admin', 'Update Signal', `Updated signal ${data.id} status to ${data.status}`);
+      const updates = { ...data };
+      
+      // Auto-timestamp logic
+      if (updates.status === 'active' || updates.status === 'triggered') {
+         // If triggering a pending signal, set triggeredAt
+         if (!updates.triggeredAt) updates.triggeredAt = new Date().toISOString();
+      }
+      
+      if (['completed_tp', 'completed_sl', 'completed_be'].includes(updates.status)) {
+         if (!updates.closedAt) updates.closedAt = new Date().toISOString();
+         // Map simple outcome
+         if (updates.status === 'completed_tp') updates.finalOutcome = 'win';
+         if (updates.status === 'completed_sl') updates.finalOutcome = 'loss';
+         if (updates.status === 'completed_be') updates.finalOutcome = 'be';
+      }
+
+      await updateDoc(doc(firestore, 'signals', data.id), updates);
+      await logAdminAction(adminId, 'Admin', 'Update Signal', `Updated signal ${data.id}`);
+    }
+    else if (action === 'soft_delete') {
+      await updateDoc(doc(firestore, 'signals', data.id), { isDeleted: true });
+      await logAdminAction(adminId, 'Admin', 'Soft Delete Signal', `Soft deleted signal ${data.id}`);
     }
     else if (action === 'delete') {
       await deleteDoc(doc(firestore, 'signals', data.id));
-      await logAdminAction(adminId, 'Admin', 'Delete Signal', `Deleted signal ${data.id}`);
+      await logAdminAction(adminId, 'Admin', 'Hard Delete Signal', `Permanently deleted signal ${data.id}`);
     }
-    return { status: 'success', message: `Signal ${action}d` };
+    return { status: 'success', message: `Signal processed (${action})` };
   } catch (e: any) {
     console.error("Signal Ops Error:", e);
     return { status: 'error', message: e.message };
@@ -293,55 +321,43 @@ export const adminManageLesson = async (adminId: string, action: 'create' | 'upd
   }
   else if (action === 'delete') {
       await deleteDoc(doc(firestore, 'educationContent', data.id));
-      await logAdminAction(adminId, 'Admin', 'Delete Lesson', `Deleted lesson ID: ${data.id}`);
+      await logAdminAction(adminId, 'Admin', 'Delete Lesson', `Deleted lesson ${data.id}`);
   }
   return { status: 'success', message: `Lesson ${action}d` };
 };
 
-// --- SYSTEM & ECONOMY CONTROL ---
-
 export const adminUpdateTokenConfig = async (adminId: string, config: TokenEconomyConfig): Promise<BackendResponse> => {
   if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
   const success = await updateTokenEconomyConfig(config);
-  if (success) {
-    await logAdminAction(adminId, 'Admin', 'Update Economy', 'Updated token economy configuration');
-    return { status: 'success', message: 'Token economy updated' };
-  }
-  return { status: 'error', message: 'Failed to update configuration' };
+  if (success) await logAdminAction(adminId, 'Admin', 'Config Update', 'Updated Token Economy');
+  return { status: success ? 'success' : 'error', message: success ? 'Config updated' : 'Update failed' };
 };
 
 export const adminToggleAILearning = async (adminId: string, active: boolean): Promise<BackendResponse> => {
-  if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
-  try {
-    await setDoc(doc(firestore, "system_config", "ai_learning"), {
-      status: active ? 'active' : 'paused',
-      updatedAt: new Date().toISOString(),
-      updatedBy: adminId
-    });
-    await logAdminAction(adminId, 'Admin', 'Toggle AI Learning', `Set AI learning to ${active ? 'Active' : 'Paused'}`);
-    return { status: 'success', message: `AI Learning ${active ? 'Resumed' : 'Paused'}` };
-  } catch (e: any) {
-    return { status: 'error', message: e.message };
-  }
+   if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
+   await setDoc(doc(firestore, "system_config", "ai_learning"), { status: active ? 'active' : 'paused' }, { merge: true });
+   await logAdminAction(adminId, 'Admin', 'System Config', `AI Learning set to ${active ? 'Active' : 'Paused'}`);
+   return { status: 'success', message: `AI Learning ${active ? 'Resumed' : 'Paused'}` };
 };
 
 export const getSystemHealthStatus = async (): Promise<SystemHealth> => {
-  // Check Database
-  const dbStatus = await checkDatabaseConnection();
-  
-  // Check Market API
-  const apiStatus = await testMarketConnection();
+  const dbStatus = await checkDatabaseConnection() ? 'connected' : 'error';
+  const apiStatus = await testMarketConnection() ? 'operational' : 'down';
   
   return {
-    forexApi: apiStatus ? 'operational' : 'degraded',
-    stockApi: apiStatus ? 'operational' : 'degraded', // Using same proxy currently
-    aiApi: 'operational', // Assumed mostly up unless explicit error from Google
-    database: dbStatus ? 'connected' : 'error',
+    database: dbStatus,
+    forexApi: apiStatus,
+    stockApi: apiStatus, // Assuming shared endpoint
+    aiApi: 'operational', // Mocking for now, could ping Gemini
     lastCheck: new Date().toISOString()
   };
 };
 
-export const verifyBackendConnectivity = () => {
-  console.debug("Athenix: Backend bridges active.");
-  return true;
+export const verifyBackendConnectivity = async () => {
+  try {
+    const status = await getSystemHealthStatus();
+    console.log(`[Athenix System Check] DB: ${status.database}, API: ${status.forexApi}`);
+  } catch (e) {
+    console.warn("Athenix: System health check failed during initialization.");
+  }
 };

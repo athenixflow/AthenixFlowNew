@@ -21,6 +21,15 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
     fetchSignals();
   }, []);
 
+  const getStatusBadge = (status: string) => {
+    const s = status.toLowerCase();
+    if (s === 'pending') return <div className="absolute top-0 right-0 px-4 py-1 text-[9px] font-black uppercase tracking-widest bg-brand-gold text-white">Pending Entry</div>;
+    if (s.includes('completed_tp') || s.includes('win')) return <div className="absolute top-0 right-0 px-4 py-1 text-[9px] font-black uppercase tracking-widest bg-brand-success text-white">Target Hit</div>;
+    if (s.includes('completed_sl') || s.includes('loss')) return <div className="absolute top-0 right-0 px-4 py-1 text-[9px] font-black uppercase tracking-widest bg-brand-error text-white">Stop Loss</div>;
+    if (s.includes('cancelled')) return <div className="absolute top-0 right-0 px-4 py-1 text-[9px] font-black uppercase tracking-widest bg-brand-muted text-white">Cancelled</div>;
+    return null; // Active doesn't need a top ribbon, uses pulse dot
+  };
+
   return (
     <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-5xl mx-auto pb-24">
       <section className="space-y-2">
@@ -48,16 +57,10 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
           <div className="space-y-4">
             {signals.map((signal) => (
               <div key={signal.id} className={`athenix-card p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 group relative overflow-hidden ${
-                 signal.status === 'Cancelled' ? 'opacity-60 grayscale' : ''
+                 signal.status.includes('cancelled') || signal.status.includes('expired') ? 'opacity-60 grayscale' : ''
               }`}>
                 {/* Status Ribbon */}
-                {signal.status !== 'Active' && (
-                  <div className={`absolute top-0 right-0 px-4 py-1 text-[9px] font-black uppercase tracking-widest ${
-                     signal.status === 'Completed' ? 'bg-brand-success text-white' : 'bg-brand-muted text-white'
-                  }`}>
-                    {signal.status}
-                  </div>
-                )}
+                {getStatusBadge(signal.status)}
 
                 <div className="flex items-center gap-6">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white text-xs tracking-widest shadow-lg ${
@@ -68,7 +71,7 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
                   <div>
                     <h4 className="text-2xl font-black text-brand-charcoal tracking-tighter uppercase">{signal.instrument}</h4>
                     <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest flex items-center gap-2">
-                      <span className={`w-1.5 h-1.5 rounded-full ${signal.status === 'Active' ? 'bg-brand-gold animate-pulse' : 'bg-brand-muted'}`}></span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${signal.status === 'active' || signal.status === 'triggered' || signal.status === 'Active' ? 'bg-brand-gold animate-pulse' : 'bg-brand-muted'}`}></span>
                       {signal.timeframe} • {signal.signalType}
                     </p>
                   </div>
@@ -98,6 +101,14 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
                     <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">{new Date(signal.timestamp).toLocaleDateString()}</span>
                   </div>
                 </div>
+
+                {/* Outcome Comment display if completed */}
+                {signal.outcomeComment && (
+                    <div className="w-full mt-4 pt-4 border-t border-brand-sage/10">
+                        <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1">Analyst Notes</p>
+                        <p className="text-xs text-brand-charcoal italic">"{signal.outcomeComment}"</p>
+                    </div>
+                )}
               </div>
             ))}
           </div>

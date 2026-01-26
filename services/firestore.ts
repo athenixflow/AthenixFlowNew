@@ -33,36 +33,38 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
   return userSnap.exists() ? (userSnap.data() as UserProfile) : null;
 };
 
-// For User App: Shows all signals sorted by time
+// For User App: Shows all signals sorted by time, excluding deleted ones
 export const getActiveSignals = async (): Promise<TradingSignal[]> => {
   try {
     const q = query(collection(firestore, "signals"), orderBy("timestamp", "desc"));
     const snap = await getDocs(q);
     
-    return snap.docs.map(doc => {
-      const data = doc.data();
-      let ts = new Date().toISOString();
-      if (data.timestamp && typeof data.timestamp.toDate === 'function') {
-        ts = data.timestamp.toDate().toISOString();
-      } else if (data.timestamp) {
-        ts = new Date(data.timestamp).toISOString();
-      }
+    return snap.docs
+      .map(doc => {
+        const data = doc.data();
+        let ts = new Date().toISOString();
+        if (data.timestamp && typeof data.timestamp.toDate === 'function') {
+          ts = data.timestamp.toDate().toISOString();
+        } else if (data.timestamp) {
+          ts = new Date(data.timestamp).toISOString();
+        }
 
-      const entry = Number(data.entry) || 0;
-      const stopLoss = Number(data.stopLoss) || 0;
-      const takeProfit = Number(data.takeProfit) || 0;
-      const rrRatio = Number(data.rrRatio) || 0;
+        const entry = Number(data.entry) || 0;
+        const stopLoss = Number(data.stopLoss) || 0;
+        const takeProfit = Number(data.takeProfit) || 0;
+        const rrRatio = Number(data.rrRatio) || 0;
 
-      return { 
-        id: doc.id, 
-        ...data,
-        entry, stopLoss, takeProfit, rrRatio,
-        market: data.market || 'Forex',
-        status: data.status || 'Active',
-        signalType: data.signalType || (data.direction === 'BUY' ? 'Buy' : 'Sell'),
-        timestamp: ts
-      } as TradingSignal;
-    });
+        return { 
+          id: doc.id, 
+          ...data,
+          entry, stopLoss, takeProfit, rrRatio,
+          market: data.market || 'Forex',
+          status: data.status || 'Active',
+          signalType: data.signalType || (data.direction === 'BUY' ? 'Buy' : 'Sell'),
+          timestamp: ts
+        } as TradingSignal;
+      })
+      .filter(signal => signal.isDeleted !== true); // Client-side filter for soft deletes
   } catch (error) {
     console.error("Error fetching signals:", error);
     return [];
