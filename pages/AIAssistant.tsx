@@ -181,7 +181,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
     setIsAnalyzing(false);
   };
 
-  const submitFeedback = async (analysisId: string, outcome: 'TP' | 'SL' | 'BE' | 'IGNORED') => {
+  const submitFeedback = async (analysisId: string, outcome: 'TP' | 'SL' | 'BE' | 'NOT_TAKEN' | 'INVALID') => {
     const feedback: AnalysisFeedback = {
       outcome,
       comment: feedbackComment,
@@ -214,6 +214,16 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
               }`}>
                 {data.final_decision === 'trade' ? 'ACTIVE SETUP' : 'NO TRADE'}
               </span>
+              {data.execution_mode && (
+                <span className="px-2 py-1 bg-brand-gold text-white text-[9px] font-black uppercase rounded tracking-widest shadow-sm shadow-brand-gold/20">
+                  {data.execution_mode.replace('_', ' ')}
+                </span>
+              )}
+              {data.market_phase && (
+                <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">
+                  {data.market_phase}
+                </span>
+              )}
               {data.strategy_used && (
                 <span className="px-2 py-1 bg-brand-gold/10 text-brand-gold text-[9px] font-black uppercase rounded tracking-widest">
                   {data.strategy_used.replace(/_/g, ' ')}
@@ -410,6 +420,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                  </div>
               </div>
 
+              {/* Timeframe Selection */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">Timeframe</label>
                 <div className="grid grid-cols-4 gap-2">
@@ -429,6 +440,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                 </div>
               </div>
 
+              {/* Fundamentals Toggle */}
               <div className="pt-4">
                 <div className="flex items-center justify-between p-4 bg-brand-sage/5 border border-dashed border-brand-sage rounded-xl">
                   <div>
@@ -539,7 +551,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                              item.feedback.outcome === 'BE' ? 'bg-brand-gold/10 text-brand-gold' :
                              'bg-brand-sage/10 text-brand-muted'
                            }`}>
-                             Result: {item.feedback.outcome}
+                             Result: {item.feedback.outcome.replace('_', ' ')}
                            </div>
                         ) : (
                            <span className="text-[8px] font-bold text-brand-muted uppercase tracking-widest opacity-50 px-2">Unreported</span>
@@ -574,11 +586,12 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                                   placeholder="Contextual notes (e.g. Fundamental reversal, High impact news shift)"
                                   className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-xs outline-none focus:border-brand-gold min-h-[80px] resize-none"
                                 />
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-5 gap-2">
                                   <button onClick={() => submitFeedback(item.id!, 'TP')} className="py-3 bg-brand-success text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">TP</button>
                                   <button onClick={() => submitFeedback(item.id!, 'SL')} className="py-3 bg-brand-error text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">SL</button>
                                   <button onClick={() => submitFeedback(item.id!, 'BE')} className="py-3 bg-brand-gold text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">BE</button>
-                                  <button onClick={() => submitFeedback(item.id!, 'IGNORED')} className="py-3 bg-brand-muted text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">Skip</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'NOT_TAKEN')} className="py-3 bg-brand-muted text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">Skip</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'INVALID')} className="py-3 bg-red-800 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">Invalid</button>
                                 </div>
                               </div>
                             ) : (

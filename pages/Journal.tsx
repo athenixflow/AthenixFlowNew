@@ -17,6 +17,7 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
   const [formData, setFormData] = useState({
     title: '',
     market: '',
+    tradeMode: 'day_trade',
     direction: 'BUY',
     entryPrice: '',
     stopLoss: '',
@@ -79,6 +80,7 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
       const result = await addJournalEntry(uid, {
         title: formData.title,
         market: formData.market,
+        tradeMode: formData.tradeMode as 'scalp' | 'day_trade' | 'swing_trade',
         notes: formData.notes,
         direction: formData.direction as 'BUY' | 'SELL',
         entryPrice: formData.entryPrice,
@@ -89,7 +91,7 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
 
       if (result.success) {
         setFormData({
-            title: '', market: '', direction: 'BUY', entryPrice: '', 
+            title: '', market: '', tradeMode: 'day_trade', direction: 'BUY', entryPrice: '', 
             stopLoss: '', takeProfit: '', outcome: 'open', notes: ''
         });
         setSuccessMsg("Entry saved to journal.");
@@ -161,20 +163,28 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
                   />
                </div>
                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Direction</label>
+                  <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Trade Mode</label>
                   <select 
-                    name="direction" value={formData.direction} onChange={handleChange}
+                    name="tradeMode" value={formData.tradeMode} onChange={handleChange}
                     className="w-full px-5 py-4 bg-brand-sage/5 border border-brand-sage rounded-xl outline-none text-xs font-bold focus:border-brand-gold transition-colors"
                   >
-                    <option value="BUY">BUY</option>
-                    <option value="SELL">SELL</option>
+                    <option value="scalp">Scalp</option>
+                    <option value="day_trade">Day Trade</option>
+                    <option value="swing_trade">Swing Trade</option>
                   </select>
                </div>
             </div>
           </div>
 
           {/* Execution Details */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+             <div className="space-y-2">
+               <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Direction</label>
+               <select name="direction" value={formData.direction} onChange={handleChange} className="w-full px-4 py-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-xs font-bold outline-none focus:border-brand-gold">
+                 <option value="BUY">BUY</option>
+                 <option value="SELL">SELL</option>
+               </select>
+             </div>
              <div className="space-y-2">
                <label className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Entry</label>
                <input name="entryPrice" value={formData.entryPrice} onChange={handleChange} className="w-full px-4 py-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-xs font-medium outline-none focus:border-brand-gold" placeholder="0.00" />
@@ -240,6 +250,9 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
                          <h4 className="text-lg font-black text-brand-charcoal uppercase tracking-tight">{entry.title}</h4>
                          <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-brand-sage/10 text-brand-muted">{entry.market}</span>
                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${entry.direction === 'BUY' ? 'text-brand-success bg-brand-success/10' : 'text-brand-error bg-brand-error/10'}`}>{entry.direction}</span>
+                         {entry.tradeMode && (
+                           <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-brand-gold/10 text-brand-gold">{entry.tradeMode.replace('_', ' ')}</span>
+                         )}
                        </div>
                        <p className="text-xs text-brand-muted font-medium leading-relaxed whitespace-pre-wrap line-clamp-2 hover:line-clamp-none transition-all cursor-default">
                          {entry.notes}

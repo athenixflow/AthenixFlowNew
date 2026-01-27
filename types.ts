@@ -85,6 +85,7 @@ export interface JournalEntry {
   userId: string;
   title: string;
   market: string;
+  tradeMode?: 'scalp' | 'day_trade' | 'swing_trade';
   direction: 'BUY' | 'SELL';
   entryPrice: string;
   stopLoss: string;
@@ -115,7 +116,7 @@ export interface EducationInteraction {
 }
 
 export interface AnalysisFeedback {
-  outcome: 'TP' | 'SL' | 'BE' | 'IGNORED';
+  outcome: 'TP' | 'SL' | 'BE' | 'NOT_TAKEN' | 'INVALID';
   comment?: string;
   timestamp: string;
 }
@@ -129,6 +130,8 @@ export interface TradeAnalysis {
   instrument: string;
   asset_class?: 'forex' | 'stock' | 'index' | 'metal';
   execution_timeframe: string;
+  market_phase?: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';
+  execution_mode?: 'scalp' | 'day_trade' | 'swing_trade';
 
   final_decision: 'trade' | 'no_trade';
   strategy_used: 'structure_only' | 'liquidity_only' | 'structure_plus_liquidity' | 'none';
