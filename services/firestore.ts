@@ -1,4 +1,3 @@
-
 import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc, getCountFromServer } from "firebase/firestore";
 import { firestore } from "../firebase";
 import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry } from "../types";
@@ -59,7 +58,7 @@ export const getActiveSignals = async (): Promise<TradingSignal[]> => {
           ...data,
           entry, stopLoss, takeProfit, rrRatio,
           market: data.market || 'Forex',
-          status: data.status || 'Active',
+          status: (data.status || 'active').toLowerCase(),
           signalType: data.signalType || (data.direction === 'BUY' ? 'Buy' : 'Sell'),
           timestamp: ts
         } as TradingSignal;

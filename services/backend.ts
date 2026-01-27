@@ -278,7 +278,13 @@ export const adminManageSignal = async (adminId: string, action: 'create' | 'upd
       const { id, ...rest } = data; // Destructure ID to avoid overwriting it in document
       if (!id) return { status: 'error', message: 'Signal ID missing for update' };
 
-      const updates = { ...rest };
+      // 1. Sanitize updates to remove undefined fields
+      const updates: Record<string, any> = {};
+      Object.keys(rest).forEach(key => {
+        if (rest[key] !== undefined) {
+          updates[key] = rest[key];
+        }
+      });
       
       // Auto-timestamp logic
       if (updates.status === 'active' || updates.status === 'triggered') {
@@ -286,12 +292,18 @@ export const adminManageSignal = async (adminId: string, action: 'create' | 'upd
          if (!updates.triggeredAt) updates.triggeredAt = new Date().toISOString();
       }
       
-      if (['completed_tp', 'completed_sl', 'completed_be'].includes(updates.status)) {
+      const completedStatuses = ['completed_tp', 'completed_sl', 'completed_be'];
+      if (completedStatuses.includes(updates.status)) {
          if (!updates.closedAt) updates.closedAt = new Date().toISOString();
          // Map simple outcome
          if (updates.status === 'completed_tp') updates.finalOutcome = 'win';
          if (updates.status === 'completed_sl') updates.finalOutcome = 'loss';
          if (updates.status === 'completed_be') updates.finalOutcome = 'be';
+      } else {
+         // Ensure exitPrice is NOT included for non-completed statuses unless explicitly intended
+         // This prevents stale or undefined exitPrice from persisting or causing errors if it was filtered out
+         delete updates.exitPrice;
+         delete updates.finalOutcome;
       }
 
       const docRef = doc(firestore, 'signals', id);

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { getAllUsers, getAllSignals, getEducationLessons, getAdminOverviewMetrics, getRevenueMetrics, getAIOversightMetrics, getTokenEconomyConfig, getAuditLogs } from '../services/firestore';
 import { adminUpdateUser, adminManageSignal, adminManageLesson, adminGrantTokens, adminUpdateSubscription, adminToggleUserStatus, adminUpdateTokenConfig, adminToggleAILearning, getSystemHealthStatus } from '../services/backend';
@@ -517,7 +516,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
                  <tr key={s.id} className="hover:bg-gray-50">
                    <td className="p-4">
                       <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-wide ${
-                        s.status === 'active' || s.status === 'triggered' || s.status === 'Active' ? 'bg-blue-100 text-blue-700' :
+                        s.status === 'active' || s.status === 'triggered' ? 'bg-blue-100 text-blue-700' :
                         s.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                         s.status.includes('completed_tp') ? 'bg-green-100 text-green-700' :
                         s.status.includes('completed_sl') ? 'bg-red-100 text-red-700' :
@@ -566,9 +565,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     );
   };
 
-  // ... (rest of the file content omitted for brevity, it's identical to previous version) ...
-  // Re-include the rest of the file to ensure completeness
-  
   const renderOverview = () => {
     if (!overviewMetrics) return <div className="p-10 text-center text-xs text-gray-400 font-bold uppercase tracking-widest">Loading Mission Control...</div>;
     return (

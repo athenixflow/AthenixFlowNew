@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { getActiveSignals } from '../services/firestore';
 import { TradingSignal, UserProfile } from '../types';
@@ -71,7 +70,7 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
                   <div>
                     <h4 className="text-2xl font-black text-brand-charcoal tracking-tighter uppercase">{signal.instrument}</h4>
                     <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest flex items-center gap-2">
-                      <span className={`w-1.5 h-1.5 rounded-full ${signal.status === 'active' || signal.status === 'triggered' || signal.status === 'Active' ? 'bg-brand-gold animate-pulse' : 'bg-brand-muted'}`}></span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${signal.status === 'active' || signal.status === 'triggered' ? 'bg-brand-gold animate-pulse' : 'bg-brand-muted'}`}></span>
                       {signal.timeframe} • {signal.signalType}
                     </p>
                   </div>
