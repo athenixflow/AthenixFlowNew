@@ -257,9 +257,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
       exitPrice: manageStatusOutcome.exitPrice,
       outcomeComment: manageStatusOutcome.comment
     };
-    await adminManageSignal(user.uid, 'update', updates);
-    setManagingSignal(null);
-    refreshData();
+    
+    const res = await adminManageSignal(user.uid, 'update', updates);
+    
+    if (res.status === 'success') {
+      setManagingSignal(null);
+      refreshData();
+    } else {
+      alert("Failed to update status: " + res.message);
+    }
   };
 
   const handleSoftDelete = async (id: string) => {
@@ -560,9 +566,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
     );
   };
 
-  // ... (Other render functions remain identical to previous implementation, omitted here for brevity but included in file content) ...
-  // [Placeholder for renderOverview, renderUsers, renderRevenue, renderAIOversight, renderTokens, renderSystem, renderAudit, renderEducation]
-  // We include full code in the output below.
+  // ... (rest of the file content omitted for brevity, it's identical to previous version) ...
+  // Re-include the rest of the file to ensure completeness
   
   const renderOverview = () => {
     if (!overviewMetrics) return <div className="p-10 text-center text-xs text-gray-400 font-bold uppercase tracking-widest">Loading Mission Control...</div>;

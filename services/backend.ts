@@ -1,3 +1,4 @@
+
 import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, deleteDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse } from './geminiService';
@@ -274,7 +275,10 @@ export const adminManageSignal = async (adminId: string, action: 'create' | 'upd
       await logAdminAction(adminId, 'Admin', 'signal_published', `Created ${initialStatus} signal for ${data.instrument} (ID: ${docRef.id})`);
     }
     else if (action === 'update') {
-      const updates = { ...data };
+      const { id, ...rest } = data; // Destructure ID to avoid overwriting it in document
+      if (!id) return { status: 'error', message: 'Signal ID missing for update' };
+
+      const updates = { ...rest };
       
       // Auto-timestamp logic
       if (updates.status === 'active' || updates.status === 'triggered') {
@@ -290,8 +294,9 @@ export const adminManageSignal = async (adminId: string, action: 'create' | 'upd
          if (updates.status === 'completed_be') updates.finalOutcome = 'be';
       }
 
-      await updateDoc(doc(firestore, 'signals', data.id), updates);
-      await logAdminAction(adminId, 'Admin', 'Update Signal', `Updated signal ${data.id}`);
+      const docRef = doc(firestore, 'signals', id);
+      await updateDoc(docRef, updates);
+      await logAdminAction(adminId, 'Admin', 'Update Signal', `Updated signal ${id}`);
     }
     else if (action === 'soft_delete') {
       await updateDoc(doc(firestore, 'signals', data.id), { isDeleted: true });

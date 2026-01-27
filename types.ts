@@ -44,10 +44,7 @@ export type SignalStatus =
   | 'completed_sl' 
   | 'completed_be' 
   | 'cancelled' 
-  | 'expired'
-  | 'Active'     // Legacy
-  | 'Completed'  // Legacy
-  | 'Cancelled'; // Legacy
+  | 'expired';
 
 export interface TradingSignal {
   id: string;

@@ -54,9 +54,12 @@ service cloud.firestore {
 
     // --- SIGNALS (Admin Manageable) ---
     match /signals/{signalId} {
-      // Everyone can read active signals, only Admin can publish/edit
+      // Everyone can read active signals
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      // Only Admin can manage lifecycle explicitly
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // --- EDUCATION CONTENT (Admin Manageable) ---
