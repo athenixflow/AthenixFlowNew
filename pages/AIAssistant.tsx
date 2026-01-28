@@ -1,5 +1,4 @@
 
-// Add React to the import list to fix "Cannot find namespace 'React'" error.
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, TradeAnalysis, AnalysisFeedback } from '../types';
 import { analyzeMarket } from '../services/backend';
@@ -7,11 +6,40 @@ import { getMarketData } from '../services/marketData';
 import { getUserAnalysisHistory, submitAnalysisFeedback } from '../services/firestore';
 import { FOREX_INSTRUMENTS, STOCK_INSTRUMENTS, ICONS } from '../constants';
 
-const TIMEFRAMES = [
-  '1m', '3m', '5m', '10m', '15m', '30m', 
-  '1h', '2h', '4h', '8h', 
-  '1D', '1W', '1M', '1Y'
-];
+type ExecutionMode = 'scalp' | 'day_trade' | 'swing_trade';
+
+const MODE_CONFIG: Record<ExecutionMode, { label: string; desc: string; timeframes: string[]; icon: React.FC<{selected: boolean}> }> = {
+  scalp: {
+    label: 'Scalp',
+    desc: 'High frequency execution (M1-M15).',
+    timeframes: ['1m', '3m', '5m', '15m'],
+    icon: ({selected}) => (
+      <svg className={`w-5 h-5 ${selected ? 'text-white' : 'text-brand-gold'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    )
+  },
+  day_trade: {
+    label: 'Day Trade',
+    desc: 'Intraday structure (M15-H4).',
+    timeframes: ['15m', '30m', '1h', '2h', '4h'],
+    icon: ({selected}) => (
+      <svg className={`w-5 h-5 ${selected ? 'text-white' : 'text-brand-gold'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  },
+  swing_trade: {
+    label: 'Swing Trade',
+    desc: 'Multi-day moves (H4-Weekly).',
+    timeframes: ['4h', '8h', '1D', '1W'],
+    icon: ({selected}) => (
+      <svg className={`w-5 h-5 ${selected ? 'text-white' : 'text-brand-gold'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    )
+  }
+};
 
 interface AIAssistantProps {
   user: UserProfile | null;
@@ -20,9 +48,10 @@ interface AIAssistantProps {
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
   // Configuration State
+  const [tradeMode, setTradeMode] = useState<ExecutionMode | null>(null);
   const [marketType, setMarketType] = useState<'forex' | 'stock' | null>(null);
   const [symbol, setSymbol] = useState('');
-  const [timeframe, setTimeframe] = useState('1h');
+  const [timeframe, setTimeframe] = useState('');
   const [fundamentalToggle, setFundamentalToggle] = useState(false);
   
   // Searchable Dropdown State
@@ -62,8 +91,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [user]);
 
+  // Reset logic when market type changes
   useEffect(() => {
-    // Reset selections when market type changes
     if (marketType) {
         setSymbol('');
         setSearchQuery('');
@@ -73,6 +102,17 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
         setAnalysis(null);
     }
   }, [marketType]);
+
+  // Reset logic when trade mode changes
+  useEffect(() => {
+    if (tradeMode) {
+        // If current timeframe is not valid for new mode, reset it
+        const validTfs = MODE_CONFIG[tradeMode].timeframes;
+        if (timeframe && !validTfs.includes(timeframe)) {
+            setTimeframe('');
+        }
+    }
+  }, [tradeMode]);
 
   const loadHistory = async () => {
     if (!user) return;
@@ -114,17 +154,13 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
             setPriceTimestamp(new Date().toLocaleTimeString());
           } else if (type === 'forex') {
             const quoteKey = `USD${selected.symbol.replace('USD', '')}`;
-            // API returns quotes relative to USD (Source).
-            // Try direct retrieval first (for pairs containing USD)
             const rate = data.quotes?.[quoteKey] || data.rates?.[selected.symbol.replace('USD', '')];
             
             if (rate) {
               setCurrentPrice(selected.symbol.endsWith('USD') ? 1/rate : rate);
               setPriceTimestamp(new Date().toLocaleTimeString());
             } else {
-              // Cross Rate Calculation Logic
-              // If direct quote isn't found (common for crosses like GBPJPY when source is USD),
-              // calculate it using the two USD pairs returned by the normalized API call.
+              // Cross Rate Fallback Logic
               if (selected.symbol.length === 6) {
                 const base = selected.symbol.substring(0, 3);
                 const quote = selected.symbol.substring(3, 6);
@@ -135,10 +171,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                 const quoteRate = data.quotes?.[quoteKey];
                 
                 if (baseRate && quoteRate) {
-                    // USD/Base = baseRate  => 1 Base = (1/baseRate) USD
-                    // USD/Quote = quoteRate => 1 USD  = quoteRate Quote
-                    // 1 Base = (1/baseRate) * quoteRate Quote
-                    // Rate = quoteRate / baseRate
                     setCurrentPrice(quoteRate / baseRate);
                     setPriceTimestamp(new Date().toLocaleTimeString());
                 }
@@ -155,8 +187,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
 
   const handleGenerate = async () => {
     if (!user) return;
-    if (!symbol || !marketType) {
-      setError('Please select a market type and instrument.');
+    if (!tradeMode || !symbol || !marketType || !timeframe) {
+      setError('Complete all configuration steps to run analysis.');
       return;
     }
 
@@ -169,9 +201,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
     if (response.status === 'success') {
       const newAnalysis = response.data;
       setAnalysis(newAnalysis);
-      // POPULATE IMMEDIATELY: Prepend to history for real-time feedback
       setHistory(prev => [newAnalysis, ...prev]);
-      // Optional: Auto-expand the history entry after a short delay
       setTimeout(() => {
         setExpandedHistoryId(newAnalysis.id);
       }, 500);
@@ -197,14 +227,20 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
   const fmt = (num?: number, digits = 5) => num ? num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: digits }) : '---';
 
   const AnalysisDetailView = ({ data, isHistory = false }: { data: TradeAnalysis, isHistory?: boolean }) => (
-    <div className={`space-y-10 relative overflow-hidden bg-white ${isHistory ? 'p-0' : 'border border-brand-sage rounded-2xl p-6 md:p-10 animate-slide-up'}`}>
+    <div className={`space-y-8 relative overflow-hidden bg-white ${isHistory ? 'p-0' : 'border border-brand-sage rounded-2xl p-6 md:p-10 animate-slide-up'}`}>
       {!isHistory && <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/5 -mr-16 -mt-16 rounded-full"></div>}
       
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-brand-sage/10">
-        <div>
-          <h4 className="text-3xl font-black text-brand-charcoal tracking-tighter mb-2 uppercase">
-            {data.instrument}
-          </h4>
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+             <h4 className="text-3xl font-black text-brand-charcoal tracking-tighter uppercase">{data.instrument}</h4>
+             {data.execution_mode && (
+               <span className="px-3 py-1 bg-brand-gold text-white text-[9px] font-black uppercase rounded tracking-widest shadow-md">
+                 {data.execution_mode.replace('_', ' ')}
+               </span>
+             )}
+          </div>
           <div className="flex flex-wrap gap-2">
               <span className="px-2 py-1 bg-brand-charcoal text-white text-[9px] font-black uppercase rounded tracking-widest">
                 {data.execution_timeframe}
@@ -214,11 +250,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
               }`}>
                 {data.final_decision === 'trade' ? 'ACTIVE SETUP' : 'NO TRADE'}
               </span>
-              {data.execution_mode && (
-                <span className="px-2 py-1 bg-brand-gold text-white text-[9px] font-black uppercase rounded tracking-widest shadow-sm shadow-brand-gold/20">
-                  {data.execution_mode.replace('_', ' ')}
-                </span>
-              )}
               {data.market_phase && (
                 <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">
                   {data.market_phase}
@@ -231,42 +262,44 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
               )}
           </div>
         </div>
+        
         {data.signal && (
           <div className="text-right">
-              <div className="text-xs font-black uppercase tracking-widest text-brand-muted mb-1">Confidence</div>
-              <div className="text-2xl font-black text-brand-charcoal">{data.signal.confidence_score}%</div>
+              <div className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Algorithmic Confidence</div>
+              <div className="text-3xl font-black text-brand-charcoal">{data.signal.confidence_score}%</div>
           </div>
         )}
       </div>
 
+      {/* Signal Section */}
       {data.final_decision === 'trade' && data.signal ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="space-y-2 p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20">
-              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Direction</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20 text-center md:text-left">
+              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest mb-1">Action</p>
               <p className={`text-sm font-black uppercase ${data.signal.direction === 'buy' ? 'text-brand-success' : 'text-brand-error'}`}>
-                {data.signal.order_type.replace('_', ' ')}
+                {data.signal.order_type.replace(/_/g, ' ')}
               </p>
             </div>
-            <div className="space-y-2 p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20">
-              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Entry Zone</p>
+            <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20 text-center md:text-left">
+              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest mb-1">Entry Zone</p>
               <p className="text-sm font-black text-brand-charcoal">{fmt(data.signal.entry_price)}</p>
             </div>
-            <div className="space-y-2 p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20">
-              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Stop Loss</p>
+            <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20 text-center md:text-left">
+              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest mb-1">Stop Loss</p>
               <p className="text-sm font-black text-brand-error">{fmt(data.signal.stop_loss)}</p>
             </div>
-            <div className="space-y-2 p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20">
-              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Risk / Reward</p>
+            <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/20 text-center md:text-left">
+              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest mb-1">Reward Ratio</p>
               <p className="text-sm font-black text-brand-charcoal">1:{data.signal.risk_reward_ratio}</p>
             </div>
           </div>
 
           <div className="space-y-3">
             <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Take Profit Targets</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {data.signal.take_profits.map((tp, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-3 bg-brand-success/5 border border-brand-success/20 rounded-lg">
+                  <div key={idx} className="flex justify-between items-center p-3 bg-white border border-brand-success/30 rounded-lg shadow-sm">
                     <span className="text-[9px] font-black text-brand-success uppercase">{tp.level}</span>
                     <span className="text-xs font-bold text-brand-charcoal">{fmt(tp.price)}</span>
                   </div>
@@ -276,33 +309,42 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
         </>
       ) : (
         <div className="p-8 bg-brand-sage/10 rounded-xl text-center border-2 border-dashed border-brand-sage/30">
-            <p className="text-brand-charcoal font-black uppercase tracking-widest text-sm mb-2">Market Conditions Unfavorable</p>
-            <p className="text-brand-muted text-xs max-w-md mx-auto">The algorithm has determined that current price action does not meet the strict probability threshold required for a valid setup.</p>
+            <p className="text-brand-charcoal font-black uppercase tracking-widest text-sm mb-2">Setup Criteria Not Met</p>
+            <p className="text-brand-muted text-xs max-w-md mx-auto">The algorithm has determined that current price action does not meet the strict probability threshold required for a valid {tradeMode?.replace('_', ' ')} setup.</p>
         </div>
       )}
 
-      <div className="pt-8 border-t border-brand-sage/20 grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="space-y-2">
-          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Bias & Structure</p>
-          <p className="text-xs text-brand-charcoal leading-loose font-medium opacity-90">{data.reasoning.bias_explanation}</p>
+      {/* Reasoning Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-brand-sage/10">
+        <div className="space-y-1">
+          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Higher Timeframe Bias</p>
+          <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">
+            {data.reasoning.bias_explanation}
+          </div>
         </div>
-        <div className="space-y-2">
-          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Liquidity Logic</p>
-          <p className="text-xs text-brand-charcoal leading-loose font-medium opacity-90">{data.reasoning.liquidity_explanation}</p>
+        <div className="space-y-1">
+          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Liquidity Narrative</p>
+          <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">
+            {data.reasoning.liquidity_explanation}
+          </div>
         </div>
-        <div className="space-y-2">
-          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Entry Confirmation</p>
-          <p className="text-xs text-brand-charcoal leading-loose font-medium opacity-90">{data.reasoning.entry_explanation}</p>
+        <div className="space-y-1">
+          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Structural Validation</p>
+          <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">
+            {data.reasoning.entry_explanation}
+          </div>
         </div>
-        <div className="space-y-2">
-          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Invalidation Point</p>
-          <p className="text-xs text-brand-charcoal leading-loose font-medium opacity-90">{data.reasoning.invalidation_explanation}</p>
+        <div className="space-y-1">
+          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Invalidation Logic</p>
+          <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">
+            {data.reasoning.invalidation_explanation}
+          </div>
         </div>
       </div>
 
-      <div className="pt-6 border-t border-brand-sage/10 flex justify-between items-center text-[8px] text-brand-muted uppercase font-bold tracking-widest opacity-50">
-          <span>Engine: {data.meta?.analysis_engine_version || 'v5.0'}</span>
-          <span>Generated: {data.timestamp ? (typeof data.timestamp === 'string' ? new Date(data.timestamp).toLocaleString() : 'Recent') : new Date().toLocaleTimeString()}</span>
+      <div className="pt-4 flex justify-between items-center text-[8px] text-brand-muted uppercase font-bold tracking-widest opacity-50">
+          <span>{data.meta?.analysis_engine_version || 'Neural Engine v5.0'}</span>
+          <span>{data.timestamp ? new Date(data.timestamp).toLocaleString() : 'Just Now'}</span>
       </div>
     </div>
   );
@@ -315,63 +357,85 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
+        
+        {/* LEFT COLUMN: CONFIGURATION */}
         <section className="w-full lg:w-1/3 space-y-8">
-          <div className="athenix-card p-8 space-y-8">
+          <div className="athenix-card p-8 space-y-8 relative">
             <h3 className="text-xs font-black text-brand-gold uppercase tracking-[0.3em] border-l-4 border-brand-gold pl-4">Analysis Configuration</h3>
             
-            <div className="space-y-6">
+            <div className="space-y-8">
               
-              {/* MARKET TYPE SELECTION */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">Select Market Sector</label>
-                <div className="grid grid-cols-2 gap-3">
+              {/* 1. TRADE MODE SELECTION */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">1. Select Trade Mode (Required)</label>
+                <div className="grid grid-cols-1 gap-3">
+                  {(Object.keys(MODE_CONFIG) as ExecutionMode[]).map((mode) => {
+                    const Config = MODE_CONFIG[mode];
+                    return (
+                      <button
+                        key={mode}
+                        onClick={() => setTradeMode(mode)}
+                        className={`p-4 rounded-xl text-left border transition-all duration-200 group flex items-start gap-4 ${
+                          tradeMode === mode 
+                            ? 'bg-brand-charcoal text-white border-brand-charcoal shadow-lg transform scale-[1.02]' 
+                            : 'bg-white border-brand-sage/20 text-brand-muted hover:border-brand-gold hover:bg-brand-gold/5'
+                        }`}
+                      >
+                        <div className={`mt-1 p-2 rounded-lg ${tradeMode === mode ? 'bg-white/10' : 'bg-brand-sage/10 group-hover:bg-brand-gold/10'}`}>
+                          <Config.icon selected={tradeMode === mode} />
+                        </div>
+                        <div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-black uppercase tracking-widest">{Config.label}</span>
+                          </div>
+                          <p className={`text-[9px] font-bold mt-1 uppercase tracking-wide ${tradeMode === mode ? 'text-white/60' : 'text-brand-muted/60'}`}>
+                            {Config.desc}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. MARKET & INSTRUMENT */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">2. Select Market</label>
+                <div className="flex gap-2 mb-2 p-1 bg-brand-sage/10 rounded-xl">
                   <button 
                     onClick={() => setMarketType('forex')}
-                    className={`py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      marketType === 'forex' 
-                        ? 'bg-brand-charcoal text-white shadow-lg' 
-                        : 'bg-brand-sage/5 text-brand-muted hover:bg-brand-sage/10'
+                    className={`flex-1 py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                      marketType === 'forex' ? 'bg-white text-brand-charcoal shadow-sm' : 'text-brand-muted hover:text-brand-gold'
                     }`}
                   >
                     Forex & Metals
                   </button>
                   <button 
                     onClick={() => setMarketType('stock')}
-                    className={`py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                      marketType === 'stock' 
-                        ? 'bg-brand-charcoal text-white shadow-lg' 
-                        : 'bg-brand-sage/5 text-brand-muted hover:bg-brand-sage/10'
+                    className={`flex-1 py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                      marketType === 'stock' ? 'bg-white text-brand-charcoal shadow-sm' : 'text-brand-muted hover:text-brand-gold'
                     }`}
                   >
-                    Stock Market
+                    Stocks
                   </button>
                 </div>
-              </div>
 
-              {/* INSTRUMENT SEARCH */}
-              <div className="space-y-2" ref={dropdownRef}>
-                <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">Instrument</label>
-                <div className="relative">
-                  <div className="relative">
-                     <input 
-                       type="text"
-                       value={searchQuery}
-                       onChange={(e) => {
-                         setSearchQuery(e.target.value);
-                         setIsDropdownOpen(true);
-                       }}
-                       onFocus={() => setIsDropdownOpen(true)}
-                       placeholder={marketType ? "Search pair or symbol..." : "Select market sector first"}
-                       disabled={!marketType}
-                       className="w-full pl-5 pr-10 py-4 bg-brand-sage/5 border border-brand-sage rounded-xl outline-none font-bold text-brand-charcoal text-xs placeholder:text-brand-muted/50 focus:border-brand-gold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-                     />
-                     <div className="absolute right-4 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none">
-                       <ICONS.Search />
-                     </div>
-                  </div>
+                <div className="relative" ref={dropdownRef}>
+                   <input 
+                     type="text"
+                     value={searchQuery}
+                     onChange={(e) => { setSearchQuery(e.target.value); setIsDropdownOpen(true); }}
+                     onFocus={() => setIsDropdownOpen(true)}
+                     placeholder={marketType ? "Search Instrument (e.g. EURUSD, AAPL)..." : "Select Market Type First"}
+                     disabled={!marketType}
+                     className="w-full pl-10 pr-4 py-4 bg-white border border-brand-sage/30 rounded-xl outline-none font-bold text-brand-charcoal text-xs placeholder:text-brand-muted/50 focus:border-brand-gold focus:ring-1 focus:ring-brand-gold transition-all disabled:cursor-not-allowed disabled:bg-brand-sage/5"
+                   />
+                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-muted pointer-events-none">
+                     <ICONS.Search />
+                   </div>
 
-                  {isDropdownOpen && marketType && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-brand-sage rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+                   {isDropdownOpen && marketType && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-brand-sage rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto animate-fade-in">
                       {getFilteredInstruments().length > 0 ? (
                         getFilteredInstruments().map((item) => (
                           <button
@@ -384,98 +448,76 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                           </button>
                         ))
                       ) : (
-                        <div className="px-5 py-4 text-[10px] text-brand-muted font-medium text-center">
-                          No instruments found matching "{searchQuery}"
-                        </div>
+                        <div className="px-5 py-4 text-[10px] text-brand-muted font-medium text-center">No matches found</div>
                       )}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Live Price Display */}
-              <div className="relative overflow-hidden p-6 bg-brand-charcoal text-white rounded-2xl shadow-xl border border-brand-charcoal group">
-                 <div className="absolute top-0 right-0 w-32 h-32 bg-brand-gold/10 blur-[50px] rounded-full -mr-10 -mt-10 pointer-events-none"></div>
-                 <div className="flex justify-between items-start relative z-10">
-                   <div>
-                     <div className="flex items-center gap-2 mb-2">
-                       <span className="text-[9px] font-black uppercase tracking-[0.2em] text-brand-gold">Live Market Data</span>
-                       <div className={`w-1.5 h-1.5 rounded-full ${isPriceLoading ? 'bg-brand-warning animate-ping' : (currentPrice ? 'bg-brand-success' : 'bg-brand-muted')}`}></div>
-                     </div>
-                     <div className="h-10 flex items-center">
-                       {isPriceLoading ? (
-                         <div className="w-6 h-6 border-2 border-white/20 border-t-brand-gold rounded-full animate-spin"></div>
-                       ) : (
-                         <span className="text-3xl font-black tracking-tighter font-mono">{currentPrice ? `$${fmt(currentPrice)}` : '---'}</span>
-                       )}
-                     </div>
-                   </div>
-                 </div>
-                 <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-end">
-                   <div>
-                     <p className="text-[8px] text-white/40 font-bold uppercase tracking-widest">Last Update</p>
-                     <p className="text-[10px] text-white/80 font-mono tracking-wide">{priceTimestamp || '--:--:--'}</p>
-                   </div>
-                   <div className="bg-brand-gold/20 px-2 py-1 rounded text-[8px] font-black text-brand-gold uppercase tracking-widest">REAL-TIME</div>
-                 </div>
-              </div>
-
-              {/* Timeframe Selection */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">Timeframe</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {TIMEFRAMES.map((tf) => (
-                    <button 
-                      key={tf}
-                      onClick={() => setTimeframe(tf)}
-                      className={`py-2 text-[10px] font-black tracking-widest rounded-lg border transition-all ${
-                        timeframe === tf 
-                          ? 'border-brand-gold bg-brand-gold text-white shadow-lg shadow-brand-gold/20' 
-                          : 'border-brand-sage bg-white text-brand-muted hover:border-brand-gold hover:text-brand-gold'
-                      }`}
-                    >
-                      {tf}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Fundamentals Toggle */}
-              <div className="pt-4">
-                <div className="flex items-center justify-between p-4 bg-brand-sage/5 border border-dashed border-brand-sage rounded-xl">
-                  <div>
-                    <p className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">Include Fundamentals</p>
-                    <p className="text-[9px] text-brand-muted font-bold uppercase tracking-tight">Macro Data Overlay</p>
+              {/* 3. TIMEFRAME */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">3. Execution Timeframe</label>
+                {!tradeMode ? (
+                  <div className="p-4 bg-brand-sage/5 border border-dashed border-brand-sage/30 rounded-xl text-center">
+                    <p className="text-[9px] text-brand-muted font-bold uppercase">Select Trade Mode First</p>
                   </div>
-                  <button 
-                    onClick={() => setFundamentalToggle(!fundamentalToggle)}
-                    className={`w-12 h-6 rounded-full transition-all relative ${fundamentalToggle ? 'bg-brand-gold' : 'bg-brand-sage'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${fundamentalToggle ? 'left-7' : 'left-1'}`}></div>
-                  </button>
+                ) : (
+                  <div key={tradeMode} className="grid grid-cols-4 gap-2 animate-fade-in">
+                    {MODE_CONFIG[tradeMode].timeframes.map((tf) => (
+                      <button 
+                        key={tf}
+                        onClick={() => setTimeframe(tf)}
+                        className={`py-2 text-[10px] font-black tracking-widest rounded-lg border transition-all duration-200 ${
+                          timeframe === tf 
+                            ? 'border-brand-gold bg-brand-gold text-white shadow-lg' 
+                            : 'border-brand-sage/30 bg-white text-brand-muted hover:border-brand-gold hover:text-brand-gold'
+                        }`}
+                      >
+                        {tf}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 4. TOGGLE */}
+              <div className="flex items-center justify-between p-4 bg-white border border-brand-sage/20 rounded-xl shadow-sm">
+                <div>
+                  <p className="text-[10px] font-black text-brand-charcoal uppercase tracking-widest">Include Fundamentals</p>
+                  <p className="text-[9px] text-brand-muted font-bold uppercase tracking-tight">Macro Data Overlay</p>
                 </div>
+                <button 
+                  onClick={() => setFundamentalToggle(!fundamentalToggle)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${fundamentalToggle ? 'bg-brand-gold' : 'bg-brand-sage/30'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${fundamentalToggle ? 'left-7' : 'left-1'}`}></div>
+                </button>
               </div>
 
               {error && (
-                <div className="p-4 bg-brand-error/10 border border-brand-error/20 rounded-xl">
+                <div className="p-4 bg-brand-error/10 border border-brand-error/20 rounded-xl animate-fade-in">
                   <p className="text-[10px] text-brand-error font-black uppercase tracking-tight">{error}</p>
                 </div>
               )}
 
               <button 
-                disabled={isAnalyzing}
+                disabled={isAnalyzing || !tradeMode || !timeframe || !symbol}
                 onClick={handleGenerate}
                 className="btn-primary w-full py-5 font-black text-xs rounded-xl shadow-xl uppercase tracking-[0.2em] mt-4 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform"
               >
-                {isAnalyzing ? 'Synthesizing Analysis...' : 'Generate Analysis'}
+                {isAnalyzing ? 'Synthesizing Analysis...' : 'Run Neural Analysis'}
               </button>
             </div>
           </div>
         </section>
 
+        {/* RIGHT COLUMN: OUTPUT & HISTORY */}
         <section className="flex-1 space-y-8">
-          <div className="athenix-card min-h-[500px] p-8 flex flex-col">
-            <h3 className="text-xs font-black text-brand-muted uppercase tracking-[0.3em] mb-10">Neural Analysis Output</h3>
+          
+          {/* Analysis Output Card */}
+          <div className="athenix-card min-h-[600px] p-8 flex flex-col">
+            <h3 className="text-xs font-black text-brand-muted uppercase tracking-[0.3em] mb-10">Neural Terminal Output</h3>
             
             {analysis ? (
               <AnalysisDetailView data={analysis} />
@@ -483,27 +525,28 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
               <div className="flex-1 flex flex-col items-center justify-center space-y-6">
                 <div className="w-16 h-16 border-4 border-brand-sage border-t-brand-gold rounded-full animate-spin"></div>
                 <div className="text-center space-y-2">
-                   <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em]">Querying Neural Nodes...</p>
-                   <p className="text-[9px] font-medium text-brand-sage uppercase tracking-widest">Scanning Liquidity & Structural Shifts</p>
+                   <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.4em] animate-pulse">Querying Neural Nodes...</p>
+                   <p className="text-[9px] font-medium text-brand-sage uppercase tracking-widest">Applying Layer 2 & 3 Logic</p>
                 </div>
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-12 opacity-40">
                 <div className="w-16 h-16 bg-brand-sage/10 rounded-2xl flex items-center justify-center text-brand-muted mb-6">
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                   </svg>
                 </div>
                 <p className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] max-w-xs mx-auto">
-                  Initialize neural analysis to populate the terminal output and history ledger.
+                  Select Trade Mode and Instrument to initialize the analysis engine.
                 </p>
               </div>
             )}
           </div>
 
+          {/* History Section */}
           <div className="athenix-card p-8 bg-brand-sage/5 space-y-6">
             <div className="flex justify-between items-center border-b border-brand-sage/10 pb-4">
-              <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Analysis History Ledger</h3>
+              <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Analysis Ledger</h3>
               <button 
                 onClick={loadHistory}
                 className="text-[9px] font-black text-brand-gold uppercase tracking-widest hover:underline flex items-center gap-2"
@@ -528,16 +571,23 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                       onClick={() => setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id as string)}
                     >
                       <div className="flex items-center gap-4">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-[9px] font-black text-white uppercase ${
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-[10px] font-black text-white uppercase ${
                           item.final_decision === 'trade' 
                             ? (item.signal?.direction === 'buy' ? 'bg-brand-success shadow-lg shadow-brand-success/20' : 'bg-brand-error shadow-lg shadow-brand-error/20') 
                             : 'bg-brand-muted/40'
                         }`}>
-                          {item.final_decision === 'trade' ? item.signal?.direction : 'NONE'}
+                          {item.final_decision === 'trade' ? (item.signal?.direction === 'buy' ? 'BUY' : 'SELL') : 'NO'}
                         </div>
                         <div>
-                          <p className="text-sm font-black text-brand-charcoal uppercase">{item.instrument}</p>
-                          <p className="text-[9px] text-brand-muted font-bold uppercase tracking-widest">
+                          <div className="flex items-center gap-2">
+                             <p className="text-sm font-black text-brand-charcoal uppercase">{item.instrument}</p>
+                             {item.execution_mode && (
+                               <span className="text-[8px] font-bold bg-brand-gold/10 text-brand-gold px-1.5 py-0.5 rounded uppercase">
+                                 {item.execution_mode.replace('_', ' ')}
+                               </span>
+                             )}
+                          </div>
+                          <p className="text-[9px] text-brand-muted font-bold uppercase tracking-widest mt-0.5">
                              {item.execution_timeframe} • {item.timestamp ? (typeof item.timestamp === 'string' ? new Date(item.timestamp).toLocaleDateString() : 'Recent') : 'Syncing...'}
                           </p>
                         </div>
@@ -587,11 +637,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                                   className="w-full p-3 bg-brand-sage/5 border border-brand-sage rounded-xl text-xs outline-none focus:border-brand-gold min-h-[80px] resize-none"
                                 />
                                 <div className="grid grid-cols-5 gap-2">
-                                  <button onClick={() => submitFeedback(item.id!, 'TP')} className="py-3 bg-brand-success text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">TP</button>
-                                  <button onClick={() => submitFeedback(item.id!, 'SL')} className="py-3 bg-brand-error text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">SL</button>
-                                  <button onClick={() => submitFeedback(item.id!, 'BE')} className="py-3 bg-brand-gold text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">BE</button>
-                                  <button onClick={() => submitFeedback(item.id!, 'NOT_TAKEN')} className="py-3 bg-brand-muted text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">Skip</button>
-                                  <button onClick={() => submitFeedback(item.id!, 'INVALID')} className="py-3 bg-red-800 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all">Invalid</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'TP')} className="py-3 bg-brand-success/10 text-brand-success border border-brand-success/20 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-success hover:text-white transition-all">Hit Take Profit</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'SL')} className="py-3 bg-brand-error/10 text-brand-error border border-brand-error/20 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-error hover:text-white transition-all">Hit Stop Loss</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'BE')} className="py-3 bg-brand-gold/10 text-brand-gold border border-brand-gold/20 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-gold hover:text-white transition-all">Break Even</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'NOT_TAKEN')} className="py-3 bg-brand-sage/10 text-brand-muted border border-brand-sage/20 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-brand-muted hover:text-white transition-all">Not Taken</button>
+                                  <button onClick={() => submitFeedback(item.id!, 'INVALID')} className="py-3 bg-white text-brand-error border border-brand-error/20 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-red-50 transition-all">Invalid Setup</button>
                                 </div>
                               </div>
                             ) : (

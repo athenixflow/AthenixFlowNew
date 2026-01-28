@@ -1,0 +1,77 @@
+
+{
+  "indexes": [
+    {
+      "collectionGroup": "analysisHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "confidenceBucket", "order": "ASCENDING" },
+        { "fieldPath": "feedback.outcome", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "analysisHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "strategy_used", "order": "ASCENDING" },
+        { "fieldPath": "feedback.outcome", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "analysisHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "execution_mode", "order": "ASCENDING" },
+        { "fieldPath": "feedback.outcome", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "analysisHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "instrument", "order": "ASCENDING" },
+        { "fieldPath": "feedback.outcome", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "analysisHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "execution_mode", "order": "ASCENDING" },
+        { "fieldPath": "confidenceBucket", "order": "ASCENDING" },
+        { "fieldPath": "feedback.outcome", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "signals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "signals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "targetAudience", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subscriptionStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "subscriptions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plan", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

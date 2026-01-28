@@ -79,6 +79,14 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // --- ADMIN ANALYTICS (Admin Read-Only) ---
+    match /admin_analytics_daily/{date} {
+      allow read: if isAdmin();
+    }
+    match /admin_analytics_overall/{summary} {
+      allow read: if isAdmin();
+    }
+
     // --- TOKEN TRANSACTIONS ---
     match /token_transactions/{transId} {
       // Users can see their own transactions, Admins see all
