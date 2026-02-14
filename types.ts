@@ -62,16 +62,10 @@ export interface TradingSignal {
   author: string;
   authorId?: string;
   timestamp: string;
-  
-  // Legacy compat
   direction?: 'BUY' | 'SELL'; 
   orderType?: string;
-
-  // Audience Targeting
   audience?: 'all_users' | 'paid_users' | 'specific_plans';
   plans?: string[];
-
-  // Lifecycle Management
   triggeredAt?: string;
   closedAt?: string;
   exitPrice?: number;
@@ -125,16 +119,30 @@ export interface TradeAnalysis {
   id?: string;       
   userId?: string;   
   timestamp?: string;
-  
-  analysis_id?: string;
   instrument: string;
-  asset_class?: 'forex' | 'stock' | 'index' | 'metal';
   execution_timeframe: string;
-  market_phase?: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';
-  execution_mode?: 'scalp' | 'day_trade' | 'swing_trade';
-
+  market_phase: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';
+  execution_mode: 'scalp' | 'day_trade' | 'swing_trade';
   final_decision: 'trade' | 'no_trade';
   strategy_used: 'structure_only' | 'liquidity_only' | 'structure_plus_liquidity' | 'none';
+
+  // Constitution v1.0 Confluence Scores (Max 40)
+  confluence_scores: {
+    structure_score: number;      // 0-10
+    liquidity_score: number;      // 0-10
+    poi_score: number;            // 0-10
+    premium_discount_score: number; // 0-10
+    total_confluence_score: number; // 0-40
+  };
+
+  // Probabilistic Outcome Engine (Sums to 100%)
+  probabilities: {
+    irl_only: number;      // Scenario A
+    irl_to_erl: number;    // Scenario B
+    expansion: number;     // Scenario C
+  };
+
+  volatility_context: string;
 
   signal?: {
     order_type: 'buy_market' | 'sell_market' | 'buy_limit' | 'sell_limit' | 'buy_stop' | 'sell_stop';
@@ -144,22 +152,10 @@ export interface TradeAnalysis {
     take_profits: Array<{
       level: string;
       price: number;
+      allocation_weight: 'heavy' | 'moderate' | 'small';
     }>;
     risk_reward_ratio: number;
-    confidence_score: number;
-  };
-
-  multi_timeframe_context?: {
-    higher_timeframes_analyzed: string[];
-    higher_timeframe_bias: 'bullish' | 'bearish' | 'ranging';
-    key_levels_considered: Array<{
-      type: 'order_block' | 'snr' | 'liquidity_pool';
-      timeframe: string;
-      price_range: {
-        low: number;
-        high: number;
-      };
-    }>;
+    confidence_score?: number;
   };
 
   reasoning: {
@@ -169,16 +165,6 @@ export interface TradeAnalysis {
     invalidation_explanation: string;
   };
 
-  risk_management?: {
-    invalidated_if: string;
-    minimum_rr_enforced: boolean;
-  };
-
-  education_reference?: {
-    strategy_principles_used: string[];
-    knowledge_base_topics: string[];
-  };
-
   meta?: {
     generated_at: string;
     analysis_engine_version: string;
@@ -186,6 +172,8 @@ export interface TradeAnalysis {
 
   feedback?: AnalysisFeedback;
 }
+
+// Admin and System Health Interfaces
 
 export interface AdminOverviewMetrics {
   users: {
@@ -243,16 +231,16 @@ export interface TokenEconomyConfig {
     elite: { analysis: number; education: number };
   };
   refillPricing: {
-    analysis: number; // cost per 20 tokens
-    education: number; // cost per 500 tokens
+    analysis: number;
+    education: number;
   };
 }
 
 export interface SystemHealth {
-  forexApi: 'operational' | 'degraded' | 'down';
-  stockApi: 'operational' | 'degraded' | 'down';
-  aiApi: 'operational' | 'degraded' | 'down';
-  database: 'connected' | 'error';
+  database: string;
+  forexApi: string;
+  stockApi: string;
+  aiApi: string;
   lastCheck: string;
 }
 

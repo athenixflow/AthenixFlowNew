@@ -1,6 +1,7 @@
+
 import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { Firestore, initializeFirestore } from "firebase/firestore";
 import { getFunctions, Functions } from "firebase/functions";
 import { getAnalytics, Analytics, isSupported } from "firebase/analytics";
 
@@ -27,7 +28,13 @@ const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) 
  * which handles the registration side-effects.
  */
 const auth: Auth = getAuth(app);
-const firestore: Firestore = getFirestore(app);
+
+// Initialize Firestore with experimentalForceLongPolling to resolve connection issues
+// commonly experienced in certain network environments or when WebSockets are blocked.
+const firestore: Firestore = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
+
 const functions: Functions = getFunctions(app);
 
 let analytics: Analytics | null = null;

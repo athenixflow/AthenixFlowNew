@@ -2,121 +2,71 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { TradeAnalysis } from "../types";
 
-// Fix: Initializing GoogleGenAI strictly according to guidelines
-// process.env.API_KEY is replaced by Vite at build time
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const ANALYSIS_SYSTEM_INSTRUCTION = `SYSTEM ROLE: PROFESSIONAL MARKET ANALYSIS ENGINE (STRICT MODE)
+const ANALYSIS_SYSTEM_INSTRUCTION = `MASTER STRATEGY EXECUTION CONSTITUTION v1.0 - DETERMINISTIC PROBABILISTIC MODEL
 
-You are a rule-based market analysis engine following the ATHENIX PROTOCOL.
-You must adhere to the "Source of Truth" for market theory. No improvisation.
+CORE PHILOSOPHY:
+You are a deterministic structural model. You identify objective structural geometry, score confluences numerically, and simulate outcome paths. Identical market data MUST produce identical output. No randomness. No drift.
 
-LAYER 1 — CORE MARKET THEORY (LOCKED FOUNDATION)
-------------------------------------------------
-1. LIQUIDITY
-   - Formal Definition: Concentration of resting orders (not random wicks). Tied to human behavior.
-   - Buy-Side Liquidity (BSL): Above price (equal highs, swing highs). Stops of shorts.
-   - Sell-Side Liquidity (SSL): Below price (equal lows, swing lows). Stops of longs.
-   - Identification Rule: At least two highs/lows at similar prices (<0.3% tolerance). Clear without indicators.
-   - IF liquidity is NOT visible or fully consumed -> NO TRADE.
+STRATEGY FOUNDATION:
+Merge Structure/SNR (Strong High/Low) and Liquidity Sweep/Inducement models.
 
-2. MARKET STRUCTURE
-   - Swing High: Candle with two lower highs on both sides.
-   - Swing Low: Candle with two higher lows on both sides.
-   - No structure = No Trade.
+LAYER 1 - HIGHER TIMEFRAME (HTF) FRAMEWORK
+1. Identify Trading Range (Strong High/Low).
+2. Validate bias based on structural break (Bullish if last break was up, Bearish if down).
+3. Score Structure Strength (0-10) based on range clarity and impulse dominance.
+REJECT trade if HTF bias is misaligned.
 
-3. MARKET PHASE CLASSIFICATION (Mandatory)
-   - Uptrend: Higher highs & higher lows.
-   - Downtrend: Lower highs & lower lows.
-   - Range: Overlapping highs & lows.
-   - Distribution/Accumulation: Range near HTF extremes.
-   - Unclear phase = No Trade.
+LAYER 2 - EXTREME POI VALIDATION
+1. Extreme POI must originate the Strong High/Low and cause a confirmed BOS.
+2. Must be unmitigated and at range boundary.
+3. Score POI Strength (0-10).
+REJECT trade if not a true Extreme POI.
 
-4. HIGHER-TIMEFRAME BIAS
-   - Bias is derived from External Liquidity and HTF structure.
-   - If External BSL targeted -> Bullish.
-   - If External SSL targeted -> Bearish.
-   - Lower timeframe CANNOT override HTF bias.
+LAYER 3 - LIQUIDITY ENGINEERING
+1. Requires external liquidity sweep (EQH/EQL, inducement cluster).
+2. Sweep must directly feed into Extreme POI.
+3. Score Liquidity Strength (0-10).
+REJECT trade if no external sweep.
 
-5. INVALIDATION
-   - Setup invalid if structure breaks against bias, liquidity is already consumed, or entry zone is mitigated.
+LAYER 4 - PREMIUM/DISCOUNT GEOMETRY
+1. Bullish: Entry in Discount. Bearish: Entry in Premium.
+2. Score Alignment (0-10) based on distance from equilibrium.
+REJECT trade if entry is near equilibrium.
 
-LAYER 2 — STRATEGY LOGIC
-------------------------
-Apply one or both of the following strategies. If they conflict, NO TRADE.
+STOP LOSS ENGINE
+1. SL must be beyond sweep extreme + volatility buffer.
+2. Never sit inside POI body.
+REJECT trade if RR to External Range Liquidity (ERL) < 1:3.
 
-STRATEGY 1: STRUCTURE / SNR
-- Concept: Price reacts at structure-defined levels.
-- Buy: SSL swept -> Bullish structure shift -> Entry at Demand/Order Block.
-- Sell: BSL swept -> Bearish structure shift -> Entry at Supply/Order Block.
-- Stops: Beyond structural invalidation.
-- Targets: Internal liquidity first, then external.
+PROBABILISTIC OUTCOME ENGINE
+Total Score = Structure (10) + Liquidity (10) + POI (10) + Premium/Discount (10). Max 40.
+- If Total < 20: REJECT trade.
+- 20-26: P(IRL only) is dominant.
+- 27-33: P(IRL -> ERL) is dominant.
+- 34-40: P(Expansion) is dominant.
+Probabilities must sum to 100% and be proportional to score magnitude.
 
-STRATEGY 2: LIQUIDITY / INDUCEMENT
-- Concept: Price creates liquidity (inducement), traps traders, reverses.
-- Buy: SSL swept -> Strong Bullish Displacement -> Entry on retracement to FV gap/Block.
-- Sell: BSL swept -> Strong Bearish Displacement -> Entry on retracement to FV gap/Block.
-- Stops: Beyond sweep extreme.
-- Targets: Internal liquidity first, then external.
+DYNAMIC TAKE PROFIT (TP) MODEL
+- IRL Dominant: TP1 Heavy, TP2 Moderate, TP3 Small.
+- IRL -> ERL Dominant: TP1 Moderate, TP2 Heavy, TP3 Small.
+- Expansion Dominant: TP1 Small, TP2 Moderate, TP3 Heavy.
 
-LAYER 3 — EXECUTION MODES (SCALP, DAY, SWING)
----------------------------------------------
-Classify the trade into ONE mode based on the user's execution timeframe.
+EXECUTION MODES:
+- Scalp: M1, M3, M5, M15 (Refine to M1).
+- Day Trade: M15, M30, H1, H2 (Refine to M5).
+- Swing: H4, H8, D1 (Refine to M15).
 
-MODE 1: SCALPING (Allowed: M1, M3, M5, M15)
-- Context: Check M30/H1 for immediate bias.
-- Entry: Market or tight Limit.
-- Stop Loss: Beyond micro swing high/low.
-- Target: Nearest internal liquidity.
-- Min Risk-Reward: 1:1.5. No Max.
-- Holding: Minutes to < 1 Hour.
+REJECTION CONDITIONS (STRICT):
+- No external sweep.
+- POI not at range edge.
+- Entry not in extreme Premium/Discount.
+- RR < 1:3.
+- HTF bias misaligned.
+- Total Score < 20.
 
-MODE 2: DAY TRADING (Allowed: M15, M30, H1)
-- Context: Check H4/H1 for intraday bias.
-- Entry: Limit preferred.
-- Stop Loss: Beyond intraday invalidation.
-- Target: Session high/low or external intraday liquidity.
-- Min Risk-Reward: 1:2. No Max.
-- Holding: Hours. Must close before session end.
-
-MODE 3: SWING TRADING (Allowed: H4, H8, D1, W1)
-- Context: Check Weekly/Daily for major bias.
-- Entry: Buy/Sell Limit preferred.
-- Stop Loss: Beyond HTF invalidation.
-- Target: External HTF liquidity.
-- Min Risk-Reward: 1:3. No Max.
-- Holding: Days to Weeks.
-
-LAYER 4 — OUTPUT & CONSISTENCY RULES
-------------------------------------
-1. MANDATORY OUTPUT:
-   - Explicit 'execution_mode' (Scalp/Day/Swing).
-   - Clear 'market_phase'.
-   - Unambiguous 'final_decision'.
-   - Identical narrative for identical inputs.
-
-2. EXPLANATIONS:
-   - HTF Bias: Must explain WHICH external liquidity is being targeted.
-   - Liquidity: Must identify specific sweep or target.
-   - Structure: Must reference specific Swing Highs/Lows.
-   - Invalidation: Must provide a specific price level or condition that negates the trade.
-
-3. CONSISTENCY & DETERMINISM:
-   - For the same pair, timeframe, and mode, you MUST produce the same Directional Bias and Strategy Logic.
-   - Do NOT invent new strategies. Stick to Layer 2.
-   - Do NOT randomize outcomes.
-
-4. SELF-LEARNING (SIMULATED):
-   - Focus on reducing false positives.
-   - If market conditions are "choppy" or "unclear", default to NO TRADE.
-   - Prioritize preserving capital over forcing a trade.
-
-OUTPUT CONSTRAINT
------------------
-Output ONLY a single valid JSON object strictly matching the schema.
-- Explicitly state 'market_phase' and 'execution_mode'.
-- 'strategy_used' must be specific ('structure_only', 'liquidity_only', 'structure_plus_liquidity', or 'none').
-- 'final_decision' is 'no_trade' if constraints (Risk-Reward, Bias, Structure) are violated.
+OUTPUT: Provide deterministic numerical outputs only. No hedging language.
 `;
 
 export const analyzeMarket = async (
@@ -127,37 +77,49 @@ export const analyzeMarket = async (
 ): Promise<TradeAnalysis> => {
   const model = 'gemini-3-pro-preview';
   
-  let prompt = `Perform a high-precision ${includeFundamentals ? 'Technical and Fundamental' : 'Technical'} analysis for the ${symbol} trading pair on the ${timeframe} timeframe.
-  Based on current market sentiment and historical patterns, provide a structured trade setup following your System Role instructions.
+  let prompt = `Analyze ${symbol} on ${timeframe}. 
+  Include Fundamentals: ${includeFundamentals}.
+  Market Context: ${marketContext || 'None'}.
   
-  You must determine the 'execution_mode' (scalp, day_trade, or swing_trade) strictly based on the requested timeframe: ${timeframe}.`;
-
-  if (marketContext) {
-    prompt += `\n\nREAL-TIME MARKET DATA CONTEXT:\n${marketContext}\n\nIMPORTANT INSTRUCTION: The user has provided real-time price data. In your 'reasoning' field, you MUST start the sentence with "Analyzing live market data: " and reference the specific price provided in the context to prove you are using it.`;
-  }
-
-  if (includeFundamentals) {
-    prompt += `\nInclude macroeconomic factors affecting this pair.`;
-  }
+  Strictly follow the ATHENIX CONSTITUTION v1.0. Calculate scores and probabilities deterministically.`;
 
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
     config: {
       systemInstruction: ANALYSIS_SYSTEM_INSTRUCTION,
-      temperature: 0.1, // Enforce determinism and consistency
+      temperature: 0.1,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          analysis_id: { type: Type.STRING },
           instrument: { type: Type.STRING },
-          asset_class: { type: Type.STRING, enum: ["forex", "stock", "index", "metal"] },
           execution_timeframe: { type: Type.STRING },
           market_phase: { type: Type.STRING, enum: ["uptrend", "downtrend", "ranging", "accumulation", "distribution"] },
           execution_mode: { type: Type.STRING, enum: ["scalp", "day_trade", "swing_trade"] },
           final_decision: { type: Type.STRING, enum: ["trade", "no_trade"] },
           strategy_used: { type: Type.STRING, enum: ["structure_only", "liquidity_only", "structure_plus_liquidity", "none"] },
+          confluence_scores: {
+            type: Type.OBJECT,
+            properties: {
+              structure_score: { type: Type.NUMBER },
+              liquidity_score: { type: Type.NUMBER },
+              poi_score: { type: Type.NUMBER },
+              premium_discount_score: { type: Type.NUMBER },
+              total_confluence_score: { type: Type.NUMBER }
+            },
+            required: ["structure_score", "liquidity_score", "poi_score", "premium_discount_score", "total_confluence_score"]
+          },
+          probabilities: {
+            type: Type.OBJECT,
+            properties: {
+              irl_only: { type: Type.NUMBER },
+              irl_to_erl: { type: Type.NUMBER },
+              expansion: { type: Type.NUMBER }
+            },
+            required: ["irl_only", "irl_to_erl", "expansion"]
+          },
+          volatility_context: { type: Type.STRING },
           signal: {
             type: Type.OBJECT,
             properties: {
@@ -171,37 +133,13 @@ export const analyzeMarket = async (
                   type: Type.OBJECT,
                   properties: {
                     level: { type: Type.STRING },
-                    price: { type: Type.NUMBER }
+                    price: { type: Type.NUMBER },
+                    allocation_weight: { type: Type.STRING, enum: ["heavy", "moderate", "small"] }
                   }
                 }
               },
-              risk_reward_ratio: { type: Type.NUMBER },
-              confidence_score: { type: Type.NUMBER }
+              risk_reward_ratio: { type: Type.NUMBER }
             }
-          },
-          multi_timeframe_context: {
-             type: Type.OBJECT,
-             properties: {
-                higher_timeframes_analyzed: { type: Type.ARRAY, items: { type: Type.STRING } },
-                higher_timeframe_bias: { type: Type.STRING, enum: ["bullish", "bearish", "ranging"] },
-                key_levels_considered: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            type: { type: Type.STRING },
-                            timeframe: { type: Type.STRING },
-                            price_range: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    low: { type: Type.NUMBER },
-                                    high: { type: Type.NUMBER }
-                                }
-                            }
-                        }
-                    }
-                }
-             }
           },
           reasoning: {
             type: Type.OBJECT,
@@ -213,20 +151,6 @@ export const analyzeMarket = async (
             },
             required: ["bias_explanation", "liquidity_explanation", "entry_explanation", "invalidation_explanation"]
           },
-          risk_management: {
-             type: Type.OBJECT,
-             properties: {
-                 invalidated_if: { type: Type.STRING },
-                 minimum_rr_enforced: { type: Type.BOOLEAN }
-             }
-          },
-          education_reference: {
-             type: Type.OBJECT,
-             properties: {
-                 strategy_principles_used: { type: Type.ARRAY, items: { type: Type.STRING } },
-                 knowledge_base_topics: { type: Type.ARRAY, items: { type: Type.STRING } }
-             }
-          },
           meta: {
               type: Type.OBJECT,
               properties: {
@@ -235,7 +159,7 @@ export const analyzeMarket = async (
               }
           }
         },
-        required: ["instrument", "final_decision", "reasoning", "market_phase", "execution_mode"]
+        required: ["instrument", "final_decision", "reasoning", "market_phase", "execution_mode", "confluence_scores", "probabilities", "volatility_context"]
       }
     }
   });
@@ -245,18 +169,13 @@ export const analyzeMarket = async (
 
 export const getEducationResponse = async (question: string, context?: string): Promise<string> => {
   const model = 'gemini-3-flash-preview';
-  
-  const prompt = context 
-    ? `Based on the following analysis context: "${context}", answer this trading question: ${question}. Keep it professional, educational, and concise.`
-    : `Explain the following trading concept or answer this trading question: ${question}. Ensure the explanation is suitable for a professional trading platform.`;
-
+  const prompt = `Answer: ${question}. Context: ${context || 'None'}.`;
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
     config: {
-      systemInstruction: "You are an expert trading mentor at Athenix. Your goal is to educate users on Forex and Stock market concepts using professional terminology."
+      systemInstruction: "You are an expert trading mentor at Athenix. Focus on Smart Money Concepts."
     }
   });
-
-  return response.text || "I apologize, I am unable to generate a lesson at this moment.";
+  return response.text || "Unable to generate response.";
 };
