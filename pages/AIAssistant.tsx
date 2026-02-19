@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, TradeAnalysis, AnalysisFeedback } from '../types';
-import { analyzeMarket } from '../services/backend';
-import { getMarketData } from '../services/marketData';
+import { analyzeMarket, revalidateAnalysis } from '../services/backend';
 import { getUserAnalysisHistory, submitAnalysisFeedback } from '../services/firestore';
 import { FOREX_INSTRUMENTS, STOCK_INSTRUMENTS, ICONS } from '../constants';
 
@@ -58,9 +57,12 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<TradeAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // History & Revalidation State
   const [history, setHistory] = useState<TradeAnalysis[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [revalidatingId, setRevalidatingId] = useState<string | null>(null);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [activeFeedbackId, setActiveFeedbackId] = useState<string | null>(null);
 
@@ -108,15 +110,29 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
     if (response.status === 'success') {
       const data = response.data as TradeAnalysis;
       setAnalysis(data);
+      // Immediately add to history local state to reflect change without reload
       setHistory(prev => [data, ...prev]);
-      setTimeout(() => setExpandedHistoryId(data.id!), 500);
     } else setError(response.message);
     setIsAnalyzing(false);
   };
 
-  const submitFeedback = async (analysisId: string, outcome: 'TP' | 'SL' | 'BE' | 'NOT_TAKEN' | 'INVALID') => {
+  const submitFeedback = async (analysisId: string, outcome: 'TP' | 'SL' | 'BE' | 'RUNNING' | 'NOT_TAKEN' | 'INVALID') => {
     await submitAnalysisFeedback(analysisId, { outcome, comment: feedbackComment, timestamp: new Date().toISOString() });
-    setActiveFeedbackId(null); setFeedbackComment(''); loadHistory(); 
+    setActiveFeedbackId(null); 
+    setFeedbackComment(''); 
+    loadHistory(); 
+  };
+
+  const handleRevalidate = async (item: TradeAnalysis) => {
+    if (!user || !item.id) return;
+    setRevalidatingId(item.id);
+    const result = await revalidateAnalysis(user.uid, item.id, item);
+    if (result.status === 'success') {
+      await loadHistory(); // Refresh to show new validation status
+    } else {
+      alert(result.message);
+    }
+    setRevalidatingId(null);
   };
 
   const fmt = (num?: number, digits = 5) => num ? num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: digits }) : '---';
@@ -138,7 +154,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
               <span className={`px-2 py-1 text-[9px] font-black uppercase rounded tracking-widest ${data.final_decision === 'trade' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-muted/10 text-brand-muted'}`}>
                 {data.final_decision === 'trade' ? 'VALID SETUP' : 'REJECTED'}
               </span>
-              <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">{data.market_phase}</span>
+              {data.market_phase && (
+                  <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">{data.market_phase}</span>
+              )}
           </div>
         </div>
         
@@ -244,6 +262,85 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
         </div>
       </div>
 
+      {/* History Actions */}
+      {isHistory && data.id && (
+         <div className="pt-8 mt-6 border-t border-brand-sage/20 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+               <div>
+                  <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-widest">Strategy Revalidation</h4>
+                  <p className="text-[10px] text-brand-muted mt-1">Check setup validity against current price action.</p>
+               </div>
+               
+               <div className="flex items-center gap-4">
+                 {data.validationResult && (
+                   <div className="text-right">
+                      <span className={`px-3 py-1.5 rounded text-[10px] font-black uppercase ${
+                        data.validationResult === 'Setup Still Valid' ? 'bg-brand-success/10 text-brand-success' : 
+                        data.validationResult === 'Setup Invalidated' ? 'bg-brand-error/10 text-brand-error' :
+                        'bg-brand-gold/10 text-brand-gold'
+                      }`}>
+                        {data.validationResult}
+                      </span>
+                      <p className="text-[8px] text-brand-muted mt-1 uppercase tracking-wider">
+                         {data.lastValidatedAt ? new Date(data.lastValidatedAt).toLocaleString() : ''}
+                      </p>
+                   </div>
+                 )}
+                 <button 
+                   onClick={() => handleRevalidate(data)}
+                   disabled={revalidatingId === data.id}
+                   className="px-6 py-3 bg-brand-charcoal text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-gold transition-colors disabled:opacity-50"
+                 >
+                   {revalidatingId === data.id ? 'Analyzing...' : 'Revalidate Setup'}
+                 </button>
+               </div>
+            </div>
+
+            <div className="bg-brand-sage/5 p-6 rounded-xl border border-brand-sage/10">
+               <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-widest mb-4">Outcome Feedback</h4>
+               {data.feedback ? (
+                  <div className="flex items-start gap-4">
+                     <div className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest ${
+                        data.feedback.outcome === 'TP' ? 'bg-brand-success/20 text-brand-success' :
+                        data.feedback.outcome === 'SL' ? 'bg-brand-error/20 text-brand-error' :
+                        'bg-brand-charcoal/10 text-brand-charcoal'
+                     }`}>
+                        {data.feedback.outcome.replace('_', ' ')}
+                     </div>
+                     {data.feedback.comment && <p className="text-xs text-brand-muted italic pt-1">"{data.feedback.comment}"</p>}
+                  </div>
+               ) : (
+                  activeFeedbackId === data.id ? (
+                     <div className="space-y-4 animate-fade-in">
+                        <div className="grid grid-cols-3 gap-2">
+                           {['TP', 'SL', 'BE', 'RUNNING', 'NOT_TAKEN', 'INVALID'].map(opt => (
+                              <button key={opt} onClick={() => submitFeedback(data.id!, opt as any)} className="py-2 border border-brand-sage/20 bg-white hover:bg-brand-gold hover:text-white rounded text-[10px] font-bold uppercase transition-colors">
+                                 {opt.replace('_', ' ')}
+                              </button>
+                           ))}
+                        </div>
+                        <input 
+                           type="text" 
+                           placeholder="Optional comment..." 
+                           className="w-full p-3 text-xs border border-brand-sage/20 rounded-lg outline-none focus:border-brand-gold"
+                           value={feedbackComment}
+                           onChange={e => setFeedbackComment(e.target.value)}
+                        />
+                        <button onClick={() => setActiveFeedbackId(null)} className="text-[10px] text-brand-muted font-bold uppercase underline">Cancel</button>
+                     </div>
+                  ) : (
+                     <button 
+                        onClick={() => setActiveFeedbackId(data.id!)}
+                        className="text-[10px] font-black text-brand-gold uppercase tracking-widest hover:underline"
+                     >
+                        + Log Trade Outcome
+                     </button>
+                  )
+               )}
+            </div>
+         </div>
+      )}
+
       <div className="pt-4 flex justify-between items-center text-[8px] text-brand-muted uppercase font-bold tracking-widest opacity-50">
           <span>{data.meta?.analysis_engine_version || 'Athenix v1.0.0 (Deterministic)'}</span>
           <span>{data.timestamp ? new Date(data.timestamp).toLocaleString() : 'LIVE'}</span>
@@ -337,8 +434,10 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
           </div>
         </section>
 
-        {/* RIGHT COLUMN */}
+        {/* RIGHT COLUMN: OUTPUT & HISTORY */}
         <section className="flex-1 space-y-8">
+          
+          {/* Active / Current Analysis */}
           <div className="athenix-card min-h-[600px] p-8 flex flex-col bg-white">
             <h3 className="text-xs font-black text-brand-muted uppercase tracking-[0.3em] mb-10">Probabilistic Terminal Output</h3>
             {analysis ? <AnalysisDetailView data={analysis} /> : isAnalyzing ? (
@@ -356,6 +455,75 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
               </div>
             )}
           </div>
+          
+          {/* Analysis History Section */}
+          <div className="space-y-6 animate-fade-in">
+             <div className="flex items-center justify-between border-b border-brand-sage/20 pb-4">
+                <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Neural Analysis Ledger</h3>
+                <span className="text-[9px] font-bold text-brand-muted uppercase tracking-widest">{history.length} Records</span>
+             </div>
+
+             {historyLoading ? (
+                <div className="p-8 text-center"><div className="inline-block w-6 h-6 border-2 border-brand-sage border-t-brand-gold rounded-full animate-spin"></div></div>
+             ) : history.length === 0 ? (
+                <div className="p-8 border border-dashed border-brand-sage/30 rounded-xl text-center">
+                   <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest">No previous analysis data found.</p>
+                </div>
+             ) : (
+                <div className="space-y-4">
+                   {history.map((item) => (
+                      <div key={item.id} className="bg-white border border-brand-sage/20 rounded-xl overflow-hidden hover:border-brand-gold/30 transition-all">
+                         <div 
+                           onClick={() => setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id!)}
+                           className="p-6 cursor-pointer flex items-center justify-between hover:bg-brand-sage/5 transition-colors"
+                         >
+                            <div className="flex items-center gap-4">
+                               <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-[10px] font-black text-white uppercase shadow-sm ${
+                                  item.signal?.direction === 'buy' ? 'bg-brand-success' : 'bg-brand-error'
+                               }`}>
+                                  {item.signal?.direction || '-'}
+                               </div>
+                               <div>
+                                  <h4 className="text-sm font-black text-brand-charcoal uppercase tracking-tight">{item.instrument}</h4>
+                                  <p className="text-[9px] text-brand-muted uppercase font-bold tracking-widest">{new Date(item.timestamp || '').toLocaleDateString()}</p>
+                               </div>
+                            </div>
+                            
+                            <div className="hidden md:flex gap-8 text-right">
+                               <div>
+                                  <p className="text-[8px] text-brand-muted uppercase font-black tracking-widest mb-1">Entry</p>
+                                  <p className="text-xs font-bold text-brand-charcoal font-mono">{fmt(item.signal?.entry_price)}</p>
+                               </div>
+                               <div>
+                                  <p className="text-[8px] text-brand-muted uppercase font-black tracking-widest mb-1">Stop</p>
+                                  <p className="text-xs font-bold text-brand-error font-mono">{fmt(item.signal?.stop_loss)}</p>
+                               </div>
+                               <div>
+                                  <p className="text-[8px] text-brand-muted uppercase font-black tracking-widest mb-1">TP1</p>
+                                  <p className="text-xs font-bold text-brand-success font-mono">{fmt(item.signal?.take_profits[0]?.price)}</p>
+                               </div>
+                            </div>
+
+                            <svg 
+                               xmlns="http://www.w3.org/2000/svg" 
+                               className={`w-4 h-4 text-brand-muted transition-transform ${expandedHistoryId === item.id ? 'rotate-180' : ''}`} 
+                               fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                         </div>
+                         
+                         {expandedHistoryId === item.id && (
+                            <div className="border-t border-brand-sage/10 bg-brand-sage/5 p-6">
+                               <AnalysisDetailView data={item} isHistory={true} />
+                            </div>
+                         )}
+                      </div>
+                   ))}
+                </div>
+             )}
+          </div>
+
         </section>
       </div>
     </div>

@@ -1,3 +1,4 @@
+
 import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc, getCountFromServer } from "firebase/firestore";
 import { firestore } from "../firebase";
 import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry } from "../types";
@@ -156,7 +157,8 @@ export const saveAnalysisToHistory = async (analysis: TradeAnalysis) => {
     
     const docRef = await addDoc(collection(firestore, "analysisHistory"), {
       ...analysis,
-      timestamp: serverTimestamp()
+      createdAt: serverTimestamp(),
+      timestamp: serverTimestamp() // Keeping both for backward compat and explicit requirement
     });
     
     return docRef.id;
@@ -170,23 +172,28 @@ export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnaly
   try {
     if (!userId) return [];
     
+    // Order by createdAt DESC to satisfy "Part 2" requirement
     const q = query(
       collection(firestore, "analysisHistory"),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
+      orderBy("createdAt", "desc") 
     );
     
     const snap = await getDocs(q);
     
-    const analyses = snap.docs.map(doc => {
+    return snap.docs.map(doc => {
       const data = doc.data();
       let ts = new Date().toISOString();
       
-      if (data.timestamp && typeof data.timestamp.toDate === 'function') {
-        ts = data.timestamp.toDate().toISOString();
-      } else if (data.timestamp && typeof data.timestamp === 'string') {
-        ts = data.timestamp;
-      } else if (data.timestamp && typeof data.timestamp === 'number') {
-        ts = new Date(data.timestamp).toISOString();
+      // Prefer createdAt, fallback to timestamp
+      const dateField = data.createdAt || data.timestamp;
+
+      if (dateField && typeof dateField.toDate === 'function') {
+        ts = dateField.toDate().toISOString();
+      } else if (dateField && typeof dateField === 'string') {
+        ts = dateField;
+      } else if (dateField && typeof dateField === 'number') {
+        ts = new Date(dateField).toISOString();
       }
       
       return {
@@ -194,12 +201,6 @@ export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnaly
         ...data,
         timestamp: ts
       } as TradeAnalysis;
-    });
-
-    return analyses.sort((a, b) => {
-      const timeA = new Date(a.timestamp || 0).getTime();
-      const timeB = new Date(b.timestamp || 0).getTime();
-      return timeB - timeA;
     });
 
   } catch (e: any) {
@@ -211,7 +212,27 @@ export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnaly
 export const submitAnalysisFeedback = async (analysisId: string, feedback: AnalysisFeedback) => {
   try {
     const ref = doc(firestore, "analysisHistory", analysisId);
-    await updateDoc(ref, { feedback });
+    await updateDoc(ref, { 
+      feedback: {
+        ...feedback,
+        feedbackTimestamp: serverTimestamp() // Ensure timestamp is server-side
+      },
+      // Update root level outcome for easier querying if needed, or just rely on nested
+      outcome: feedback.outcome 
+    });
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+};
+
+export const updateAnalysisValidation = async (analysisId: string, validationResult: string, validatedAt: string) => {
+  try {
+    const ref = doc(firestore, "analysisHistory", analysisId);
+    await updateDoc(ref, {
+      validationResult,
+      lastValidatedAt: validatedAt
+    });
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };

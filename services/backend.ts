@@ -1,10 +1,10 @@
 
 import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, deleteDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { firestore } from '../firebase';
-import { analyzeMarket as callGeminiAnalysis, getEducationResponse } from './geminiService';
+import { analyzeMarket as callGeminiAnalysis, getEducationResponse, revalidateTradeSetup } from './geminiService';
 import { getMarketData, testMarketConnection } from './marketData';
-import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth, TradingSignal } from '../types';
-import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection } from './firestore';
+import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth, TradingSignal, TradeAnalysis } from '../types';
+import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection, updateAnalysisValidation } from './firestore';
 
 export interface BackendResponse<T = any> {
   message: string;
@@ -54,11 +54,23 @@ export const analyzeMarket = async (
     // 2. Call Gemini Analysis Engine
     const result = await callGeminiAnalysis(symbol, timeframe, includeFundamentals, marketContext);
     
-    // 3. Prepare full record for persistence
-    const fullAnalysis = {
+    // 3. Prepare full record for persistence (Flattened for query/sorting)
+    const fullAnalysis: TradeAnalysis = {
       ...result,
       userId: userId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      status: 'active',
+      
+      // Flattened Fields for Firestore Indexing & Admin Analytics
+      pIRL: result.probabilities.irl_only,
+      pIRLtoERL: result.probabilities.irl_to_erl,
+      pExpansion: result.probabilities.expansion,
+      
+      structureScore: result.confluence_scores.structure_score,
+      liquidityScore: result.confluence_scores.liquidity_score,
+      poiScore: result.confluence_scores.poi_score,
+      premiumDiscountScore: result.confluence_scores.premium_discount_score,
+      totalConfluenceScore: result.confluence_scores.total_confluence_score,
     };
 
     // 4. Persistence: Save to analysisHistory collection
@@ -83,6 +95,54 @@ export const analyzeMarket = async (
   } catch (error: any) {
     console.error("Critical Analysis Failure:", error);
     return { status: 'error', message: error.message || 'The neural engine encountered an unexpected exception.' };
+  }
+};
+
+export const revalidateAnalysis = async (userId: string, analysisId: string, originalAnalysis: TradeAnalysis): Promise<BackendResponse> => {
+  try {
+    const userRef = doc(firestore, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return { status: 'error', message: 'User not found' };
+
+    // Fetch Current Price
+    const type = originalAnalysis.instrument.length < 5 ? 'stock' : 'forex';
+    const marketData = await getMarketData(type, originalAnalysis.instrument);
+    
+    let currentPrice = 0;
+    
+    if (marketData && marketData.success) {
+      if (type === 'forex' && marketData.quotes) {
+        const pair = "USD" + originalAnalysis.instrument.replace("/", ""); 
+        // Note: This assumes USD base or quotes. In real app, robust pair mapping is needed. 
+        // For simplicity, we assume we can extract a rate or use a direct rate.
+        // If exact pair matches a key in quotes:
+        const directKey = "USD" + originalAnalysis.instrument;
+        if (marketData.quotes[directKey]) currentPrice = marketData.quotes[directKey];
+        // If not found, check values. If only one rate returned, use it.
+        else if (Object.values(marketData.quotes).length === 1) currentPrice = Object.values(marketData.quotes)[0];
+      } else if (type === 'stock' && marketData.data && marketData.data.length > 0) {
+        currentPrice = marketData.data[0].close || marketData.data[0].last;
+      }
+    }
+
+    if (currentPrice === 0) {
+      return { status: 'error', message: 'Unable to fetch live market price for revalidation.' };
+    }
+
+    // Run Logic Comparison
+    const validationResult = await revalidateTradeSetup(originalAnalysis, currentPrice);
+    
+    // Update Firestore
+    const timestamp = new Date().toISOString();
+    await updateAnalysisValidation(analysisId, validationResult, timestamp);
+
+    return { 
+      status: 'success', 
+      message: 'Setup revalidated against live price action.',
+      data: { validationResult, lastValidatedAt: timestamp }
+    };
+  } catch (e: any) {
+    return { status: 'error', message: e.message || 'Revalidation failed.' };
   }
 };
 

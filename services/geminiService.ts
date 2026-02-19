@@ -179,3 +179,49 @@ export const getEducationResponse = async (question: string, context?: string): 
   });
   return response.text || "Unable to generate response.";
 };
+
+export const revalidateTradeSetup = async (
+  originalAnalysis: TradeAnalysis,
+  currentPrice: number
+): Promise<string> => {
+  const model = 'gemini-3-flash-preview';
+  
+  if (!originalAnalysis.signal) return "No active signal to validate.";
+
+  const prompt = `
+    You are the Athenix Revalidation Engine.
+    
+    Original Trade Details:
+    Symbol: ${originalAnalysis.instrument}
+    Direction: ${originalAnalysis.signal.direction}
+    Entry Price: ${originalAnalysis.signal.entry_price}
+    Stop Loss: ${originalAnalysis.signal.stop_loss}
+    TP1: ${originalAnalysis.signal.take_profits[0]?.price}
+    TP2: ${originalAnalysis.signal.take_profits[1]?.price}
+    
+    Current Market Price: ${currentPrice}
+    
+    Rules for Status Determination:
+    1. If price has hit Stop Loss level (breached SL) -> 'Setup Invalidated'
+    2. If price has hit TP1 or higher -> 'Secure Partial Profits'
+    3. If price moved significantly in favor (>50% to TP1) but hasn't hit TP -> 'Move SL to Break Even'
+    4. If price is hovering near entry or in drawdown but still respecting SL -> 'Setup Still Valid'
+    
+    OUTPUT ONLY ONE OF THE FOLLOWING STRINGS:
+    - "Setup Still Valid"
+    - "Secure Partial Profits"
+    - "Move SL to Break Even"
+    - "Setup Invalidated"
+  `;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      temperature: 0.1,
+      responseMimeType: "text/plain"
+    }
+  });
+  
+  return response.text.trim();
+};

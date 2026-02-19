@@ -110,7 +110,7 @@ export interface EducationInteraction {
 }
 
 export interface AnalysisFeedback {
-  outcome: 'TP' | 'SL' | 'BE' | 'NOT_TAKEN' | 'INVALID';
+  outcome: 'TP' | 'SL' | 'BE' | 'RUNNING' | 'NOT_TAKEN' | 'INVALID';
   comment?: string;
   timestamp: string;
 }
@@ -170,7 +170,21 @@ export interface TradeAnalysis {
     analysis_engine_version: string;
   };
 
+  // History & Validation fields
+  status?: 'active' | 'archived';
   feedback?: AnalysisFeedback;
+  lastValidatedAt?: string;
+  validationResult?: string;
+  
+  // Flattened fields for Firestore queries/admin view
+  pIRL?: number;
+  pIRLtoERL?: number;
+  pExpansion?: number;
+  structureScore?: number;
+  liquidityScore?: number;
+  poiScore?: number;
+  premiumDiscountScore?: number;
+  totalConfluenceScore?: number;
 }
 
 // Admin and System Health Interfaces
