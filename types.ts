@@ -126,7 +126,40 @@ export interface TradeAnalysis {
   final_decision: 'trade' | 'no_trade';
   strategy_used: 'structure_only' | 'liquidity_only' | 'structure_plus_liquidity' | 'none';
 
-  // Constitution v1.0 Confluence Scores (Max 40)
+  // Version 2.0 Narrative Context
+  market_narrative_context: {
+    htf_narrative: string;
+    selected_tf_narrative: string;
+    refinement_narrative: string;
+  };
+
+  // Version 2.0 Liquidity Map
+  liquidity_map: {
+    buy_side_liquidity: string[];
+    sell_side_liquidity: string[];
+    inducement_zones: string[];
+    projected_liquidity_path: string;
+  };
+
+  // Version 2.0 Setup Detection
+  corrective_setup?: {
+    direction: 'buy' | 'sell';
+    entry: number;
+    stop_loss: number;
+    target: number;
+    score: number;
+  };
+
+  impulse_setup?: {
+    direction: 'buy' | 'sell';
+    entry: number;
+    stop_loss: number;
+    tp1: number;
+    tp2: number;
+    tp3: number;
+  };
+
+  // Constitution v2.0 Confluence Scores (Max 40)
   confluence_scores: {
     structure_score: number;      // 0-10
     liquidity_score: number;      // 0-10
@@ -144,6 +177,7 @@ export interface TradeAnalysis {
 
   volatility_context: string;
 
+  // Legacy signal support (optional)
   signal?: {
     order_type: 'buy_market' | 'sell_market' | 'buy_limit' | 'sell_limit' | 'buy_stop' | 'sell_stop';
     direction: 'buy' | 'sell';

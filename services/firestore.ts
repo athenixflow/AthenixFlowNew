@@ -176,7 +176,7 @@ export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnaly
     const q = query(
       collection(firestore, "analysisHistory"),
       where("userId", "==", userId),
-      orderBy("timestamp", "desc") 
+      orderBy("createdAt", "desc") 
     );
     
     const snap = await getDocs(q);

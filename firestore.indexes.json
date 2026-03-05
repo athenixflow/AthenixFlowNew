@@ -29,6 +29,14 @@
       "collectionGroup": "analysisHistory",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "analysisHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "instrument", "order": "ASCENDING" },
         { "fieldPath": "feedback.outcome", "order": "ASCENDING" }
       ]

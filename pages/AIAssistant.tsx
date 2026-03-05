@@ -166,6 +166,58 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
         </div>
       </div>
 
+      {/* Market Narrative Context - Version 2.0 */}
+      <div className="space-y-4">
+        <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Market Narrative Context</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
+            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">HTF Narrative</p>
+            <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data.market_narrative_context.htf_narrative}</p>
+          </div>
+          <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
+            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Selected TF Narrative</p>
+            <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data.market_narrative_context.selected_tf_narrative}</p>
+          </div>
+          <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
+            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Refinement Narrative</p>
+            <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data.market_narrative_context.refinement_narrative}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Liquidity Map - Version 2.0 */}
+      <div className="space-y-4">
+        <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Liquidity Map</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-brand-charcoal text-white rounded-xl">
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Buy-Side Liquidity</p>
+              <span className="text-[8px] font-bold text-white/40">{data.liquidity_map.buy_side_liquidity.length} Pools</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {data.liquidity_map.buy_side_liquidity.map((pool, idx) => (
+                <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{pool}</span>
+              ))}
+            </div>
+          </div>
+          <div className="p-4 bg-brand-charcoal text-white rounded-xl">
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Sell-Side Liquidity</p>
+              <span className="text-[8px] font-bold text-white/40">{data.liquidity_map.sell_side_liquidity.length} Pools</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {data.liquidity_map.sell_side_liquidity.map((pool, idx) => (
+                <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{pool}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="p-4 bg-brand-gold/5 border border-brand-gold/20 rounded-xl">
+          <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Projected Liquidity Path</p>
+          <p className="text-xs font-black text-brand-charcoal uppercase tracking-tight">{data.liquidity_map.projected_liquidity_path}</p>
+        </div>
+      </div>
+
       {/* Probabilistic Outcome Engine */}
       <div className="space-y-4">
         <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Probabilistic Outcome Engine</p>
@@ -200,49 +252,85 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
         ))}
       </div>
 
-      {/* Execution Signal */}
-      {data.final_decision === 'trade' && data.signal ? (
-        <div className="space-y-6 pt-6 border-t border-brand-sage/10">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 bg-brand-charcoal text-white rounded-xl text-center md:text-left">
-              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest mb-1">Action</p>
-              <p className="text-sm font-black uppercase">{data.signal.order_type.replace(/_/g, ' ')}</p>
-            </div>
-            <div className="p-4 bg-brand-sage/5 border border-brand-sage/20 rounded-xl text-center md:text-left">
-              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest mb-1">Entry Price</p>
-              <p className="text-sm font-black text-brand-charcoal">{fmt(data.signal.entry_price)}</p>
-            </div>
-            <div className="p-4 bg-brand-sage/5 border border-brand-sage/20 rounded-xl text-center md:text-left">
-              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest mb-1">Stop Loss</p>
-              <p className="text-sm font-black text-brand-error">{fmt(data.signal.stop_loss)}</p>
-            </div>
-            <div className="p-4 bg-brand-sage/5 border border-brand-sage/20 rounded-xl text-center md:text-left">
-              <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest mb-1">Min RR</p>
-              <p className="text-sm font-black text-brand-charcoal">1:{data.signal.risk_reward_ratio}</p>
-            </div>
+      {/* Setups - Version 2.0 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-brand-sage/10">
+        {/* Corrective Setup */}
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Corrective Setup</p>
+            {data.corrective_setup && (
+              <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Score: {data.corrective_setup.score}</span>
+            )}
           </div>
+          {data.corrective_setup ? (
+            <div className="p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-xl space-y-4">
+              <div className="flex justify-between items-center">
+                <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data.corrective_setup.direction === 'buy' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-error/10 text-brand-error'}`}>
+                  {data.corrective_setup.direction}
+                </span>
+                <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Target: {fmt(data.corrective_setup.target)}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Entry</p>
+                  <p className="text-sm font-black text-brand-charcoal">{fmt(data.corrective_setup.entry)}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Stop Loss</p>
+                  <p className="text-sm font-black text-brand-error">{fmt(data.corrective_setup.stop_loss)}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-5 bg-brand-sage/5 border border-dashed border-brand-sage/20 rounded-xl text-center">
+              <p className="text-[9px] text-brand-muted font-bold uppercase">No Corrective Setup Detected</p>
+            </div>
+          )}
+        </div>
 
-          <div className="space-y-3">
-            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Dynamic TP Targets (Allocated Weights)</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {data.signal.take_profits.map((tp, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-3 bg-white border border-brand-success/30 rounded-lg shadow-sm">
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-brand-success uppercase tracking-widest">{tp.level}</span>
-                      <span className={`text-[7px] font-black uppercase ${tp.allocation_weight === 'heavy' ? 'text-brand-success' : 'text-brand-muted'}`}>{tp.allocation_weight}</span>
-                    </div>
-                    <span className="text-xs font-bold text-brand-charcoal">{fmt(tp.price)}</span>
-                  </div>
-              ))}
+        {/* Impulse Setup */}
+        <div className="space-y-4">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Impulse Setup (Primary)</p>
+          {data.impulse_setup ? (
+            <div className="p-5 bg-brand-charcoal text-white rounded-xl space-y-4 shadow-xl">
+              <div className="flex justify-between items-center">
+                <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data.impulse_setup.direction === 'buy' ? 'bg-brand-success text-white' : 'bg-brand-error text-white'}`}>
+                  {data.impulse_setup.direction}
+                </span>
+                <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Primary Continuation</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Entry</p>
+                  <p className="text-sm font-black text-white">{fmt(data.impulse_setup.entry)}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Stop Loss</p>
+                  <p className="text-sm font-black text-brand-error">{fmt(data.impulse_setup.stop_loss)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10">
+                <div>
+                  <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP1</p>
+                  <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp1)}</p>
+                </div>
+                <div>
+                  <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP2</p>
+                  <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp2)}</p>
+                </div>
+                <div>
+                  <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP3</p>
+                  <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp3)}</p>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-5 bg-brand-sage/5 border border-dashed border-brand-sage/20 rounded-xl text-center">
+              <p className="text-[9px] text-brand-muted font-bold uppercase">No Impulse Setup Detected</p>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="p-10 bg-brand-error/5 border border-dashed border-brand-error/20 rounded-xl text-center">
-            <p className="text-brand-error font-black uppercase tracking-widest text-xs mb-2">Rejection Condition Met</p>
-            <p className="text-brand-muted text-[10px] font-medium max-w-sm mx-auto">Neural Confluence Score &lt; 20 or Structural Risk Constraints violated (Min 1:3 RR to ERL required).</p>
-        </div>
-      )}
+      </div>
 
       {/* Volatility Context */}
       <div className="p-4 bg-brand-sage/5 border border-brand-sage/10 rounded-xl">
@@ -342,7 +430,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
       )}
 
       <div className="pt-4 flex justify-between items-center text-[8px] text-brand-muted uppercase font-bold tracking-widest opacity-50">
-          <span>{data.meta?.analysis_engine_version || 'Athenix v1.0.0 (Deterministic)'}</span>
+          <span>{data.meta?.analysis_engine_version || 'Athenix v2.0.0 (Deterministic)'}</span>
           <span>{data.timestamp ? new Date(data.timestamp).toLocaleString() : 'LIVE'}</span>
       </div>
     </div>
