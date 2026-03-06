@@ -61,16 +61,29 @@ export const analyzeMarket = async (
       timestamp: new Date().toISOString(),
       status: 'active',
       
-      // Flattened Fields for Firestore Indexing & Admin Analytics
-      pIRL: result.probabilities.irl_only,
-      pIRLtoERL: result.probabilities.irl_to_erl,
-      pExpansion: result.probabilities.expansion,
+      // Ensure Version 2.0 fields are present (defaults if missing from AI response)
+      market_narrative_context: result.market_narrative_context || {
+        htf_narrative: "Analysis unavailable",
+        selected_tf_narrative: "Analysis unavailable",
+        refinement_narrative: "Analysis unavailable"
+      },
+      liquidity_map: result.liquidity_map || {
+        buy_side_liquidity: [],
+        sell_side_liquidity: [],
+        inducement_zones: [],
+        projected_liquidity_path: "Analysis unavailable"
+      },
       
-      structureScore: result.confluence_scores.structure_score,
-      liquidityScore: result.confluence_scores.liquidity_score,
-      poiScore: result.confluence_scores.poi_score,
-      premiumDiscountScore: result.confluence_scores.premium_discount_score,
-      totalConfluenceScore: result.confluence_scores.total_confluence_score,
+      // Flattened Fields for Firestore Indexing & Admin Analytics
+      pIRL: result.probabilities?.irl_only || 0,
+      pIRLtoERL: result.probabilities?.irl_to_erl || 0,
+      pExpansion: result.probabilities?.expansion || 0,
+      
+      structureScore: result.confluence_scores?.structure_score || 0,
+      liquidityScore: result.confluence_scores?.liquidity_score || 0,
+      poiScore: result.confluence_scores?.poi_score || 0,
+      premiumDiscountScore: result.confluence_scores?.premium_discount_score || 0,
+      totalConfluenceScore: result.confluence_scores?.total_confluence_score || 0,
     };
 
     // 4. Persistence: Save to analysisHistory collection
@@ -103,6 +116,15 @@ export const revalidateAnalysis = async (userId: string, analysisId: string, ori
     const userRef = doc(firestore, 'users', userId);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) return { status: 'error', message: 'User not found' };
+
+    // Check if there is a valid trade to revalidate
+    if (originalAnalysis.final_decision === 'no_trade' || !originalAnalysis.signal) {
+      return { 
+        status: 'success', 
+        message: 'No active trade setup to revalidate.', 
+        data: { validationResult: 'No Trade', lastValidatedAt: new Date().toISOString() } 
+      };
+    }
 
     // Fetch Current Price
     const type = originalAnalysis.instrument.length < 5 ? 'stock' : 'forex';

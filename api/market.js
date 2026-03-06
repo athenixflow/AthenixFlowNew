@@ -52,7 +52,8 @@ export default async function handler(req, res) {
     if (type === 'stock') {
       // Marketstack (Stocks)
       // Note: Marketstack free tier is HTTP only
-      const url = `http://api.marketstack.com/v2/eod?access_key=${process.env.Stockmarket_api}&symbols=${symbol}&limit=1`;
+      // Fetching 100 candles to provide historical context for AI analysis
+      const url = `http://api.marketstack.com/v2/eod?access_key=${process.env.Stockmarket_api}&symbols=${symbol}&limit=100`;
       
       const response = await fetch(url);
       const data = await response.json();

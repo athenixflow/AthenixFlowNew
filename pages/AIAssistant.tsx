@@ -567,9 +567,10 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                          >
                             <div className="flex items-center gap-4">
                                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-[10px] font-black text-white uppercase shadow-sm ${
+                                  item.final_decision === 'no_trade' ? 'bg-brand-muted' :
                                   item.signal?.direction === 'buy' ? 'bg-brand-success' : 'bg-brand-error'
                                }`}>
-                                  {item.signal?.direction || '-'}
+                                  {item.final_decision === 'no_trade' ? 'NT' : (item.signal?.direction === 'buy' ? 'BUY' : 'SELL')}
                                </div>
                                <div>
                                   <h4 className="text-sm font-black text-brand-charcoal uppercase tracking-tight">{item.instrument}</h4>
