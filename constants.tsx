@@ -58,6 +58,26 @@ export const ICONS = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
     </svg>
   ),
+  Chart: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={props.className || "w-5 h-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  ),
+  Target: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={props.className || "w-5 h-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 22a10 10 0 100-20 10 10 0 000 20zm0-2a8 8 0 110-16 8 8 0 010 16zm0-2a6 6 0 100-12 6 6 0 000 12zm0-2a4 4 0 110-8 4 4 0 010 8zm0-2a2 2 0 100-4 2 2 0 000 4z" />
+    </svg>
+  ),
+  Check: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={props.className || "w-5 h-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
+    </svg>
+  ),
+  X: (props: any) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={props.className || "w-5 h-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  ),
   Close: () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -70,6 +90,26 @@ export const ICONS = {
   )
 };
 
+export const METALS_INSTRUMENTS = [
+  { symbol: 'XAUUSD', name: 'Gold / US Dollar' },
+  { symbol: 'XAGUSD', name: 'Silver / US Dollar' },
+  { symbol: 'XPTUSD', name: 'Platinum / US Dollar' },
+  { symbol: 'XPDUSD', name: 'Palladium / US Dollar' },
+];
+
+export const INDICES_INSTRUMENTS = [
+  { symbol: 'US30', name: 'Dow Jones Industrial Average' },
+  { symbol: 'NAS100', name: 'Nasdaq 100' },
+  { symbol: 'US500', name: 'S&P 500' },
+  { symbol: 'GER40', name: 'DAX 40' },
+  { symbol: 'UK100', name: 'FTSE 100' },
+  { symbol: 'JPN225', name: 'Nikkei 225' },
+  { symbol: 'HK50', name: 'Hang Seng Index' },
+  { symbol: 'FRA40', name: 'CAC 40' },
+  { symbol: 'ESP35', name: 'IBEX 35' },
+  { symbol: 'EUSTX50', name: 'Euro Stoxx 50' },
+];
+
 export const FOREX_INSTRUMENTS = [
   // Majors
   { symbol: 'EURUSD', name: 'Euro / US Dollar' },
@@ -80,12 +120,6 @@ export const FOREX_INSTRUMENTS = [
   { symbol: 'AUDUSD', name: 'Australian Dollar / US Dollar' },
   { symbol: 'NZDUSD', name: 'New Zealand Dollar / US Dollar' },
   
-  // Metals
-  { symbol: 'XAUUSD', name: 'Gold / US Dollar' },
-  { symbol: 'XAGUSD', name: 'Silver / US Dollar' },
-  { symbol: 'XPTUSD', name: 'Platinum / US Dollar' },
-  { symbol: 'XPDUSD', name: 'Palladium / US Dollar' },
-
   // EUR Crosses
   { symbol: 'EURGBP', name: 'Euro / British Pound' },
   { symbol: 'EURJPY', name: 'Euro / Japanese Yen' },

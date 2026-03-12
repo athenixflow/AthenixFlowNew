@@ -106,20 +106,23 @@ export interface EducationInteraction {
   question: string;
   answer: string;
   context?: string;
+  category?: string;
   timestamp: string;
 }
 
 export interface AnalysisFeedback {
-  outcome: 'TP' | 'SL' | 'BE' | 'RUNNING' | 'NOT_TAKEN' | 'INVALID';
+  outcome: 'TP_HIT' | 'SL_HIT' | 'BREAK_EVEN' | 'STILL_RUNNING' | 'NOT_TAKEN' | 'INVALID';
   comment?: string;
+  journal_notes?: string;
   timestamp: string;
 }
 
 export interface TradeAnalysis {
   id?: string;       
   userId?: string;   
-  timestamp?: string;
+  timestamp: string;
   instrument: string;
+  timeframe: string;
   execution_timeframe: string;
   market_phase: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';
   execution_mode: 'scalp' | 'day_trade' | 'swing_trade';
@@ -158,6 +161,28 @@ export interface TradeAnalysis {
     tp2: number;
     tp3: number;
   };
+
+  // Version 2.0 Scores
+  corrective_score?: number;
+  impulse_score?: number;
+  quality_score: number; // 0-100
+  is_published?: boolean;
+
+  // Version 2.0 Context
+  session_context: {
+    session: string;
+    asian_high: number;
+    asian_low: number;
+    liquidity_sweep: string;
+  };
+
+  market_story: {
+    origin: string;
+    current_phase: string;
+    liquidity_path: string;
+  };
+
+  liquidity_heatmap: string;
 
   // Constitution v2.0 Confluence Scores (Max 40)
   confluence_scores: {
@@ -224,6 +249,20 @@ export interface TradeAnalysis {
 // Admin and System Health Interfaces
 
 export interface AdminOverviewMetrics {
+  totalUsers: number;
+  activeUsers: number;
+  totalAnalyses: number;
+  totalSignals: number;
+  revenue: {
+    total: number;
+    monthly: number;
+    growth: number;
+  };
+  aiPerformance: {
+    accuracy: number;
+    avgConfluence: number;
+    totalPredictions: number;
+  };
   users: {
     total: number;
     paid: number;

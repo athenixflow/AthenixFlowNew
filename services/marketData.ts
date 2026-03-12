@@ -14,7 +14,7 @@ export interface MarketDataResponse {
   date?: string;
 }
 
-export const getMarketData = async (type: 'forex' | 'stock', symbol: string): Promise<MarketDataResponse | null> => {
+export const getMarketData = async (type: 'forex' | 'stock' | 'metals' | 'indices', symbol: string): Promise<MarketDataResponse | null> => {
   try {
     const response = await fetch(`/api/market?type=${type}&symbol=${symbol}`);
     

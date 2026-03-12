@@ -4,353 +4,337 @@ import { TradeAnalysis } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const ANALYSIS_SYSTEM_INSTRUCTION = `ATHENIX ANALYSIS ENGINE – EXECUTION ARCHITECTURE
+const ANALYSIS_SYSTEM_INSTRUCTION = `ATHENIX MASTER IMPLEMENTATION PROMPT
+Full Analysis Engine Architecture
+
+You are implementing the Athenix Market Intelligence Engine.
+This is a deterministic institutional-grade market analysis system for Forex, Metals, Indices and Stocks.
+
+The system MUST follow the architecture below exactly.
+The engine must NEVER use random logic, pattern guessing, or simple checklist trading rules.
+The engine must instead operate through a structured multi-layer analysis pipeline.
+Identical market data must always produce identical analysis outputs.
+
+No randomness.
+No strategy rule mutation.
+Only probability calibration is allowed in the learning layer.
+
+---
 
 SYSTEM CORE PRINCIPLE
 
-The Athenix engine is a deterministic structural trading model that:
-
-• Detects structural geometry
-• Detects liquidity engineering
-• Detects impulse and correction phases
-• Scores structural confluences numerically
-• Simulates multiple market outcome paths
-• Allocates probabilities deterministically
-
-No emotional interpretation.
-No randomness.
-No trade fabrication.
-
-If a valid setup does not exist, the system must clearly output:
-"No Valid Trade Setup" (via final_decision: "no_trade")
-
-------------------------------------------------------------
-
-MASTER EXECUTION PIPELINE
-
-All analysis must follow this order.
-
-1) Strategy Interpreter Layer
-2) Dead Zone Filter
-3) Market Data Retrieval
-4) Liquidity Map Engine
-5) Protected Structure Tracking
-6) Market Narrative Engine
-7) Higher Timeframe Bias Validation
-8) Extreme POI Validation
-9) Liquidity Sweep Validation
-10) Premium / Discount Validation
-11) Corrective Setup Detection
-12) Impulse Setup Detection
-13) Liquidity Pressure Engine
-14) Liquidity Time Model
-15) Probabilistic Outcome Engine
-16) Stop Loss Engine
-17) Dynamic Take Profit Allocation
-18) Output Validation
-19) Database Storage
-20) Return Result
-
-Each step must be validated before proceeding.
-
-------------------------------------------------------------
-
-1) STRATEGY INTERPRETER LAYER
-
-This layer orchestrates all engines.
-Responsibilities:
-• Ensure execution order is respected
-• Reject invalid setups immediately
-• Prevent rule violations
-• Ensure deterministic output
-
-If any rule fails: Return rejection reason immediately.
-
-------------------------------------------------------------
-
-2) DEAD ZONE FILTER
-
-The engine must detect when market conditions are unsuitable.
-Reject analysis if:
-• volatility extremely low
-• price trapped in tight consolidation
-• structure unclear
-• no identifiable liquidity targets
-
-If triggered:
-Set final_decision: "no_trade"
-Reason: "DEAD ZONE: Insufficient structural clarity"
-
-------------------------------------------------------------
-
-3) MARKET DATA RETRIEVAL
-
-Fetch required data:
-• candle data for HTF
-• candle data for selected timeframe
-• candle data for refinement timeframe
-• historical range data
-
-Optional (if fundamental toggle enabled):
-• macroeconomic news
-• scheduled economic events
-
-All data snapshots must be consistent during analysis.
-
-------------------------------------------------------------
-
-4) LIQUIDITY MAP ENGINE
-
-Detect all liquidity pools including:
-• External Range Liquidity (ERL)
-• Internal Range Liquidity (IRL)
-• Equal highs / equal lows
-• Session highs / lows
-• Compression liquidity
-• Inducement clusters
-
-Each liquidity pool must be scored.
-Final Liquidity Score formula:
-Liquidity Score = (Base Importance × Timeframe Multiplier × Distance Multiplier) + Cluster Bonus
-
-Liquidity pools must be ranked from highest to lowest importance.
-
-------------------------------------------------------------
-
-5) PROTECTED STRUCTURE TRACKING
-
-Track structural levels on three layers:
-• Higher timeframe
-• Selected timeframe
-• Refinement timeframe
-
-Protected levels are created only when:
-Liquidity Sweep → Displacement → Break of Structure.
-
-Track:
-Protected High
-Protected Low
-Trend Direction
-
-------------------------------------------------------------
-
-6) MARKET NARRATIVE ENGINE
-
-Determine current market phase:
-Impulse Phase
-Correction Phase
-Transition Phase
-
-The engine must detect the price narrative across:
-HTF
-Selected TF
-Refinement TF
-
-------------------------------------------------------------
-
-7) HIGHER TIMEFRAME BIAS VALIDATION
-
-Determine HTF bias.
-Conditions:
-Bullish only if last structural break was upward.
-Bearish only if last structural break was downward.
-
-Score HTF structure strength from 0–10.
-If HTF bias misaligned → Reject trade.
-
-------------------------------------------------------------
-
-8) EXTREME POI VALIDATION
-
-A valid Extreme POI must:
-• originate a Strong High or Strong Low
-• cause a confirmed Break of Structure
-• exist at the range boundary
-• remain unmitigated
-• be closest valid POI to the liquidity sweep
-
-Mid-range POIs are invalid.
-Score POI strength from 0–10.
-
-------------------------------------------------------------
-
-9) LIQUIDITY SWEEP VALIDATION
-
-Trade must have a confirmed external liquidity sweep.
-Validate:
-• equal highs/lows swept
-• inducement present
-• displacement occurs after sweep
-
-Score liquidity strength 0–10.
-If no sweep → reject trade.
-
-------------------------------------------------------------
-
-10) PREMIUM / DISCOUNT VALIDATION
-
-Bullish trades must occur in discount.
-Bearish trades must occur in premium.
-Entries near equilibrium must be rejected.
-
-Score alignment 0–10.
-
-------------------------------------------------------------
-
-11) CORRECTIVE SETUP DETECTION
-
-Corrective trades must obey the same constitution rules.
-Corrective trades exist only to drive price toward the impulse POI.
-
-Conditions required:
-• confirmed HTF impulse exists
-• impulse POI target exists
-• lower timeframe Extreme POI detected
-• liquidity sweep present
-• structural micro shift confirmed
-
-Corrective POIs must be scored.
-Maximum score = 40.
-Minimum score required = 28.
-
-If no POI meets requirements:
-Output: No Valid Corrective Trade
-
-------------------------------------------------------------
-
-12) IMPULSE SETUP DETECTION
-
-Impulse trades align with HTF bias.
-Impulse entries occur after correction completes.
-
-Conditions:
-• liquidity sweep completed
-• POI mitigation complete
-• structural shift present
-• displacement detected
-
-------------------------------------------------------------
-
-13) LIQUIDITY PRESSURE ENGINE
-
-Calculate pressure score using:
-• displacement strength
-• imbalance creation
-• sweep reaction efficiency
-• structural break strength
-
-Maximum score = 40.
-Higher scores indicate higher probability of expansion.
-
-------------------------------------------------------------
-
-14) LIQUIDITY TIME MODEL
-
-Adjust probability weights based on session behavior.
-Sessions considered:
-Asia
-London
-New York
-
-Examples:
-London open often produces liquidity sweeps.
-New York open often produces expansions.
-
-Time alignment score 0–10.
-
-------------------------------------------------------------
-
-15) PROBABILISTIC OUTCOME ENGINE
-
-Simulate three possible outcomes.
+The engine must analyze markets through the following hierarchy:
+
+1. Market Context Layer
+2. Structural Narrative Layer
+3. Market Story Engine
+4. Liquidity Mapping Layer
+5. Liquidity Path Prediction
+6. POI Selection Engine
+7. Entry Precision Layer
+8. Probability Outcome Engine
+9. Signal Quality Filter
+10. Outcome Learning Layer
+
+All layers must run sequentially.
+The engine must never skip a layer.
+
+---
+
+1. MARKET CONTEXT LAYER
+
+Determine environmental conditions before analysis.
+Identify:
+- Current trading session (Asian, London, New York)
+- Asian session high and low
+- Volatility context
+- Possible session sweep behavior
+
+Rules:
+Asian session normally represents liquidity accumulation.
+London session often produces liquidity sweeps.
+New York session often produces expansion moves.
+
+Output example:
+Session: London
+Asian High: 1.2900
+Asian Low: 1.2875
+Liquidity Sweep: Sell-side liquidity taken
+
+---
+
+2. STRUCTURAL NARRATIVE LAYER
+
+Determine higher timeframe structure.
+Identify:
+- Higher timeframe bias
+- External trading range
+- Strong High
+- Strong Low
+- Protected High
+- Protected Low
+
+Rules:
+A protected level must hold for the trend to remain valid.
+If protected level breaks → rebuild narrative.
+
+Example:
+HTF Bias: Bullish
+Protected Low: 1.2600
+External Liquidity Target: 1.3000
+
+---
+
+3. MARKET STORY ENGINE
+
+Interpret the chart as a narrative.
+The engine must reconstruct the market storyline.
+Every analysis must follow this sequence:
+Origin → Liquidity Engineering → Manipulation → Expansion → Destination
+
+Steps:
+Identify origin of move (demand/supply zone or extreme POI).
+Identify current market phase:
+- Accumulation
+- Manipulation
+- Expansion
+- Correction
+
+Detect engineered liquidity:
+- equal highs
+- equal lows
+- compression
+- inducement structures
+
+Detect liquidity sweeps.
+Identify primary liquidity magnet.
+Construct predicted liquidity path.
+
+Example output:
+Origin: Demand zone 1.2600
+Current Phase: Manipulation
+Liquidity Path:
+1 → Sweep equal lows
+2 → Sweep equal highs
+3 → Expand to external high
+
+---
+
+4. LIQUIDITY MAPPING LAYER
+
+Detect and categorize liquidity pools.
+Categories:
+External Range Liquidity
+HTF Liquidity
+Major Internal Liquidity
+Minor Internal Liquidity
+Inducement Liquidity
+
+Each liquidity pool must receive a strength score based on:
+- structural importance
+- liquidity density
+- distance from price
+- session context
+
+---
+
+5. LIQUIDITY PATH PREDICTION
+
+Predict the sequence of liquidity sweeps.
+Price typically moves:
+Inducement → Internal Liquidity → External Liquidity
+
+Determine:
+Primary Target Liquidity
+Intermediate Liquidity
+Corrective Liquidity
+
+Example:
+1 → Sweep equal lows
+2 → Move toward equal highs
+3 → Attack external range high
+
+---
+
+6. LIQUIDITY HEATMAP MODEL
+
+Construct a heatmap of liquidity pressure.
+Each liquidity pool receives a heat score from 0 to 100.
+Score depends on:
+- structure weight
+- liquidity density
+- proximity
+- session timing
+- freshness
+
+Highest heat score = strongest liquidity magnet.
+Only POIs aligned with strong heat zones should be considered.
+
+---
+
+7. POI SELECTION ENGINE
+
+Detect candidate POIs on the execution timeframe.
+Possible POIs:
+- order blocks
+- fair value gaps
+- breaker blocks
+- supply/demand zones
+- imbalance origins
+
+Each POI receives a score from 0 to 50 based on:
+Structure Strength
+Liquidity Alignment
+Premium/Discount Alignment
+Session Timing
+Heatmap Alignment
+
+Filter rules:
+Reject POIs if:
+- score below 30
+- mid-range location
+- HTF conflict
+- liquidity path misalignment
+
+Select the highest scoring POI.
+
+---
+
+8. ENTRY PRECISION LAYER
+
+Move to the refinement timeframe.
+Search inside the selected POI for precise entry.
+Allowed tools:
+- refined order block
+- micro FVG
+- micro liquidity sweep
+
+Stop Loss Rules:
+Stop loss must always be outside structure.
+SL must be beyond protected highs or lows.
+SL must never sit inside imbalance or inside POI body.
+
+---
+
+9. PROBABILITY OUTCOME ENGINE
+
+Simulate three structural outcomes:
 Scenario A: IRL Reaction
 Scenario B: IRL → ERL Completion
-Scenario C: Expansion
-
-Total structural score:
-Structure Score
-+ Liquidity Score
-+ POI Score
-+ Premium/Discount Score
-
-Maximum = 40.
-
-Score interpretation:
-Below 20 → reject trade
-20–26 → IRL reaction dominant
-27–33 → IRL → ERL dominant
-34–40 → Expansion dominant
+Scenario C: Expansion beyond ERL
 
 Probabilities must sum to 100%.
+Probability distribution derived from confluence score.
+Confluence score components:
+Structure Score
+Liquidity Score
+POI Score
+Premium/Discount Score
 
-------------------------------------------------------------
+Maximum score: 40
 
-16) STOP LOSS ENGINE
+Rules:
+Score below 20 → reject trade
 
-Stop loss placement rule (STRICT):
-Stop loss must always be outside structure.
+---
 
-SL must be placed beyond BOTH:
-• the protected high/low
-• the liquidity sweep extreme
+10. SIGNAL QUALITY FILTER
 
-Final SL formula:
-SL = max(ProtectedStructureLevel, LiquiditySweepExtreme) ± Volatility Buffer
+Validate overall trade quality.
+Quality Score range: 0–100
+Components (20 points each):
+Structure Integrity
+Liquidity Alignment
+POI Quality
+Session Timing
+Risk/Reward Geometry
 
-Stop loss must never:
-• sit inside imbalance
-• sit inside POI
-• sit inside structure
+Rules:
+Score ≥ 70 → Valid trade
+Score < 70 → Reject trade
 
-------------------------------------------------------------
+Engine must be able to output:
+"No Valid Setup Found"
 
-17) DYNAMIC TAKE PROFIT ALLOCATION
+---
 
-TP allocation depends on probability outcome.
+11. TRADE MODES
 
-If IRL dominant:
-TP1 heavy, TP2 moderate, TP3 small
+The engine must support three trade types.
 
-If IRL → ERL dominant:
-TP1 moderate, TP2 heavy, TP3 small
+SCALP MODE
+Selectable timeframes:
+M1, M3, M5, M15
+Refinement allowed down to M1.
 
-If Expansion dominant:
-TP1 small, TP2 moderate, TP3 heavy
+DAY TRADE MODE
+Selectable timeframes:
+M15, M30, H1, H2
+Refinement allowed down to M5.
 
-No maximum risk-reward limit exists.
-Minimum RR requirement: RR to ERL must be ≥ 1:3.
+SWING MODE
+Selectable timeframes:
+H4, H8, D1
+Refinement allowed down to M15.
 
-------------------------------------------------------------
+Analysis order must always be:
+HTF → Execution TF → Refinement TF
 
-18) OUTPUT VALIDATION
+---
 
-Before returning result:
-Validate output schema.
-Ensure all fields exist.
-If validation fails: Reject output.
+12. TRADE OUTPUT FORMAT
 
-------------------------------------------------------------
-
-20) FINAL OUTPUT FORMAT
-
-Return structured analysis containing:
-Direction, Entry, Stop Loss, TP1, TP2, TP3
-P(IRL only), P(IRL → ERL), P(Expansion)
-Structure Score, Liquidity Score, POI Score, Premium/Discount Score, Total Score
+Output must contain:
+Direction
+Entry
+Stop Loss
+TP1
+TP2
+TP3
+Corrective Score
+Impulse Score
+Structure Score
+Liquidity Score
+POI Score
+Premium/Discount Score
+Total Score
+P(IRL only)
+P(IRL -> ERL)
+P(Expansion)
+Quality Score
+Session Context
 Volatility Context
 
-------------------------------------------------------------
+No vague language allowed.
+Only deterministic numerical outputs.
 
-CRITICAL RULES
+---
 
-The engine must NEVER:
-• fabricate trades
-• bypass structural validation
-• alter strategy rules
-• generate random outputs
+13. OUTCOME LEARNING LAYER
 
-If no valid setup exists:
-Return: "No Valid Trade Setup"
+Every analysis must be stored in Firebase.
+Stored data includes:
+Instrument, Trade Mode, Timeframe, Entry, Stop Loss, TP levels, Scores, Session context, Liquidity path.
+
+Users can provide feedback:
+TP hit, SL hit, Break-even, Manual close.
+
+Learning layer must:
+Cluster similar setups, Calculate win rates, Adjust probability calibration.
+
+Strategy rules must never change.
+Only probability weights can adjust.
+
+---
+
+SYSTEM DESIGN CONSTRAINTS
+
+The engine must:
+- Produce identical output for identical data
+- Never alter structural definitions
+- Never mutate core strategy rules
+- Learn only from outcome calibration layers
+- Reject weak setups instead of forcing trades
 `;
 
 export const analyzeMarket = async (
@@ -365,7 +349,7 @@ export const analyzeMarket = async (
   Include Fundamentals: ${includeFundamentals}.
   Market Context: ${marketContext || 'None'}.
   
-  Strictly follow the ATHENIX ANALYSIS ENGINE v2.0. Calculate scores and probabilities deterministically.`;
+  Strictly follow the ATHENIX MASTER IMPLEMENTATION PROMPT. Calculate scores and probabilities deterministically.`;
 
   const response = await ai.models.generateContent({
     model,
@@ -384,6 +368,36 @@ export const analyzeMarket = async (
           final_decision: { type: Type.STRING, enum: ["trade", "no_trade"] },
           strategy_used: { type: Type.STRING, enum: ["structure_only", "liquidity_only", "structure_plus_liquidity", "none"] },
           
+          quality_score: { type: Type.NUMBER },
+          corrective_score: { type: Type.NUMBER },
+          impulse_score: { type: Type.NUMBER },
+
+          session_context: {
+            type: Type.OBJECT,
+            properties: {
+              session: { type: Type.STRING },
+              asian_high: { type: Type.NUMBER },
+              asian_low: { type: Type.NUMBER },
+              liquidity_sweep: { type: Type.STRING }
+            },
+            required: ["session", "asian_high", "asian_low", "liquidity_sweep"]
+          },
+
+          market_story: {
+            type: Type.OBJECT,
+            properties: {
+              origin: { type: Type.STRING },
+              current_phase: { type: Type.STRING },
+              liquidity_path: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["origin", "current_phase", "liquidity_path"]
+          },
+
+          liquidity_heatmap: {
+            type: Type.OBJECT,
+            additionalProperties: { type: Type.NUMBER }
+          },
+
           market_narrative_context: {
             type: Type.OBJECT,
             properties: {
@@ -450,7 +464,6 @@ export const analyzeMarket = async (
           },
           volatility_context: { type: Type.STRING },
           
-          // Legacy signal support (mapped from impulse_setup or corrective_setup)
           signal: {
             type: Type.OBJECT,
             properties: {
@@ -491,7 +504,7 @@ export const analyzeMarket = async (
               }
           }
         },
-        required: ["instrument", "final_decision", "reasoning", "market_phase", "execution_mode", "confluence_scores", "probabilities", "volatility_context", "market_narrative_context", "liquidity_map"]
+        required: ["instrument", "final_decision", "reasoning", "market_phase", "execution_mode", "confluence_scores", "probabilities", "volatility_context", "market_narrative_context", "liquidity_map", "quality_score", "session_context"]
       }
     }
   });
@@ -538,16 +551,16 @@ export const revalidateTradeSetup = async (
     Current Market Price: ${currentPrice}
     
     Rules for Status Determination:
-    1. If price has hit Stop Loss level (breached SL) -> 'Setup Invalidated'
-    2. If price has hit TP1 or higher -> 'Secure Partial Profits'
-    3. If price moved significantly in favor (>50% to TP1) but hasn't hit TP -> 'Move SL to Break Even'
-    4. If price is hovering near entry or in drawdown but still respecting SL -> 'Setup Still Valid'
+    1. If price has hit Stop Loss level (breached SL) -> 'Setup invalidated'
+    2. If price has hit TP1 or higher -> 'Secure partial profits'
+    3. If price moved significantly against the bias or structure shifted -> 'Exit trade'
+    4. If price is hovering near entry or in drawdown but still respecting SL -> 'Trade still valid'
     
     OUTPUT ONLY ONE OF THE FOLLOWING STRINGS:
-    - "Setup Still Valid"
-    - "Secure Partial Profits"
-    - "Move SL to Break Even"
-    - "Setup Invalidated"
+    - "Trade still valid"
+    - "Secure partial profits"
+    - "Exit trade"
+    - "Setup invalidated"
   `;
 
   const response = await ai.models.generateContent({

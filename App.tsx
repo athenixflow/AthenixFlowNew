@@ -6,12 +6,12 @@ import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import AIAssistant from './pages/AIAssistant';
 import EducationHub from './pages/EducationHub';
-import Signals from './pages/Signals';
+import LiveSignals from './pages/LiveSignals';
 import AuthPage from './pages/Auth';
 import Splash from './pages/Splash';
 import Onboarding from './pages/Onboarding';
 import LandingPage from './pages/Landing';
-import Journal from './pages/Journal';
+import TradeJournal from './pages/TradeJournal';
 import Billing from './pages/Billing';
 import Settings from './pages/Settings';
 import AdminDashboard from './pages/AdminDashboard';
@@ -177,6 +177,19 @@ const App: React.FC = () => {
   const isAdminPage = currentPage === 'admin';
   const showMainLayout = !isPublicPage && !isAdminPage && !!user;
 
+  const handleTokenSpend = (amount: number, resource: 'analysis' | 'education') => {
+    if (!user) return;
+    // Update local state (Backend already handled Firestore deduction)
+    setUser(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        analysisTokens: resource === 'analysis' ? prev.analysisTokens - amount : prev.analysisTokens,
+        educationTokens: resource === 'education' ? prev.educationTokens - amount : prev.educationTokens
+      };
+    });
+  };
+
   const renderPage = () => {
     if (isAuthResolving && currentPage === 'splash') return <Splash />;
     if (isAuthResolving && !isPublicPage) {
@@ -199,10 +212,10 @@ const App: React.FC = () => {
       case 'terms': return <Terms onNavigate={navigateTo} />;
       case 'pricing': return <Pricing user={user} onNavigate={navigateTo} />;
       case 'dashboard': return <Dashboard user={user} onNavigate={navigateTo} />;
-      case 'assistant': return <AIAssistant user={user} onTokenSpend={() => {}} />;
-      case 'education': return <EducationHub user={user} onTokenSpend={() => {}} onNavigate={navigateTo} />;
-      case 'signals': return <Signals user={user} />;
-      case 'journal': return <Journal user={user} />;
+      case 'assistant': return <AIAssistant user={user} onTokenSpend={(amount: number) => handleTokenSpend(amount, 'analysis')} />;
+      case 'education': return <EducationHub user={user} onTokenSpend={(amount: number) => handleTokenSpend(amount, 'education')} />;
+      case 'signals': return <LiveSignals />;
+      case 'journal': return <TradeJournal user={user} />;
       case 'billing': return <Billing user={user} />;
       case 'settings': return <Settings user={user} onLogout={handleLogout} />;
       case 'admin': return <AdminDashboard user={user} onNavigate={navigateTo} onLogout={handleLogout} />;

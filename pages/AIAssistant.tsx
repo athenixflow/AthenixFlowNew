@@ -3,15 +3,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, TradeAnalysis, AnalysisFeedback } from '../types';
 import { analyzeMarket, revalidateAnalysis } from '../services/backend';
 import { getUserAnalysisHistory, submitAnalysisFeedback } from '../services/firestore';
-import { FOREX_INSTRUMENTS, STOCK_INSTRUMENTS, ICONS } from '../constants';
+import { FOREX_INSTRUMENTS, STOCK_INSTRUMENTS, METALS_INSTRUMENTS, INDICES_INSTRUMENTS, ICONS } from '../constants';
 
 type ExecutionMode = 'scalp' | 'day_trade' | 'swing_trade';
 
 const MODE_CONFIG: Record<ExecutionMode, { label: string; desc: string; timeframes: string[]; icon: React.FC<{selected: boolean}> }> = {
   scalp: {
-    label: 'Scalp',
+    label: 'SCALP MODE',
     desc: 'M1-M15. Refined to M1.',
-    timeframes: ['1m', '3m', '5m', '15m'],
+    timeframes: ['M1', 'M3', 'M5', 'M15'],
     icon: ({selected}) => (
       <svg className={`w-5 h-5 ${selected ? 'text-white' : 'text-brand-gold'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -19,9 +19,9 @@ const MODE_CONFIG: Record<ExecutionMode, { label: string; desc: string; timefram
     )
   },
   day_trade: {
-    label: 'Day Trade',
+    label: 'DAY TRADE MODE',
     desc: 'M15-H4. Refined to M5.',
-    timeframes: ['15m', '30m', '1h', '2h', '4h'],
+    timeframes: ['M15', 'M30', 'H1', 'H2'],
     icon: ({selected}) => (
       <svg className={`w-5 h-5 ${selected ? 'text-white' : 'text-brand-gold'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -29,9 +29,9 @@ const MODE_CONFIG: Record<ExecutionMode, { label: string; desc: string; timefram
     )
   },
   swing_trade: {
-    label: 'Swing Trade',
+    label: 'SWING MODE',
     desc: 'H4-Weekly. Refined to M15.',
-    timeframes: ['4h', '8h', '1D', '1W'],
+    timeframes: ['H4', 'H8', 'D1'],
     icon: ({selected}) => (
       <svg className={`w-5 h-5 ${selected ? 'text-white' : 'text-brand-gold'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -42,12 +42,12 @@ const MODE_CONFIG: Record<ExecutionMode, { label: string; desc: string; timefram
 
 interface AIAssistantProps {
   user: UserProfile | null;
-  onTokenSpend: () => void;
+  onTokenSpend: (amount: number) => void;
 }
 
-const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
+const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
   const [tradeMode, setTradeMode] = useState<ExecutionMode | null>(null);
-  const [marketType, setMarketType] = useState<'forex' | 'stock' | null>(null);
+  const [marketType, setMarketType] = useState<'forex' | 'metals' | 'indices' | 'stock' | null>(null);
   const [symbol, setSymbol] = useState('');
   const [timeframe, setTimeframe] = useState('');
   const [fundamentalToggle, setFundamentalToggle] = useState(false);
@@ -109,6 +109,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
     const response = await analyzeMarket(user.uid, symbol, timeframe, fundamentalToggle, marketType);
     if (response.status === 'success') {
       const data = response.data as TradeAnalysis;
+      onTokenSpend(1);
       setAnalysis(data);
       // Immediately add to history local state to reflect change without reload
       setHistory(prev => [data, ...prev]);
@@ -116,7 +117,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
     setIsAnalyzing(false);
   };
 
-  const submitFeedback = async (analysisId: string, outcome: 'TP' | 'SL' | 'BE' | 'RUNNING' | 'NOT_TAKEN' | 'INVALID') => {
+  const submitFeedback = async (analysisId: string, outcome: 'TP_HIT' | 'SL_HIT' | 'BREAK_EVEN' | 'STILL_RUNNING' | 'NOT_TAKEN' | 'INVALID') => {
     await submitAnalysisFeedback(analysisId, { outcome, comment: feedbackComment, timestamp: new Date().toISOString() });
     setActiveFeedbackId(null); 
     setFeedbackComment(''); 
@@ -160,9 +161,25 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
           </div>
         </div>
         
-        <div className="text-right">
-            <div className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Total Confluence</div>
-            <div className="text-3xl font-black text-brand-charcoal">{data.confluence_scores.total_confluence_score}/40</div>
+        <div className="text-right flex flex-col items-end gap-2">
+            <div>
+              <div className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Total Confluence</div>
+              <div className="text-3xl font-black text-brand-charcoal">{data.confluence_scores.total_confluence_score}/40</div>
+            </div>
+            <div className="flex gap-4">
+              <div className="text-right">
+                <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Quality</p>
+                <p className="text-xs font-black text-brand-gold">{data.quality_score}/100</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Impulse</p>
+                <p className="text-xs font-black text-brand-gold">{data.impulse_score}/100</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Corrective</p>
+                <p className="text-xs font-black text-brand-gold">{data.corrective_score}/100</p>
+              </div>
+            </div>
         </div>
       </div>
 
@@ -185,9 +202,54 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
         </div>
       </div>
 
-      {/* Liquidity Map - Version 2.0 */}
+      {/* Session & Market Story - Version 2.0 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Session Context</p>
+          <div className="p-5 bg-brand-charcoal text-white rounded-xl space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Active Session</span>
+              <span className="text-xs font-black uppercase">{data.session_context.session}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/10">
+              <div>
+                <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Asian High</p>
+                <p className="text-xs font-bold">{fmt(data.session_context.asian_high)}</p>
+              </div>
+              <div>
+                <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Asian Low</p>
+                <p className="text-xs font-bold">{fmt(data.session_context.asian_low)}</p>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-white/10">
+              <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Liquidity Sweep</p>
+              <p className="text-[10px] font-medium leading-relaxed">{data.session_context.liquidity_sweep}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Market Story</p>
+          <div className="p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-xl space-y-3">
+            <div>
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Origin of Move</p>
+              <p className="text-[11px] font-medium text-brand-charcoal">{data.market_story.origin}</p>
+            </div>
+            <div>
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Current Phase</p>
+              <p className="text-[11px] font-medium text-brand-charcoal">{data.market_story.current_phase}</p>
+            </div>
+            <div>
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Liquidity Path</p>
+              <p className="text-[11px] font-medium text-brand-charcoal">{data.market_story.liquidity_path}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Liquidity Map & Heatmap - Version 2.0 */}
       <div className="space-y-4">
-        <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Liquidity Map</p>
+        <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Liquidity Architecture</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 bg-brand-charcoal text-white rounded-xl">
             <div className="flex justify-between items-center mb-3">
@@ -212,9 +274,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
             </div>
           </div>
         </div>
-        <div className="p-4 bg-brand-gold/5 border border-brand-gold/20 rounded-xl">
-          <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Projected Liquidity Path</p>
-          <p className="text-xs font-black text-brand-charcoal uppercase tracking-tight">{data.liquidity_map.projected_liquidity_path}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-brand-gold/5 border border-brand-gold/20 rounded-xl">
+            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Projected Liquidity Path</p>
+            <p className="text-xs font-black text-brand-charcoal uppercase tracking-tight">{data.liquidity_map.projected_liquidity_path}</p>
+          </div>
+          <div className="p-4 bg-brand-sage/5 border border-brand-sage/20 rounded-xl">
+            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Liquidity Heatmap</p>
+            <p className="text-[10px] font-medium text-brand-charcoal leading-relaxed">{data.liquidity_heatmap}</p>
+          </div>
         </div>
       </div>
 
@@ -363,8 +431,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                  {data.validationResult && (
                    <div className="text-right">
                       <span className={`px-3 py-1.5 rounded text-[10px] font-black uppercase ${
-                        data.validationResult === 'Setup Still Valid' ? 'bg-brand-success/10 text-brand-success' : 
-                        data.validationResult === 'Setup Invalidated' ? 'bg-brand-error/10 text-brand-error' :
+                        data.validationResult === 'Trade still valid' ? 'bg-brand-success/10 text-brand-success' : 
+                        data.validationResult === 'Setup invalidated' ? 'bg-brand-error/10 text-brand-error' :
+                        data.validationResult === 'Exit trade' ? 'bg-brand-error/10 text-brand-error' :
                         'bg-brand-gold/10 text-brand-gold'
                       }`}>
                         {data.validationResult}
@@ -389,8 +458,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                {data.feedback ? (
                   <div className="flex items-start gap-4">
                      <div className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest ${
-                        data.feedback.outcome === 'TP' ? 'bg-brand-success/20 text-brand-success' :
-                        data.feedback.outcome === 'SL' ? 'bg-brand-error/20 text-brand-error' :
+                        data.feedback.outcome === 'TP_HIT' ? 'bg-brand-success/20 text-brand-success' :
+                        data.feedback.outcome === 'SL_HIT' ? 'bg-brand-error/20 text-brand-error' :
                         'bg-brand-charcoal/10 text-brand-charcoal'
                      }`}>
                         {data.feedback.outcome.replace('_', ' ')}
@@ -401,7 +470,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
                   activeFeedbackId === data.id ? (
                      <div className="space-y-4 animate-fade-in">
                         <div className="grid grid-cols-3 gap-2">
-                           {['TP', 'SL', 'BE', 'RUNNING', 'NOT_TAKEN', 'INVALID'].map(opt => (
+                           {['TP_HIT', 'SL_HIT', 'BREAK_EVEN', 'STILL_RUNNING', 'NOT_TAKEN', 'INVALID'].map(opt => (
                               <button key={opt} onClick={() => submitFeedback(data.id!, opt as any)} className="py-2 border border-brand-sage/20 bg-white hover:bg-brand-gold hover:text-white rounded text-[10px] font-bold uppercase transition-colors">
                                  {opt.replace('_', ' ')}
                               </button>
@@ -476,10 +545,10 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
 
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">2. Select Market Sector</label>
-                <div className="flex gap-2 p-1 bg-brand-sage/10 rounded-xl">
-                  {['forex', 'stock'].map(type => (
-                    <button key={type} onClick={() => setMarketType(type as any)} className={`flex-1 py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${marketType === type ? 'bg-white text-brand-charcoal shadow-sm' : 'text-brand-muted hover:text-brand-gold'}`}>
-                      {type === 'forex' ? 'Forex & Metals' : 'Stocks'}
+                <div className="flex flex-wrap gap-2 p-1 bg-brand-sage/10 rounded-xl">
+                  {['forex', 'metals', 'indices', 'stock'].map(type => (
+                    <button key={type} onClick={() => setMarketType(type as any)} className={`flex-1 min-w-[80px] py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${marketType === type ? 'bg-white text-brand-charcoal shadow-sm' : 'text-brand-muted hover:text-brand-gold'}`}>
+                      {type === 'forex' ? 'Forex' : type === 'metals' ? 'Metals' : type === 'indices' ? 'Indices' : 'Stocks'}
                     </button>
                   ))}
                 </div>
@@ -619,7 +688,10 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user }) => {
   );
 
   function getFilteredInstruments() {
-    const list = marketType === 'forex' ? FOREX_INSTRUMENTS : marketType === 'stock' ? STOCK_INSTRUMENTS : [];
+    const list = marketType === 'forex' ? FOREX_INSTRUMENTS : 
+                 marketType === 'metals' ? METALS_INSTRUMENTS :
+                 marketType === 'indices' ? INDICES_INSTRUMENTS :
+                 marketType === 'stock' ? STOCK_INSTRUMENTS : [];
     if (!searchQuery) return list;
     const lowerQ = searchQuery.toLowerCase();
     return list.filter(i => i.symbol.toLowerCase().includes(lowerQ) || i.name.toLowerCase().includes(lowerQ));

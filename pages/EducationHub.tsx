@@ -1,311 +1,140 @@
-
 import React, { useState, useEffect } from 'react';
-import { getEducationLessons, getUserEducationHistory } from '../services/firestore';
+import { UserProfile, EducationInteraction } from '../types';
 import { getAILessonContent } from '../services/backend';
-import { Lesson, UserProfile, EducationInteraction } from '../types';
+import { getEducationHistory } from '../services/firestore';
+import { ICONS } from '../constants';
 
 interface EducationHubProps {
   user: UserProfile | null;
-  onTokenSpend: (resource: 'education') => void;
-  onNavigate: (page: string) => void;
+  onTokenSpend: (amount: number) => void;
 }
 
-const EducationHub: React.FC<EducationHubProps> = ({ user, onNavigate }) => {
-  const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
-  const [loading, setLoading] = useState(true);
+const EducationHub: React.FC<EducationHubProps> = ({ user, onTokenSpend }) => {
   const [question, setQuestion] = useState('');
   const [isAsking, setIsAsking] = useState(false);
-  const [aiResponse, setAiResponse] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  
-  // History State
   const [history, setHistory] = useState<EducationInteraction[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  // Expanded History Item State
-  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      // Fetch Lessons
-      const lessonData = await getEducationLessons();
-      const enriched = lessonData.map(l => ({
-        ...l,
-        author: l.author || 'Athenix Neural Research',
-        updatedAt: l.updatedAt || new Date().toISOString(),
-        category: l.category || 'Institutional Strategy'
-      }));
-      setLessons(enriched);
-      
-      if (enriched.length > 0 && !selectedLesson) {
-        setSelectedLesson(enriched[0]);
-      }
-      
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
-
-  // Separate effect for history to allow independent reloading
-  useEffect(() => {
-    if (user) {
-        loadHistory();
-    }
+    if (user) loadHistory();
   }, [user]);
 
   const loadHistory = async () => {
-      if (!user) return;
-      setHistoryLoading(true);
-      const data = await getUserEducationHistory(user.uid);
-      setHistory(data);
-      setHistoryLoading(false);
-  }
+    if (!user) return;
+    setLoading(true);
+    setHistory(await getEducationHistory(user.uid));
+    setLoading(false);
+  };
 
-  const handleAskMentor = async () => {
-    if (!user || !question.trim()) {
-      if (!user) onNavigate('login');
-      return;
-    }
-
+  const handleAsk = async () => {
+    if (!user || !question.trim()) return;
     setIsAsking(true);
-    setError(null);
-    setAiResponse(null);
-
-    const response = await getAILessonContent(
-      user.uid, 
-      question, 
-      selectedLesson ? `Context: This query relates to ${selectedLesson.title}` : undefined
-    );
-
-    if (response.status === 'success') {
-      setAiResponse(response.data);
-      setQuestion('');
-      loadHistory(); // Refresh history to show new interaction
-    } else {
-      setError(response.message);
+    try {
+      const response = await getAILessonContent(user.uid, question);
+      if (response.status === 'success') {
+        onTokenSpend(1);
+        setQuestion('');
+        loadHistory();
+      } else {
+        alert(response.message);
+      }
+    } catch (error) {
+      console.error(error);
     }
     setIsAsking(false);
   };
 
   return (
-    <div className="p-6 md:p-10 space-y-12 animate-fade-in max-w-7xl mx-auto pb-24">
-      {/* SEO Optimized Header Section */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="px-3 py-1 bg-brand-gold/10 border border-brand-gold/20 rounded-full">
-            <span className="text-[10px] font-black text-brand-gold uppercase tracking-[0.2em]">Institutional Alpha Library</span>
-          </div>
-          <span className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">Knowledge is your edge</span>
+    <div className="max-w-4xl mx-auto space-y-12 animate-fade-in">
+      {/* Search/Ask Section */}
+      <div className="bg-white p-8 md:p-12 rounded-[2rem] border border-brand-sage/20 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+           <ICONS.Chart className="w-32 h-32 text-brand-gold" />
         </div>
-        <h1 className="text-4xl md:text-7xl font-black text-brand-charcoal uppercase tracking-tighter leading-[0.9]">
-          Master The <br /> <span className="text-brand-gold">Institutional Loop.</span>
-        </h1>
-        <p className="text-brand-muted font-medium text-lg max-w-3xl leading-relaxed">
-          Athenix provides evergreen trading education, strategy breakdowns, and market explanations designed to help you understand Smart Money Concepts (SMC) and high-frequency institutional liquidity patterns.
-        </p>
-      </section>
+        
+        <div className="relative z-10 space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-4xl font-black text-brand-charcoal uppercase tracking-tighter">Education Hub</h2>
+            <p className="text-brand-muted font-medium">Master Smart Money Concepts with the Athenix AI Mentor.</p>
+          </div>
 
-      <div className="flex flex-col lg:flex-row gap-10">
-        {/* Main Content Area: Article Style */}
-        <main className="flex-1 min-w-0">
-          {loading ? (
-            <div className="space-y-8">
-              <div className="h-12 bg-brand-sage/10 rounded-2xl animate-pulse w-3/4"></div>
-              <div className="space-y-4">
-                <div className="h-4 bg-brand-sage/10 rounded-full w-full animate-pulse"></div>
-                <div className="h-4 bg-brand-sage/10 rounded-full w-5/6 animate-pulse"></div>
-                <div className="h-4 bg-brand-sage/10 rounded-full w-4/6 animate-pulse"></div>
-              </div>
-            </div>
-          ) : selectedLesson ? (
-            <article className="athenix-card p-8 md:p-12 space-y-10 relative overflow-hidden bg-white">
-              {/* Article Authority Metadata */}
-              <header className="space-y-4 border-b border-brand-sage/20 pb-8">
-                <div className="flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                  <span className="text-brand-gold">{selectedLesson.category}</span>
-                  <span className="w-1 h-1 bg-brand-sage rounded-full"></span>
-                  <span>By {selectedLesson.author}</span>
-                  <span className="w-1 h-1 bg-brand-sage rounded-full"></span>
-                  <span>Updated {new Date(selectedLesson.updatedAt).toLocaleDateString()}</span>
-                </div>
-                <h2 className="text-3xl md:text-5xl font-black text-brand-charcoal tracking-tighter uppercase leading-none">
-                  {selectedLesson.title}
-                </h2>
-                <p className="text-brand-muted font-bold uppercase text-xs tracking-tight">
-                  Strategy Overview & Algorithmic Mechanics
-                </p>
-              </header>
-
-              {/* Main Content Render */}
-              <div className="space-y-8">
-                {selectedLesson.content.map((para, i) => (
-                  <p key={i} className="text-brand-charcoal/90 text-sm md:text-base leading-loose font-medium">
-                    {para}
-                  </p>
-                ))}
-              </div>
-
-              {/* Internal Linking: Neural Directives CTA */}
-              <div className="bg-brand-sage/5 border border-dashed border-brand-sage rounded-2xl p-8 space-y-6">
-                <div className="space-y-2">
-                  <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.2em]">Neural Directives</h4>
-                  <p className="text-[11px] text-brand-muted font-medium">Apply this logic using the Athenix Neural Core for real-time market setups.</p>
-                </div>
-                <button 
-                  onClick={() => onNavigate('assistant')}
-                  className="flex items-center gap-4 px-6 py-4 bg-brand-charcoal text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-gold transition-all group"
-                >
-                  Launch AI Assistant
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Disclaimer: Trust Signals */}
-              <footer className="pt-10 border-t border-brand-sage/20">
-                <p className="text-[9px] text-brand-muted font-black uppercase tracking-[0.2em] leading-relaxed">
-                  Risk Disclosure: Trading involves significant financial risk. The educational content provided by Athenix is for informational purposes only and does not constitute financial advice. Past performance is not indicative of future results.
-                </p>
-              </footer>
-            </article>
-          ) : (
-            <div className="athenix-card p-20 text-center opacity-40 italic">
-              Select a module from the intelligence library.
-            </div>
-          )}
-
-          {/* AI Response Section */}
-          {aiResponse && (
-            <div className="mt-8 athenix-card p-8 md:p-12 bg-brand-gold/5 border-brand-gold/20 animate-slide-up">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-2 h-2 bg-brand-gold rounded-full animate-pulse"></div>
-                <h3 className="text-[10px] font-black text-brand-gold uppercase tracking-[0.3em]">AI Mentor Synthesis</h3>
-              </div>
-              <div className="prose prose-sm max-w-none">
-                <p className="text-brand-charcoal text-sm leading-loose whitespace-pre-wrap font-medium">{aiResponse}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Personal Learning Log */}
-          {user && (
-            <div className="mt-16 space-y-6">
-               <div className="flex items-center justify-between border-b border-brand-sage/20 pb-4">
-                 <h3 className="text-xs font-black text-brand-charcoal uppercase tracking-[0.3em]">Personal Learning Log</h3>
-                 <span className="text-[9px] font-bold text-brand-muted uppercase tracking-widest">
-                    {historyLoading ? 'Syncing...' : `${history.length} Interactions`}
-                 </span>
-               </div>
-               
-               {history.length === 0 ? (
-                 <div className="p-8 border border-dashed border-brand-sage/30 rounded-2xl text-center">
-                   <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest">No previous mentorship sessions recorded.</p>
-                 </div>
-               ) : (
-                 <div className="space-y-4">
-                    {history.map(item => (
-                       <div key={item.id} className="bg-white rounded-xl border border-brand-sage/20 overflow-hidden hover:border-brand-gold/30 transition-colors">
-                          <button 
-                            onClick={() => setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id as string)}
-                            className="w-full text-left p-6 flex justify-between items-start hover:bg-brand-sage/5 transition-colors"
-                          >
-                             <div className="space-y-1">
-                                <p className="text-[10px] font-black text-brand-gold uppercase tracking-widest">Q: {item.question}</p>
-                                <p className="text-[9px] text-brand-muted font-bold uppercase tracking-tight">
-                                   {new Date(item.timestamp).toLocaleDateString()} • {item.context || 'General Query'}
-                                </p>
-                             </div>
-                             <svg 
-                                xmlns="http://www.w3.org/2000/svg" 
-                                className={`w-4 h-4 text-brand-muted transition-transform ${expandedHistoryId === item.id ? 'rotate-180' : ''}`} 
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                             >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                             </svg>
-                          </button>
-                          
-                          {expandedHistoryId === item.id && (
-                             <div className="p-6 pt-0 border-t border-brand-sage/10 bg-brand-sage/5">
-                                <div className="mt-4 prose prose-sm max-w-none">
-                                   <p className="text-xs text-brand-charcoal leading-loose whitespace-pre-wrap font-medium">{item.answer}</p>
-                                </div>
-                             </div>
-                          )}
-                       </div>
-                    ))}
-                 </div>
-               )}
-            </div>
-          )}
-        </main>
-
-        {/* Sidebar: Library & AI Query */}
-        <aside className="w-full lg:w-80 space-y-8">
-          {/* AI Query Terminal */}
-          <div className="athenix-card p-6 bg-brand-charcoal text-white space-y-6">
-            <div className="space-y-2">
-              <h3 className="text-[10px] font-black text-brand-gold uppercase tracking-[0.3em]">Query Intelligence</h3>
-              <p className="text-[9px] text-white/50 font-bold uppercase tracking-tight">Ask anything about market mechanics</p>
-            </div>
-            <textarea 
+          <div className="flex flex-col md:flex-row gap-4">
+            <input
+              type="text"
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Query institutional concepts..."
-              className="w-full h-24 p-4 bg-white/5 border border-white/10 rounded-xl text-xs font-medium outline-none focus:border-brand-gold transition-all resize-none text-white"
+              onChange={e => setQuestion(e.target.value)}
+              placeholder="Ask about Liquidity, POIs, Market Structure..."
+              className="flex-1 p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-2xl outline-none focus:border-brand-gold text-sm font-medium"
+              onKeyPress={e => e.key === 'Enter' && handleAsk()}
             />
-            <button 
-              disabled={isAsking}
-              onClick={handleAskMentor}
-              className="w-full py-4 bg-brand-gold text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 disabled:opacity-50 transition-all hover:bg-white hover:text-brand-charcoal"
+            <button
+              onClick={handleAsk}
+              disabled={isAsking || !question.trim()}
+              className="px-10 py-5 bg-brand-charcoal text-white rounded-2xl font-black uppercase tracking-widest hover:bg-brand-gold transition-all disabled:opacity-50 shadow-lg"
             >
-              {isAsking ? 'Decoding Node...' : 'Analyze Concept'}
+              {isAsking ? 'Consulting Mentor...' : 'Ask Mentor'}
             </button>
-            {error && <p className="text-[9px] text-brand-error font-black uppercase tracking-wide">{error}</p>}
           </div>
 
-          {/* Module Library Index */}
+          <div className="flex flex-wrap gap-3">
+            {['Liquidity Mapping', 'Market Structure', 'POI Selection', 'Risk Management'].map(tag => (
+              <button 
+                key={tag} 
+                onClick={() => setQuestion(tag)}
+                className="px-4 py-2 bg-brand-sage/10 hover:bg-brand-sage/20 rounded-full text-[10px] font-black uppercase tracking-widest text-brand-muted transition-colors"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* History Section */}
+      <div className="space-y-6">
+        <h3 className="text-xl font-black text-brand-charcoal uppercase tracking-tighter flex items-center gap-3">
+          <ICONS.Target className="w-5 h-5 text-brand-gold" />
+          Recent Consultations
+        </h3>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-gold"></div>
+          </div>
+        ) : history.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-brand-sage/30">
+            <p className="text-brand-muted text-sm font-medium">Your learning history will appear here.</p>
+          </div>
+        ) : (
           <div className="space-y-6">
-            <h3 className="text-[10px] font-black text-brand-muted uppercase tracking-[0.3em] pl-4 border-l-2 border-brand-sage">Related Intelligence</h3>
-            <div className="space-y-4">
-              {lessons.map((lesson) => (
-                <button 
-                  key={lesson.id} 
-                  onClick={() => setSelectedLesson(lesson)}
-                  className={`w-full text-left athenix-card p-5 transition-all group ${
-                    selectedLesson?.id === lesson.id ? 'border-brand-gold bg-brand-gold/5' : 'hover:border-brand-sage/50'
-                  }`}
-                >
-                  <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${
-                    selectedLesson?.id === lesson.id ? 'text-brand-gold' : 'text-brand-muted group-hover:text-brand-charcoal'
-                  }`}>
-                    {lesson.category}
-                  </p>
-                  <h4 className="text-xs font-black text-brand-charcoal uppercase leading-tight group-hover:text-brand-gold transition-colors">
-                    {lesson.title}
-                  </h4>
-                </button>
-              ))}
-            </div>
-          </div>
+            {history.map(item => (
+              <div key={item.id} className="bg-white p-8 rounded-2xl border border-brand-sage/20 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-start gap-4 mb-6">
+                  <div className="w-10 h-10 bg-brand-gold/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <span className="text-brand-gold font-black">Q</span>
+                  </div>
+                  <h4 className="text-lg font-black text-brand-charcoal leading-tight pt-1">{item.question}</h4>
+                </div>
+                
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-brand-charcoal/5 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <span className="text-brand-charcoal font-black">A</span>
+                  </div>
+                  <div className="text-sm text-brand-muted leading-relaxed font-medium space-y-4 pt-1">
+                    {item.answer.split('\n').map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
+                  </div>
+                </div>
 
-          {/* External Growth Signal */}
-          <div className="athenix-card p-6 bg-brand-sage/5 border-dashed border-brand-sage/30 text-center">
-            <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest mb-4">Authority Signal</p>
-            <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed mb-6">
-              Missing a concept? Our research team publishes institutional breakdowns weekly.
-            </p>
-            <a 
-              href="/" 
-              onClick={(e) => { e.preventDefault(); onNavigate('landing'); }}
-              className="text-[9px] font-black text-brand-gold uppercase tracking-widest hover:underline"
-            >
-              Back to Overview
-            </a>
+                <div className="mt-8 pt-6 border-t border-brand-sage/10 flex justify-between items-center">
+                  <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">{item.category}</span>
+                  <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">{new Date(item.timestamp).toLocaleDateString()}</span>
+                </div>
+              </div>
+            ))}
           </div>
-        </aside>
+        )}
       </div>
     </div>
   );

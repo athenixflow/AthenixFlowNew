@@ -4,7 +4,7 @@ import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse, revalidateTradeSetup } from './geminiService';
 import { getMarketData, testMarketConnection } from './marketData';
 import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth, TradingSignal, TradeAnalysis } from '../types';
-import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection, updateAnalysisValidation } from './firestore';
+import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection, updateAnalysisValidation, deductTokens } from './firestore';
 
 export interface BackendResponse<T = any> {
   message: string;
@@ -23,7 +23,7 @@ export const analyzeMarket = async (
   symbol: string, 
   timeframe: string, 
   includeFundamentals: boolean,
-  marketType?: 'forex' | 'stock'
+  marketType?: 'forex' | 'stock' | 'metals' | 'indices'
 ): Promise<BackendResponse> => {
   try {
     const userRef = doc(firestore, 'users', userId);
@@ -73,6 +73,18 @@ export const analyzeMarket = async (
         inducement_zones: [],
         projected_liquidity_path: "Analysis unavailable"
       },
+      session_context: result.session_context || {
+        session: "Unknown",
+        asian_high: 0,
+        asian_low: 0,
+        liquidity_sweep: "Analysis unavailable"
+      },
+      market_story: result.market_story || {
+        origin: "Analysis unavailable",
+        current_phase: "Analysis unavailable",
+        liquidity_path: "Analysis unavailable"
+      },
+      liquidity_heatmap: result.liquidity_heatmap || "Analysis unavailable",
       
       // Flattened Fields for Firestore Indexing & Admin Analytics
       pIRL: result.probabilities?.irl_only || 0,
@@ -95,8 +107,8 @@ export const analyzeMarket = async (
     }
 
     // 5. Atomic Unit Deduction & Activity Update
+    await deductTokens(userId, 1, 'analysis');
     await updateDoc(userRef, { 
-      analysisTokens: increment(-1),
       lastActiveAt: new Date().toISOString()
     });
     
@@ -183,16 +195,15 @@ export const getAILessonContent = async (userId: string, question: string, conte
     
     const result = await getEducationResponse(question, context);
     
-    await saveEducationInteraction({
-      userId,
+    await saveEducationInteraction(userId, {
       question,
       answer: result,
       context: context || 'Direct Query',
       timestamp: new Date().toISOString()
     });
     
+    await deductTokens(userId, 1, 'education');
     await updateDoc(userRef, { 
-      educationTokens: increment(-1),
       lastActiveAt: new Date().toISOString()
     });
     return { status: 'success', message: 'Lesson generated', data: result };
