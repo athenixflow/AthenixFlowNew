@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile, TradeAnalysis } from '../types';
 import { getUserAnalysisHistory, submitAnalysisFeedback } from '../services/firestore';
 import { ICONS } from '../constants';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 interface TradeJournalProps {
   user: UserProfile | null;
@@ -56,7 +57,8 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ user }) => {
   );
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <ErrorBoundary>
+      <div className="space-y-8 animate-fade-in">
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
@@ -138,7 +140,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ user }) => {
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-brand-muted uppercase tracking-widest mb-1">Take Profit</p>
-                    <p className="text-sm font-bold text-brand-success">{trade.signal?.take_profits[0]?.price || '---'}</p>
+                    <p className="text-sm font-bold text-brand-success">{trade.signal?.take_profits?.[0]?.price || '---'}</p>
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-brand-muted uppercase tracking-widest mb-1">Quality Score</p>
@@ -187,7 +189,8 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ user }) => {
           ))
         )}
       </div>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

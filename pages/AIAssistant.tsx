@@ -4,6 +4,7 @@ import { UserProfile, TradeAnalysis, AnalysisFeedback } from '../types';
 import { analyzeMarket, revalidateAnalysis } from '../services/backend';
 import { getUserAnalysisHistory, submitAnalysisFeedback } from '../services/firestore';
 import { FOREX_INSTRUMENTS, STOCK_INSTRUMENTS, METALS_INSTRUMENTS, INDICES_INSTRUMENTS, ICONS } from '../constants';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 type ExecutionMode = 'scalp' | 'day_trade' | 'swing_trade';
 
@@ -86,7 +87,13 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
   const loadHistory = async () => {
     if (!user) return;
     setHistoryLoading(true);
-    setHistory(await getUserAnalysisHistory(user.uid));
+    try {
+      const data = await getUserAnalysisHistory(user.uid);
+      setHistory(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load analysis history:", err);
+      setHistory([]);
+    }
     setHistoryLoading(false);
   };
 
@@ -139,370 +146,372 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
   const fmt = (num?: number, digits = 5) => num ? num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: digits }) : '---';
 
   const AnalysisDetailView = ({ data, isHistory = false }: { data: TradeAnalysis, isHistory?: boolean }) => (
-    <div className={`space-y-8 bg-white ${isHistory ? 'p-0' : 'border border-brand-sage rounded-2xl p-6 md:p-10 animate-slide-up'}`}>
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-brand-sage/10">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-             <h4 className="text-3xl font-black text-brand-charcoal tracking-tighter uppercase">{data.instrument}</h4>
-             <span className="px-3 py-1 bg-brand-gold text-white text-[9px] font-black uppercase rounded tracking-widest shadow-md">
-               {data.execution_mode.replace('_', ' ')}
-             </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-              <span className="px-2 py-1 bg-brand-charcoal text-white text-[9px] font-black uppercase rounded tracking-widest">{data.execution_timeframe}</span>
-              <span className={`px-2 py-1 text-[9px] font-black uppercase rounded tracking-widest ${data.final_decision === 'trade' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-muted/10 text-brand-muted'}`}>
-                {data.final_decision === 'trade' ? 'VALID SETUP' : 'REJECTED'}
-              </span>
-              {data.market_phase && (
-                  <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">{data.market_phase}</span>
-              )}
-          </div>
-        </div>
+    <ErrorBoundary>
+      <div className={`space-y-8 bg-white ${isHistory ? 'p-0' : 'border border-brand-sage rounded-2xl p-6 md:p-10 animate-slide-up'}`}>
         
-        <div className="text-right flex flex-col items-end gap-2">
-            <div>
-              <div className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Total Confluence</div>
-              <div className="text-3xl font-black text-brand-charcoal">{data.confluence_scores.total_confluence_score}/40</div>
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-brand-sage/10">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+               <h4 className="text-3xl font-black text-brand-charcoal tracking-tighter uppercase">{data?.instrument ?? "N/A"}</h4>
+               <span className="px-3 py-1 bg-brand-gold text-white text-[9px] font-black uppercase rounded tracking-widest shadow-md">
+                 {(data?.execution_mode ?? "N/A").replace('_', ' ')}
+               </span>
             </div>
-            <div className="flex gap-4">
-              <div className="text-right">
-                <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Quality</p>
-                <p className="text-xs font-black text-brand-gold">{data.quality_score}/100</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Impulse</p>
-                <p className="text-xs font-black text-brand-gold">{data.impulse_score}/100</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Corrective</p>
-                <p className="text-xs font-black text-brand-gold">{data.corrective_score}/100</p>
-              </div>
+            <div className="flex flex-wrap gap-2">
+                <span className="px-2 py-1 bg-brand-charcoal text-white text-[9px] font-black uppercase rounded tracking-widest">{data?.execution_timeframe ?? "N/A"}</span>
+                <span className={`px-2 py-1 text-[9px] font-black uppercase rounded tracking-widest ${data?.final_decision === 'trade' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-muted/10 text-brand-muted'}`}>
+                  {data?.final_decision === 'trade' ? 'VALID SETUP' : 'REJECTED'}
+                </span>
+                {data?.market_phase && (
+                    <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">{data.market_phase}</span>
+                )}
             </div>
+          </div>
+          
+          <div className="text-right flex flex-col items-end gap-2">
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Total Confluence</div>
+                <div className="text-3xl font-black text-brand-charcoal">{data?.confluence_scores?.total_confluence_score ?? 0}/40</div>
+              </div>
+              <div className="flex gap-4">
+                <div className="text-right">
+                  <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Quality</p>
+                  <p className="text-xs font-black text-brand-gold">{data?.quality_score ?? 0}/100</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Impulse</p>
+                  <p className="text-xs font-black text-brand-gold">{data?.impulse_score ?? 0}/100</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Corrective</p>
+                  <p className="text-xs font-black text-brand-gold">{data?.corrective_score ?? 0}/100</p>
+                </div>
+              </div>
+          </div>
         </div>
-      </div>
 
-      {/* Market Narrative Context - Version 2.0 */}
-      <div className="space-y-4">
-        <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Market Narrative Context</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
-            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">HTF Narrative</p>
-            <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data.market_narrative_context.htf_narrative}</p>
-          </div>
-          <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
-            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Selected TF Narrative</p>
-            <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data.market_narrative_context.selected_tf_narrative}</p>
-          </div>
-          <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
-            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Refinement Narrative</p>
-            <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data.market_narrative_context.refinement_narrative}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Session & Market Story - Version 2.0 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Market Narrative Context - Version 2.0 */}
         <div className="space-y-4">
-          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Session Context</p>
-          <div className="p-5 bg-brand-charcoal text-white rounded-xl space-y-3">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Market Narrative Context</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">HTF Narrative</p>
+              <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data?.market_narrative_context?.htf_narrative ?? "N/A"}</p>
+            </div>
+            <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Selected TF Narrative</p>
+              <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data?.market_narrative_context?.selected_tf_narrative ?? "N/A"}</p>
+            </div>
+            <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Refinement Narrative</p>
+              <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data?.market_narrative_context?.refinement_narrative ?? "N/A"}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Session & Market Story - Version 2.0 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="space-y-4">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Session Context</p>
+            <div className="p-5 bg-brand-charcoal text-white rounded-xl space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Active Session</span>
+                <span className="text-xs font-black uppercase">{data?.session_context?.session ?? "N/A"}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/10">
+                <div>
+                  <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Asian High</p>
+                  <p className="text-xs font-bold">{fmt(data?.session_context?.asian_high)}</p>
+                </div>
+                <div>
+                  <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Asian Low</p>
+                  <p className="text-xs font-bold">{fmt(data?.session_context?.asian_low)}</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-white/10">
+                <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Liquidity Sweep</p>
+                <p className="text-[10px] font-medium leading-relaxed">{data?.session_context?.liquidity_sweep ?? "N/A"}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Market Story</p>
+            <div className="p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-xl space-y-3">
+              <div>
+                <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Origin of Move</p>
+                <p className="text-[11px] font-medium text-brand-charcoal">{data?.market_story?.origin ?? "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Current Phase</p>
+                <p className="text-[11px] font-medium text-brand-charcoal">{data?.market_story?.current_phase ?? "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Liquidity Path</p>
+                <p className="text-[11px] font-medium text-brand-charcoal">{data?.market_story?.liquidity_path ?? "N/A"}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Liquidity Map & Heatmap - Version 2.0 */}
+        <div className="space-y-4">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Liquidity Architecture</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-brand-charcoal text-white rounded-xl">
+              <div className="flex justify-between items-center mb-3">
+                <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Buy-Side Liquidity</p>
+                <span className="text-[8px] font-bold text-white/40">{(data?.liquidity_map?.buy_side_liquidity || []).length} Pools</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(data?.liquidity_map?.buy_side_liquidity || []).map((pool, idx) => (
+                  <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{pool}</span>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 bg-brand-charcoal text-white rounded-xl">
+              <div className="flex justify-between items-center mb-3">
+                <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Sell-Side Liquidity</p>
+                <span className="text-[8px] font-bold text-white/40">{(data?.liquidity_map?.sell_side_liquidity || []).length} Pools</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(data?.liquidity_map?.sell_side_liquidity || []).map((pool, idx) => (
+                  <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{pool}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-brand-gold/5 border border-brand-gold/20 rounded-xl">
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Projected Liquidity Path</p>
+              <p className="text-xs font-black text-brand-charcoal uppercase tracking-tight">{data?.liquidity_map?.projected_liquidity_path ?? "N/A"}</p>
+            </div>
+            <div className="p-4 bg-brand-sage/5 border border-brand-sage/10 rounded-xl">
+              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Liquidity Heatmap</p>
+              <p className="text-[10px] font-medium text-brand-charcoal leading-relaxed">{data?.liquidity_heatmap ?? "N/A"}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Probabilistic Outcome Engine */}
+        <div className="space-y-4">
+          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Probabilistic Outcome Engine</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className={`p-4 rounded-xl border ${(data?.probabilities?.irl_only ?? 0) > 50 ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-sage/20 bg-white'}`}>
+              <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Scenario A: IRL Reaction</p>
+              <p className="text-xl font-black text-brand-charcoal">{data?.probabilities?.irl_only ?? 0}%</p>
+            </div>
+            <div className={`p-4 rounded-xl border ${(data?.probabilities?.irl_to_erl ?? 0) > 50 ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-sage/20 bg-white'}`}>
+              <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Scenario B: IRL → ERL</p>
+              <p className="text-xl font-black text-brand-charcoal">{data?.probabilities?.irl_to_erl ?? 0}%</p>
+            </div>
+            <div className={`p-4 rounded-xl border ${(data?.probabilities?.expansion ?? 0) > 50 ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-sage/20 bg-white'}`}>
+              <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Scenario C: Expansion</p>
+              <p className="text-xl font-black text-brand-charcoal">{data?.probabilities?.expansion ?? 0}%</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Structural Confluence Breakdown */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Structure', score: data?.confluence_scores?.structure_score ?? 0 },
+            { label: 'Liquidity', score: data?.confluence_scores?.liquidity_score ?? 0 },
+            { label: 'POI Quality', score: data?.confluence_scores?.poi_score ?? 0 },
+            { label: 'Prem/Disc', score: data?.confluence_scores?.premium_discount_score ?? 0 }
+          ].map((item, idx) => (
+            <div key={idx} className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10 text-center">
+              <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">{item.label}</p>
+              <p className="text-sm font-black text-brand-charcoal">{item.score}/10</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Setups - Version 2.0 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-brand-sage/10">
+          {/* Corrective Setup */}
+          <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Active Session</span>
-              <span className="text-xs font-black uppercase">{data.session_context.session}</span>
+              <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Corrective Setup</p>
+              {data?.corrective_setup && (
+                <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Score: {data.corrective_setup.score}</span>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/10">
-              <div>
-                <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Asian High</p>
-                <p className="text-xs font-bold">{fmt(data.session_context.asian_high)}</p>
+            {data?.corrective_setup ? (
+              <div className="p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-xl space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data.corrective_setup.direction === 'buy' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-error/10 text-brand-error'}`}>
+                    {data.corrective_setup.direction}
+                  </span>
+                  <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Target: {fmt(data.corrective_setup.target)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Entry</p>
+                    <p className="text-sm font-black text-brand-charcoal">{fmt(data.corrective_setup.entry)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Stop Loss</p>
+                    <p className="text-sm font-black text-brand-error">{fmt(data.corrective_setup.stop_loss)}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Asian Low</p>
-                <p className="text-xs font-bold">{fmt(data.session_context.asian_low)}</p>
+            ) : (
+              <div className="p-5 bg-brand-sage/5 border border-dashed border-brand-sage/20 rounded-xl text-center">
+                <p className="text-[9px] text-brand-muted font-bold uppercase">No Corrective Setup Detected</p>
               </div>
-            </div>
-            <div className="pt-2 border-t border-white/10">
-              <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Liquidity Sweep</p>
-              <p className="text-[10px] font-medium leading-relaxed">{data.session_context.liquidity_sweep}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Market Story</p>
-          <div className="p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-xl space-y-3">
-            <div>
-              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Origin of Move</p>
-              <p className="text-[11px] font-medium text-brand-charcoal">{data.market_story.origin}</p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Current Phase</p>
-              <p className="text-[11px] font-medium text-brand-charcoal">{data.market_story.current_phase}</p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Liquidity Path</p>
-              <p className="text-[11px] font-medium text-brand-charcoal">{data.market_story.liquidity_path}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Liquidity Map & Heatmap - Version 2.0 */}
-      <div className="space-y-4">
-        <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Liquidity Architecture</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 bg-brand-charcoal text-white rounded-xl">
-            <div className="flex justify-between items-center mb-3">
-              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Buy-Side Liquidity</p>
-              <span className="text-[8px] font-bold text-white/40">{data.liquidity_map.buy_side_liquidity.length} Pools</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {data.liquidity_map.buy_side_liquidity.map((pool, idx) => (
-                <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{pool}</span>
-              ))}
-            </div>
-          </div>
-          <div className="p-4 bg-brand-charcoal text-white rounded-xl">
-            <div className="flex justify-between items-center mb-3">
-              <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Sell-Side Liquidity</p>
-              <span className="text-[8px] font-bold text-white/40">{data.liquidity_map.sell_side_liquidity.length} Pools</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {data.liquidity_map.sell_side_liquidity.map((pool, idx) => (
-                <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{pool}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 bg-brand-gold/5 border border-brand-gold/20 rounded-xl">
-            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Projected Liquidity Path</p>
-            <p className="text-xs font-black text-brand-charcoal uppercase tracking-tight">{data.liquidity_map.projected_liquidity_path}</p>
-          </div>
-          <div className="p-4 bg-brand-sage/5 border border-brand-sage/20 rounded-xl">
-            <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Liquidity Heatmap</p>
-            <p className="text-[10px] font-medium text-brand-charcoal leading-relaxed">{data.liquidity_heatmap}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Probabilistic Outcome Engine */}
-      <div className="space-y-4">
-        <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Probabilistic Outcome Engine</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className={`p-4 rounded-xl border ${data.probabilities.irl_only > 50 ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-sage/20 bg-white'}`}>
-            <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Scenario A: IRL Reaction</p>
-            <p className="text-xl font-black text-brand-charcoal">{data.probabilities.irl_only}%</p>
-          </div>
-          <div className={`p-4 rounded-xl border ${data.probabilities.irl_to_erl > 50 ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-sage/20 bg-white'}`}>
-            <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Scenario B: IRL → ERL</p>
-            <p className="text-xl font-black text-brand-charcoal">{data.probabilities.irl_to_erl}%</p>
-          </div>
-          <div className={`p-4 rounded-xl border ${data.probabilities.expansion > 50 ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-sage/20 bg-white'}`}>
-            <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Scenario C: Expansion</p>
-            <p className="text-xl font-black text-brand-charcoal">{data.probabilities.expansion}%</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Structural Confluence Breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Structure', score: data.confluence_scores.structure_score },
-          { label: 'Liquidity', score: data.confluence_scores.liquidity_score },
-          { label: 'POI Quality', score: data.confluence_scores.poi_score },
-          { label: 'Prem/Disc', score: data.confluence_scores.premium_discount_score }
-        ].map((item, idx) => (
-          <div key={idx} className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10 text-center">
-            <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">{item.label}</p>
-            <p className="text-sm font-black text-brand-charcoal">{item.score}/10</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Setups - Version 2.0 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-6 border-t border-brand-sage/10">
-        {/* Corrective Setup */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Corrective Setup</p>
-            {data.corrective_setup && (
-              <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Score: {data.corrective_setup.score}</span>
             )}
           </div>
-          {data.corrective_setup ? (
-            <div className="p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-xl space-y-4">
-              <div className="flex justify-between items-center">
-                <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data.corrective_setup.direction === 'buy' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-error/10 text-brand-error'}`}>
-                  {data.corrective_setup.direction}
-                </span>
-                <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Target: {fmt(data.corrective_setup.target)}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Entry</p>
-                  <p className="text-sm font-black text-brand-charcoal">{fmt(data.corrective_setup.entry)}</p>
-                </div>
-                <div>
-                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Stop Loss</p>
-                  <p className="text-sm font-black text-brand-error">{fmt(data.corrective_setup.stop_loss)}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="p-5 bg-brand-sage/5 border border-dashed border-brand-sage/20 rounded-xl text-center">
-              <p className="text-[9px] text-brand-muted font-bold uppercase">No Corrective Setup Detected</p>
-            </div>
-          )}
-        </div>
 
-        {/* Impulse Setup */}
-        <div className="space-y-4">
-          <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Impulse Setup (Primary)</p>
-          {data.impulse_setup ? (
-            <div className="p-5 bg-brand-charcoal text-white rounded-xl space-y-4 shadow-xl">
-              <div className="flex justify-between items-center">
-                <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data.impulse_setup.direction === 'buy' ? 'bg-brand-success text-white' : 'bg-brand-error text-white'}`}>
-                  {data.impulse_setup.direction}
-                </span>
-                <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Primary Continuation</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Entry</p>
-                  <p className="text-sm font-black text-white">{fmt(data.impulse_setup.entry)}</p>
+          {/* Impulse Setup */}
+          <div className="space-y-4">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Impulse Setup (Primary)</p>
+            {data?.impulse_setup ? (
+              <div className="p-5 bg-brand-charcoal text-white rounded-xl space-y-4 shadow-xl">
+                <div className="flex justify-between items-center">
+                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data.impulse_setup.direction === 'buy' ? 'bg-brand-success text-white' : 'bg-brand-error text-white'}`}>
+                    {data.impulse_setup.direction}
+                  </span>
+                  <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Primary Continuation</span>
                 </div>
-                <div>
-                  <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Stop Loss</p>
-                  <p className="text-sm font-black text-brand-error">{fmt(data.impulse_setup.stop_loss)}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10">
-                <div>
-                  <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP1</p>
-                  <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp1)}</p>
-                </div>
-                <div>
-                  <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP2</p>
-                  <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp2)}</p>
-                </div>
-                <div>
-                  <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP3</p>
-                  <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp3)}</p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="p-5 bg-brand-sage/5 border border-dashed border-brand-sage/20 rounded-xl text-center">
-              <p className="text-[9px] text-brand-muted font-bold uppercase">No Impulse Setup Detected</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Volatility Context */}
-      <div className="p-4 bg-brand-sage/5 border border-brand-sage/10 rounded-xl">
-        <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Volatility Context</p>
-        <p className="text-xs font-medium text-brand-charcoal italic leading-relaxed">{data.volatility_context}</p>
-      </div>
-
-      {/* Reasoning Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-brand-sage/10">
-        <div className="space-y-1">
-          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">HTF Structural framework</p>
-          <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">{data.reasoning.bias_explanation}</div>
-        </div>
-        <div className="space-y-1">
-          <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Liquidity Engineering</p>
-          <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">{data.reasoning.liquidity_explanation}</div>
-        </div>
-      </div>
-
-      {/* History Actions */}
-      {isHistory && data.id && (
-         <div className="pt-8 mt-6 border-t border-brand-sage/20 space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-               <div>
-                  <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-widest">Strategy Revalidation</h4>
-                  <p className="text-[10px] text-brand-muted mt-1">Check setup validity against current price action.</p>
-               </div>
-               
-               <div className="flex items-center gap-4">
-                 {data.validationResult && (
-                   <div className="text-right">
-                      <span className={`px-3 py-1.5 rounded text-[10px] font-black uppercase ${
-                        data.validationResult === 'Trade still valid' ? 'bg-brand-success/10 text-brand-success' : 
-                        data.validationResult === 'Setup invalidated' ? 'bg-brand-error/10 text-brand-error' :
-                        data.validationResult === 'Exit trade' ? 'bg-brand-error/10 text-brand-error' :
-                        'bg-brand-gold/10 text-brand-gold'
-                      }`}>
-                        {data.validationResult}
-                      </span>
-                      <p className="text-[8px] text-brand-muted mt-1 uppercase tracking-wider">
-                         {data.lastValidatedAt ? new Date(data.lastValidatedAt).toLocaleString() : ''}
-                      </p>
-                   </div>
-                 )}
-                 <button 
-                   onClick={() => handleRevalidate(data)}
-                   disabled={revalidatingId === data.id}
-                   className="px-6 py-3 bg-brand-charcoal text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-gold transition-colors disabled:opacity-50"
-                 >
-                   {revalidatingId === data.id ? 'Analyzing...' : 'Revalidate Setup'}
-                 </button>
-               </div>
-            </div>
-
-            <div className="bg-brand-sage/5 p-6 rounded-xl border border-brand-sage/10">
-               <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-widest mb-4">Outcome Feedback</h4>
-               {data.feedback ? (
-                  <div className="flex items-start gap-4">
-                     <div className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest ${
-                        data.feedback.outcome === 'TP_HIT' ? 'bg-brand-success/20 text-brand-success' :
-                        data.feedback.outcome === 'SL_HIT' ? 'bg-brand-error/20 text-brand-error' :
-                        'bg-brand-charcoal/10 text-brand-charcoal'
-                     }`}>
-                        {data.feedback.outcome.replace('_', ' ')}
-                     </div>
-                     {data.feedback.comment && <p className="text-xs text-brand-muted italic pt-1">"{data.feedback.comment}"</p>}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Entry</p>
+                    <p className="text-sm font-black text-white">{fmt(data.impulse_setup.entry)}</p>
                   </div>
-               ) : (
-                  activeFeedbackId === data.id ? (
-                     <div className="space-y-4 animate-fade-in">
-                        <div className="grid grid-cols-3 gap-2">
-                           {['TP_HIT', 'SL_HIT', 'BREAK_EVEN', 'STILL_RUNNING', 'NOT_TAKEN', 'INVALID'].map(opt => (
-                              <button key={opt} onClick={() => submitFeedback(data.id!, opt as any)} className="py-2 border border-brand-sage/20 bg-white hover:bg-brand-gold hover:text-white rounded text-[10px] font-bold uppercase transition-colors">
-                                 {opt.replace('_', ' ')}
-                              </button>
-                           ))}
-                        </div>
-                        <input 
-                           type="text" 
-                           placeholder="Optional comment..." 
-                           className="w-full p-3 text-xs border border-brand-sage/20 rounded-lg outline-none focus:border-brand-gold"
-                           value={feedbackComment}
-                           onChange={e => setFeedbackComment(e.target.value)}
-                        />
-                        <button onClick={() => setActiveFeedbackId(null)} className="text-[10px] text-brand-muted font-bold uppercase underline">Cancel</button>
-                     </div>
-                  ) : (
-                     <button 
-                        onClick={() => setActiveFeedbackId(data.id!)}
-                        className="text-[10px] font-black text-brand-gold uppercase tracking-widest hover:underline"
-                     >
-                        + Log Trade Outcome
-                     </button>
-                  )
-               )}
-            </div>
-         </div>
-      )}
+                  <div>
+                    <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Stop Loss</p>
+                    <p className="text-sm font-black text-brand-error">{fmt(data.impulse_setup.stop_loss)}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10">
+                  <div>
+                    <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP1</p>
+                    <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp1)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP2</p>
+                    <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP3</p>
+                    <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp3)}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-5 bg-brand-sage/5 border border-dashed border-brand-sage/20 rounded-xl text-center">
+                <p className="text-[9px] text-brand-muted font-bold uppercase">No Impulse Setup Detected</p>
+              </div>
+            )}
+          </div>
+        </div>
 
-      <div className="pt-4 flex justify-between items-center text-[8px] text-brand-muted uppercase font-bold tracking-widest opacity-50">
-          <span>{data.meta?.analysis_engine_version || 'Athenix v2.0.0 (Deterministic)'}</span>
-          <span>{data.timestamp ? new Date(data.timestamp).toLocaleString() : 'LIVE'}</span>
+        {/* Volatility Context */}
+        <div className="p-4 bg-brand-sage/5 border border-brand-sage/10 rounded-xl">
+          <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Volatility Context</p>
+          <p className="text-xs font-medium text-brand-charcoal italic leading-relaxed">{data?.volatility_context ?? "N/A"}</p>
+        </div>
+
+        {/* Reasoning Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-brand-sage/10">
+          <div className="space-y-1">
+            <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">HTF Structural framework</p>
+            <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">{data?.reasoning?.bias_explanation ?? "N/A"}</div>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Liquidity Engineering</p>
+            <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">{data?.reasoning?.liquidity_explanation ?? "N/A"}</div>
+          </div>
+        </div>
+
+        {/* History Actions */}
+        {isHistory && data?.id && (
+           <div className="pt-8 mt-6 border-t border-brand-sage/20 space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                 <div>
+                    <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-widest">Strategy Revalidation</h4>
+                    <p className="text-[10px] text-brand-muted mt-1">Check setup validity against current price action.</p>
+                 </div>
+                 
+                 <div className="flex items-center gap-4">
+                   {data.validationResult && (
+                     <div className="text-right">
+                        <span className={`px-3 py-1.5 rounded text-[10px] font-black uppercase ${
+                          data.validationResult === 'Trade still valid' ? 'bg-brand-success/10 text-brand-success' : 
+                          data.validationResult === 'Setup invalidated' ? 'bg-brand-error/10 text-brand-error' :
+                          data.validationResult === 'Exit trade' ? 'bg-brand-error/10 text-brand-error' :
+                          'bg-brand-gold/10 text-brand-gold'
+                        }`}>
+                          {data.validationResult}
+                        </span>
+                        <p className="text-[8px] text-brand-muted mt-1 uppercase tracking-wider">
+                           {data.lastValidatedAt ? new Date(data.lastValidatedAt).toLocaleString() : ''}
+                        </p>
+                     </div>
+                   )}
+                   <button 
+                     onClick={() => handleRevalidate(data)}
+                     disabled={revalidatingId === data.id}
+                     className="px-6 py-3 bg-brand-charcoal text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-gold transition-colors disabled:opacity-50"
+                   >
+                     {revalidatingId === data.id ? 'Analyzing...' : 'Revalidate Setup'}
+                   </button>
+                 </div>
+              </div>
+
+              <div className="bg-brand-sage/5 p-6 rounded-xl border border-brand-sage/10">
+                 <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-widest mb-4">Outcome Feedback</h4>
+                 {data.feedback ? (
+                    <div className="flex items-start gap-4">
+                       <div className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest ${
+                          data.feedback.outcome === 'TP_HIT' ? 'bg-brand-success/20 text-brand-success' :
+                          data.feedback.outcome === 'SL_HIT' ? 'bg-brand-error/20 text-brand-error' :
+                          'bg-brand-charcoal/10 text-brand-charcoal'
+                       }`}>
+                          {(data.feedback.outcome ?? "").replace('_', ' ')}
+                       </div>
+                       {data.feedback.comment && <p className="text-xs text-brand-muted italic pt-1">"{data.feedback.comment}"</p>}
+                    </div>
+                 ) : (
+                    activeFeedbackId === data.id ? (
+                       <div className="space-y-4 animate-fade-in">
+                          <div className="grid grid-cols-3 gap-2">
+                             {['TP_HIT', 'SL_HIT', 'BREAK_EVEN', 'STILL_RUNNING', 'NOT_TAKEN', 'INVALID'].map(opt => (
+                                <button key={opt} onClick={() => submitFeedback(data.id!, opt as any)} className="py-2 border border-brand-sage/20 bg-white hover:bg-brand-gold hover:text-white rounded text-[10px] font-bold uppercase transition-colors">
+                                   {opt.replace('_', ' ')}
+                                </button>
+                             ))}
+                          </div>
+                          <input 
+                             type="text" 
+                             placeholder="Optional comment..." 
+                             className="w-full p-3 text-xs border border-brand-sage/20 rounded-lg outline-none focus:border-brand-gold"
+                             value={feedbackComment}
+                             onChange={e => setFeedbackComment(e.target.value)}
+                          />
+                          <button onClick={() => setActiveFeedbackId(null)} className="text-[10px] text-brand-muted font-bold uppercase underline">Cancel</button>
+                       </div>
+                    ) : (
+                       <button 
+                          onClick={() => setActiveFeedbackId(data.id!)}
+                          className="text-[10px] font-black text-brand-gold uppercase tracking-widest hover:underline"
+                       >
+                          + Log Trade Outcome
+                       </button>
+                    )
+                 )}
+              </div>
+           </div>
+        )}
+
+        <div className="pt-4 flex justify-between items-center text-[8px] text-brand-muted uppercase font-bold tracking-widest opacity-50">
+            <span>{data?.meta?.analysis_engine_version || 'Athenix v2.0.0 (Deterministic)'}</span>
+            <span>{data?.timestamp ? new Date(data.timestamp).toLocaleString() : 'LIVE'}</span>
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 
   return (
@@ -622,13 +631,13 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
 
              {historyLoading ? (
                 <div className="p-8 text-center"><div className="inline-block w-6 h-6 border-2 border-brand-sage border-t-brand-gold rounded-full animate-spin"></div></div>
-             ) : history.length === 0 ? (
+             ) : (history || []).length === 0 ? (
                 <div className="p-8 border border-dashed border-brand-sage/30 rounded-xl text-center">
                    <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest">No previous analysis data found.</p>
                 </div>
              ) : (
                 <div className="space-y-4">
-                   {history.map((item) => (
+                   {(history || []).map((item) => (
                       <div key={item.id} className="bg-white border border-brand-sage/20 rounded-xl overflow-hidden hover:border-brand-gold/30 transition-all">
                          <div 
                            onClick={() => setExpandedHistoryId(expandedHistoryId === item.id ? null : item.id!)}
@@ -642,8 +651,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
                                   {item.final_decision === 'no_trade' ? 'NT' : (item.signal?.direction === 'buy' ? 'BUY' : 'SELL')}
                                </div>
                                <div>
-                                  <h4 className="text-sm font-black text-brand-charcoal uppercase tracking-tight">{item.instrument}</h4>
-                                  <p className="text-[9px] text-brand-muted uppercase font-bold tracking-widest">{new Date(item.timestamp || '').toLocaleDateString()}</p>
+                                  <h4 className="text-sm font-black text-brand-charcoal uppercase tracking-tight">{item?.instrument ?? "N/A"}</h4>
+                                  <p className="text-[9px] text-brand-muted uppercase font-bold tracking-widest">{item?.timestamp ? new Date(item.timestamp).toLocaleDateString() : "N/A"}</p>
                                </div>
                             </div>
                             
@@ -658,7 +667,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
                                </div>
                                <div>
                                   <p className="text-[8px] text-brand-muted uppercase font-black tracking-widest mb-1">TP1</p>
-                                  <p className="text-xs font-bold text-brand-success font-mono">{fmt(item.signal?.take_profits[0]?.price)}</p>
+                                  <p className="text-xs font-bold text-brand-success font-mono">{fmt(item.signal?.take_profits?.[0]?.price)}</p>
                                </div>
                             </div>
 

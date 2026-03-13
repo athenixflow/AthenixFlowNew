@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TradeAnalysis } from '../types';
 import { getPublishedSignals } from '../services/firestore';
 import { ICONS } from '../constants';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const LiveSignals: React.FC = () => {
   const [signals, setSignals] = useState<TradeAnalysis[]>([]);
@@ -24,7 +25,8 @@ const LiveSignals: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <ErrorBoundary>
+      <div className="space-y-8 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-black text-brand-charcoal uppercase tracking-tighter">Live Signals</h2>
@@ -77,7 +79,7 @@ const LiveSignals: React.FC = () => {
                   </div>
                   <div className="p-3 bg-brand-sage/5 rounded-xl">
                     <p className="text-[8px] font-black text-brand-muted uppercase tracking-widest mb-1">Target</p>
-                    <p className="text-xs font-bold text-brand-success">{signal.signal?.take_profits[0]?.price}</p>
+                    <p className="text-xs font-bold text-brand-success">{signal.signal?.take_profits?.[0]?.price}</p>
                   </div>
                 </div>
 
@@ -95,7 +97,8 @@ const LiveSignals: React.FC = () => {
           ))
         )}
       </div>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 
