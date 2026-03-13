@@ -164,7 +164,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
                   {data?.final_decision === 'trade' ? 'VALID SETUP' : 'REJECTED'}
                 </span>
                 {data?.market_phase && (
-                    <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">{data.market_phase}</span>
+                    <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">{data?.market_phase ?? "N/A"}</span>
                 )}
             </div>
           </div>
@@ -335,25 +335,25 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
             <div className="flex justify-between items-center">
               <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Corrective Setup</p>
               {data?.corrective_setup && (
-                <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Score: {data.corrective_setup.score}</span>
+                <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Score: {data?.corrective_setup?.score ?? 0}</span>
               )}
             </div>
             {data?.corrective_setup ? (
               <div className="p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-xl space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data.corrective_setup.direction === 'buy' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-error/10 text-brand-error'}`}>
-                    {data.corrective_setup.direction}
+                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data?.corrective_setup?.direction === 'buy' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-error/10 text-brand-error'}`}>
+                    {data?.corrective_setup?.direction ?? "N/A"}
                   </span>
-                  <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Target: {fmt(data.corrective_setup.target)}</span>
+                  <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Target: {fmt(data?.corrective_setup?.target)}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Entry</p>
-                    <p className="text-sm font-black text-brand-charcoal">{fmt(data.corrective_setup.entry)}</p>
+                    <p className="text-sm font-black text-brand-charcoal">{fmt(data?.corrective_setup?.entry)}</p>
                   </div>
                   <div>
                     <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Stop Loss</p>
-                    <p className="text-sm font-black text-brand-error">{fmt(data.corrective_setup.stop_loss)}</p>
+                    <p className="text-sm font-black text-brand-error">{fmt(data?.corrective_setup?.stop_loss)}</p>
                   </div>
                 </div>
               </div>
@@ -370,33 +370,33 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
             {data?.impulse_setup ? (
               <div className="p-5 bg-brand-charcoal text-white rounded-xl space-y-4 shadow-xl">
                 <div className="flex justify-between items-center">
-                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data.impulse_setup.direction === 'buy' ? 'bg-brand-success text-white' : 'bg-brand-error text-white'}`}>
-                    {data.impulse_setup.direction}
+                  <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data?.impulse_setup?.direction === 'buy' ? 'bg-brand-success text-white' : 'bg-brand-error text-white'}`}>
+                    {data?.impulse_setup?.direction ?? "N/A"}
                   </span>
                   <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Primary Continuation</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Entry</p>
-                    <p className="text-sm font-black text-white">{fmt(data.impulse_setup.entry)}</p>
+                    <p className="text-sm font-black text-white">{fmt(data?.impulse_setup?.entry)}</p>
                   </div>
                   <div>
                     <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Stop Loss</p>
-                    <p className="text-sm font-black text-brand-error">{fmt(data.impulse_setup.stop_loss)}</p>
+                    <p className="text-sm font-black text-brand-error">{fmt(data?.impulse_setup?.stop_loss)}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10">
                   <div>
                     <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP1</p>
-                    <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp1)}</p>
+                    <p className="text-[10px] font-black text-brand-success">{fmt(data?.impulse_setup?.tp1)}</p>
                   </div>
                   <div>
                     <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP2</p>
-                    <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp2)}</p>
+                    <p className="text-[10px] font-black text-brand-success">{fmt(data?.impulse_setup?.tp2)}</p>
                   </div>
                   <div>
                     <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">TP3</p>
-                    <p className="text-[10px] font-black text-brand-success">{fmt(data.impulse_setup.tp3)}</p>
+                    <p className="text-[10px] font-black text-brand-success">{fmt(data?.impulse_setup?.tp3)}</p>
                   </div>
                 </div>
               </div>
@@ -436,7 +436,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
                  </div>
                  
                  <div className="flex items-center gap-4">
-                   {data.validationResult && (
+                   {data?.validationResult && (
                      <div className="text-right">
                         <span className={`px-3 py-1.5 rounded text-[10px] font-black uppercase ${
                           data.validationResult === 'Trade still valid' ? 'bg-brand-success/10 text-brand-success' : 
@@ -444,7 +444,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
                           data.validationResult === 'Exit trade' ? 'bg-brand-error/10 text-brand-error' :
                           'bg-brand-gold/10 text-brand-gold'
                         }`}>
-                          {data.validationResult}
+                          {data?.validationResult ?? "N/A"}
                         </span>
                         <p className="text-[8px] text-brand-muted mt-1 uppercase tracking-wider">
                            {data.lastValidatedAt ? new Date(data.lastValidatedAt).toLocaleString() : ''}
@@ -463,7 +463,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
 
               <div className="bg-brand-sage/5 p-6 rounded-xl border border-brand-sage/10">
                  <h4 className="text-xs font-black text-brand-charcoal uppercase tracking-widest mb-4">Outcome Feedback</h4>
-                 {data.feedback ? (
+                 {data?.feedback ? (
                     <div className="flex items-start gap-4">
                        <div className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest ${
                           data.feedback.outcome === 'TP_HIT' ? 'bg-brand-success/20 text-brand-success' :
