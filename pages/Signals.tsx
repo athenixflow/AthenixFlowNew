@@ -2,6 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { getActiveSignals } from '../services/firestore';
 import { TradingSignal, UserProfile } from '../types';
 
+const safeRender = (val: any, fallback = "N/A"): string => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (Array.isArray(val)) return val.map(v => safeRender(v, fallback)).join(', ');
+  if (typeof val === 'object') return JSON.stringify(val);
+  return fallback;
+};
+
 interface SignalsProps {
   user: UserProfile | null;
 }
@@ -65,13 +73,13 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white text-xs tracking-widest shadow-lg ${
                     signal.signalType.includes('Buy') ? 'bg-brand-success shadow-brand-success/20' : 'bg-brand-error shadow-brand-error/20'
                   }`}>
-                    {signal.signalType.includes('Buy') ? 'BUY' : 'SELL'}
+                    {safeRender(signal.signalType, "").includes('Buy') ? 'BUY' : 'SELL'}
                   </div>
                   <div>
-                    <h4 className="text-2xl font-black text-brand-charcoal tracking-tighter uppercase">{signal.instrument}</h4>
+                    <h4 className="text-2xl font-black text-brand-charcoal tracking-tighter uppercase">{safeRender(signal.instrument)}</h4>
                     <p className="text-[9px] text-brand-muted font-black uppercase tracking-widest flex items-center gap-2">
                       <span className={`w-1.5 h-1.5 rounded-full ${signal.status === 'active' || signal.status === 'triggered' ? 'bg-brand-gold animate-pulse' : 'bg-brand-muted'}`}></span>
-                      {signal.timeframe} • {signal.signalType}
+                      {safeRender(signal.timeframe)} • {safeRender(signal.signalType)}
                     </p>
                   </div>
                 </div>
@@ -79,22 +87,22 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
                 <div className="flex-1 grid grid-cols-3 gap-4 border-l border-brand-sage/20 pl-0 md:pl-8">
                   <div className="space-y-1">
                     <p className="text-[9px] text-brand-gold uppercase font-black tracking-widest">Entry</p>
-                    <p className="font-black text-brand-charcoal text-sm font-mono">{signal.entry}</p>
+                    <p className="font-black text-brand-charcoal text-sm font-mono">{safeRender(signal.entry)}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest">Stop Loss</p>
-                    <p className="font-black text-brand-error text-sm font-mono">{signal.stopLoss}</p>
+                    <p className="font-black text-brand-error text-sm font-mono">{safeRender(signal.stopLoss)}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest">Take Profit</p>
-                    <p className="font-black text-brand-success text-sm font-mono">{signal.takeProfit}</p>
+                    <p className="font-black text-brand-success text-sm font-mono">{safeRender(signal.takeProfit)}</p>
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end justify-between border-t border-brand-sage/10 md:border-t-0 pt-4 md:pt-0 gap-2">
                   <div className="text-right">
                      <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">R:R Ratio</p>
-                     <p className="text-xl font-black text-brand-charcoal">1:{signal.rrRatio}</p>
+                     <p className="text-xl font-black text-brand-charcoal">1:{safeRender(signal.rrRatio, "0")}</p>
                   </div>
                   <div className="flex items-center justify-end gap-2">
                     <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">{new Date(signal.timestamp).toLocaleDateString()}</span>
@@ -105,7 +113,7 @@ const Signals: React.FC<SignalsProps> = ({ user }) => {
                 {signal.outcomeComment && (
                     <div className="w-full mt-4 pt-4 border-t border-brand-sage/10">
                         <p className="text-[9px] font-black text-brand-muted uppercase tracking-widest mb-1">Analyst Notes</p>
-                        <p className="text-xs text-brand-charcoal italic">"{signal.outcomeComment}"</p>
+                        <p className="text-xs text-brand-charcoal italic">"{safeRender(signal.outcomeComment)}"</p>
                     </div>
                 )}
               </div>

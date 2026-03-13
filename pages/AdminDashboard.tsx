@@ -3,6 +3,14 @@ import { AdminOverviewMetrics, TradeAnalysis, UserProfile } from '../types';
 import { getAdminMetrics, getPublishedSignals, publishSignal, getUserAnalysisHistory, getStrategyPerformance } from '../services/firestore';
 import { ICONS } from '../constants';
 
+const safeRender = (val: any, fallback = "N/A"): string => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (Array.isArray(val)) return val.map(v => safeRender(v, fallback)).join(', ');
+  if (typeof val === 'object') return JSON.stringify(val);
+  return fallback;
+};
+
 interface AdminDashboardProps {
   user: UserProfile | null;
   onNavigate: (page: string) => void;
@@ -144,16 +152,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
                 {publishedSignals.map(signal => (
                   <tr key={signal.id} className="border-t border-brand-sage/10 hover:bg-brand-sage/5 transition-colors">
                     <td className="p-4">
-                      <p className="text-sm font-black text-brand-charcoal uppercase">{signal.instrument}</p>
-                      <p className="text-[8px] text-brand-muted font-bold uppercase">{signal.timeframe}</p>
+                      <p className="text-sm font-black text-brand-charcoal uppercase">{safeRender(signal.instrument)}</p>
+                      <p className="text-[8px] text-brand-muted font-bold uppercase">{safeRender(signal.timeframe)}</p>
                     </td>
                     <td className="p-4">
                       <span className={`text-[10px] font-black uppercase ${signal.signal?.direction === 'buy' ? 'text-brand-success' : 'text-brand-error'}`}>
-                        {signal.signal?.direction}
+                        {safeRender(signal.signal?.direction)}
                       </span>
                     </td>
                     <td className="p-4">
-                      <p className="text-sm font-bold text-brand-gold">{signal.quality_score}%</p>
+                      <p className="text-sm font-bold text-brand-gold">{safeRender(signal.quality_score, "0")}%</p>
                     </td>
                     <td className="p-4">
                       <span className="px-2 py-1 bg-brand-success/10 text-brand-success text-[8px] font-black uppercase rounded">Published</span>

@@ -4,6 +4,14 @@ import { getUserAnalysisHistory, submitAnalysisFeedback } from '../services/fire
 import { ICONS } from '../constants';
 import ErrorBoundary from '../components/ErrorBoundary';
 
+const safeRender = (val: any, fallback = "N/A"): string => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (Array.isArray(val)) return val.map(v => safeRender(v, fallback)).join(', ');
+  if (typeof val === 'object') return JSON.stringify(val);
+  return fallback;
+};
+
 interface TradeJournalProps {
   user: UserProfile | null;
 }
@@ -109,12 +117,12 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ user }) => {
                       trade.feedback?.outcome === 'SL_HIT' ? 'bg-brand-error/10 text-brand-error' :
                       'bg-brand-sage/10 text-brand-charcoal'
                     }`}>
-                      {(trade.instrument || "").substring(0, 2)}
+                      {safeRender(trade.instrument, "").substring(0, 2)}
                     </div>
                     <div>
-                      <h4 className="text-lg font-black text-brand-charcoal uppercase tracking-tighter">{trade.instrument || "N/A"}</h4>
+                      <h4 className="text-lg font-black text-brand-charcoal uppercase tracking-tighter">{safeRender(trade.instrument)}</h4>
                       <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">
-                        {new Date(trade.timestamp).toLocaleDateString()} • {(trade.execution_mode || "").replace('_', ' ')}
+                        {new Date(trade.timestamp).toLocaleDateString()} • {safeRender(trade.execution_mode, "").replace('_', ' ')}
                       </p>
                     </div>
                   </div>
@@ -124,7 +132,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ user }) => {
                       trade.feedback?.outcome === 'SL_HIT' ? 'bg-brand-error/20 text-brand-error' :
                       'bg-brand-charcoal/10 text-brand-charcoal'
                     }`}>
-                      {(trade.feedback?.outcome || "").replace('_', ' ')}
+                      {safeRender(trade.feedback?.outcome, "").replace('_', ' ')}
                     </span>
                   </div>
                 </div>
@@ -132,19 +140,19 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ user }) => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
                   <div>
                     <p className="text-[8px] font-black text-brand-muted uppercase tracking-widest mb-1">Entry Price</p>
-                    <p className="text-sm font-bold text-brand-charcoal">{trade.signal?.entry_price || '---'}</p>
+                    <p className="text-sm font-bold text-brand-charcoal">{safeRender(trade.signal?.entry_price, '---')}</p>
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-brand-muted uppercase tracking-widest mb-1">Stop Loss</p>
-                    <p className="text-sm font-bold text-brand-error">{trade.signal?.stop_loss || '---'}</p>
+                    <p className="text-sm font-bold text-brand-error">{safeRender(trade.signal?.stop_loss, '---')}</p>
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-brand-muted uppercase tracking-widest mb-1">Take Profit</p>
-                    <p className="text-sm font-bold text-brand-success">{trade.signal?.take_profits?.[0]?.price || '---'}</p>
+                    <p className="text-sm font-bold text-brand-success">{safeRender(trade.signal?.take_profits?.[0]?.price, '---')}</p>
                   </div>
                   <div>
                     <p className="text-[8px] font-black text-brand-muted uppercase tracking-widest mb-1">Quality Score</p>
-                    <p className="text-sm font-bold text-brand-gold">{trade.quality_score}/100</p>
+                    <p className="text-sm font-bold text-brand-gold">{safeRender(trade.quality_score, "0")}/100</p>
                   </div>
                 </div>
 
@@ -180,7 +188,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ user }) => {
                     </div>
                   ) : (
                     <p className="text-xs text-brand-muted italic leading-relaxed">
-                      {trade.feedback?.journal_notes || 'No notes added for this trade.'}
+                      {safeRender(trade.feedback?.journal_notes, 'No notes added for this trade.')}
                     </p>
                   )}
                 </div>

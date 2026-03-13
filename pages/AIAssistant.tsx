@@ -6,6 +6,14 @@ import { getUserAnalysisHistory, submitAnalysisFeedback } from '../services/fire
 import { FOREX_INSTRUMENTS, STOCK_INSTRUMENTS, METALS_INSTRUMENTS, INDICES_INSTRUMENTS, ICONS } from '../constants';
 import ErrorBoundary from '../components/ErrorBoundary';
 
+const safeRender = (val: any, fallback = "N/A"): string => {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (Array.isArray(val)) return val.map(v => safeRender(v, fallback)).join(', ');
+  if (typeof val === 'object') return JSON.stringify(val);
+  return fallback;
+};
+
 type ExecutionMode = 'scalp' | 'day_trade' | 'swing_trade';
 
 const MODE_CONFIG: Record<ExecutionMode, { label: string; desc: string; timeframes: string[]; icon: React.FC<{selected: boolean}> }> = {
@@ -143,7 +151,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
     setRevalidatingId(null);
   };
 
-  const fmt = (num?: number, digits = 5) => num ? num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: digits }) : '---';
+  const fmt = (num?: any, digits = 5) => {
+    if (typeof num === 'number') return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: digits });
+    if (typeof num === 'string') {
+      const parsed = parseFloat(num);
+      if (!isNaN(parsed)) return parsed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: digits });
+      return num;
+    }
+    return '---';
+  };
 
   const AnalysisDetailView = ({ data, isHistory = false }: { data: TradeAnalysis, isHistory?: boolean }) => (
     <ErrorBoundary>
@@ -153,18 +169,18 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 pb-6 border-b border-brand-sage/10">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-               <h4 className="text-3xl font-black text-brand-charcoal tracking-tighter uppercase">{data?.instrument ?? "N/A"}</h4>
+               <h4 className="text-3xl font-black text-brand-charcoal tracking-tighter uppercase">{safeRender(data?.instrument)}</h4>
                <span className="px-3 py-1 bg-brand-gold text-white text-[9px] font-black uppercase rounded tracking-widest shadow-md">
-                 {(data?.execution_mode ?? "N/A").replace('_', ' ')}
+                 {safeRender(data?.execution_mode).replace('_', ' ')}
                </span>
             </div>
             <div className="flex flex-wrap gap-2">
-                <span className="px-2 py-1 bg-brand-charcoal text-white text-[9px] font-black uppercase rounded tracking-widest">{data?.execution_timeframe ?? "N/A"}</span>
+                <span className="px-2 py-1 bg-brand-charcoal text-white text-[9px] font-black uppercase rounded tracking-widest">{safeRender(data?.execution_timeframe)}</span>
                 <span className={`px-2 py-1 text-[9px] font-black uppercase rounded tracking-widest ${data?.final_decision === 'trade' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-muted/10 text-brand-muted'}`}>
                   {data?.final_decision === 'trade' ? 'VALID SETUP' : 'REJECTED'}
                 </span>
                 {data?.market_phase && (
-                    <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">{data?.market_phase ?? "N/A"}</span>
+                    <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">{safeRender(data?.market_phase)}</span>
                 )}
             </div>
           </div>
@@ -172,20 +188,20 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
           <div className="text-right flex flex-col items-end gap-2">
               <div>
                 <div className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Total Confluence</div>
-                <div className="text-3xl font-black text-brand-charcoal">{data?.confluence_scores?.total_confluence_score ?? 0}/40</div>
+                <div className="text-3xl font-black text-brand-charcoal">{safeRender(data?.confluence_scores?.total_confluence_score, "0")}/40</div>
               </div>
               <div className="flex gap-4">
                 <div className="text-right">
                   <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Quality</p>
-                  <p className="text-xs font-black text-brand-gold">{data?.quality_score ?? 0}/100</p>
+                  <p className="text-xs font-black text-brand-gold">{safeRender(data?.quality_score, "0")}/100</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Impulse</p>
-                  <p className="text-xs font-black text-brand-gold">{data?.impulse_score ?? 0}/100</p>
+                  <p className="text-xs font-black text-brand-gold">{safeRender(data?.impulse_score, "0")}/100</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Corrective</p>
-                  <p className="text-xs font-black text-brand-gold">{data?.corrective_score ?? 0}/100</p>
+                  <p className="text-xs font-black text-brand-gold">{safeRender(data?.corrective_score, "0")}/100</p>
                 </div>
               </div>
           </div>
@@ -197,15 +213,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
               <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">HTF Narrative</p>
-              <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data?.market_narrative_context?.htf_narrative ?? "N/A"}</p>
+              <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{safeRender(data?.market_narrative_context?.htf_narrative)}</p>
             </div>
             <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
               <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Selected TF Narrative</p>
-              <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data?.market_narrative_context?.selected_tf_narrative ?? "N/A"}</p>
+              <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{safeRender(data?.market_narrative_context?.selected_tf_narrative)}</p>
             </div>
             <div className="p-4 bg-brand-sage/5 rounded-xl border border-brand-sage/10">
               <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Refinement Narrative</p>
-              <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{data?.market_narrative_context?.refinement_narrative ?? "N/A"}</p>
+              <p className="text-[11px] font-medium text-brand-charcoal leading-relaxed">{safeRender(data?.market_narrative_context?.refinement_narrative)}</p>
             </div>
           </div>
         </div>
@@ -217,7 +233,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
             <div className="p-5 bg-brand-charcoal text-white rounded-xl space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Active Session</span>
-                <span className="text-xs font-black uppercase">{data?.session_context?.session ?? "N/A"}</span>
+                <span className="text-xs font-black uppercase">{safeRender(data?.session_context?.session)}</span>
               </div>
               <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/10">
                 <div>
@@ -231,7 +247,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
               </div>
               <div className="pt-2 border-t border-white/10">
                 <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Liquidity Sweep</p>
-                <p className="text-[10px] font-medium leading-relaxed">{data?.session_context?.liquidity_sweep ?? "N/A"}</p>
+                <p className="text-[10px] font-medium leading-relaxed">{safeRender(data?.session_context?.liquidity_sweep)}</p>
               </div>
             </div>
           </div>
@@ -241,15 +257,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
             <div className="p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-xl space-y-3">
               <div>
                 <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Origin of Move</p>
-                <p className="text-[11px] font-medium text-brand-charcoal">{data?.market_story?.origin ?? "N/A"}</p>
+                <p className="text-[11px] font-medium text-brand-charcoal">{safeRender(data?.market_story?.origin)}</p>
               </div>
               <div>
                 <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Current Phase</p>
-                <p className="text-[11px] font-medium text-brand-charcoal">{data?.market_story?.current_phase ?? "N/A"}</p>
+                <p className="text-[11px] font-medium text-brand-charcoal">{safeRender(data?.market_story?.current_phase)}</p>
               </div>
               <div>
                 <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Liquidity Path</p>
-                <p className="text-[11px] font-medium text-brand-charcoal">{data?.market_story?.liquidity_path ?? "N/A"}</p>
+                <p className="text-[11px] font-medium text-brand-charcoal">{safeRender(data?.market_story?.liquidity_path)}</p>
               </div>
             </div>
           </div>
@@ -262,22 +278,22 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
             <div className="p-4 bg-brand-charcoal text-white rounded-xl">
               <div className="flex justify-between items-center mb-3">
                 <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Buy-Side Liquidity</p>
-                <span className="text-[8px] font-bold text-white/40">{(data?.liquidity_map?.buy_side_liquidity || []).length} Pools</span>
+                <span className="text-[8px] font-bold text-white/40">{(Array.isArray(data?.liquidity_map?.buy_side_liquidity) ? data.liquidity_map.buy_side_liquidity : []).length} Pools</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {(data?.liquidity_map?.buy_side_liquidity || []).map((pool, idx) => (
-                  <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{pool}</span>
+                {(Array.isArray(data?.liquidity_map?.buy_side_liquidity) ? data.liquidity_map.buy_side_liquidity : []).map((pool, idx) => (
+                  <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{safeRender(pool)}</span>
                 ))}
               </div>
             </div>
             <div className="p-4 bg-brand-charcoal text-white rounded-xl">
               <div className="flex justify-between items-center mb-3">
                 <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Sell-Side Liquidity</p>
-                <span className="text-[8px] font-bold text-white/40">{(data?.liquidity_map?.sell_side_liquidity || []).length} Pools</span>
+                <span className="text-[8px] font-bold text-white/40">{(Array.isArray(data?.liquidity_map?.sell_side_liquidity) ? data.liquidity_map.sell_side_liquidity : []).length} Pools</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {(data?.liquidity_map?.sell_side_liquidity || []).map((pool, idx) => (
-                  <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{pool}</span>
+                {(Array.isArray(data?.liquidity_map?.sell_side_liquidity) ? data.liquidity_map.sell_side_liquidity : []).map((pool, idx) => (
+                  <span key={idx} className="px-2 py-1 bg-white/10 rounded text-[9px] font-bold">{safeRender(pool)}</span>
                 ))}
               </div>
             </div>
@@ -285,11 +301,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 bg-brand-gold/5 border border-brand-gold/20 rounded-xl">
               <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Projected Liquidity Path</p>
-              <p className="text-xs font-black text-brand-charcoal uppercase tracking-tight">{data?.liquidity_map?.projected_liquidity_path ?? "N/A"}</p>
+              <p className="text-xs font-black text-brand-charcoal uppercase tracking-tight">{safeRender(data?.liquidity_map?.projected_liquidity_path)}</p>
             </div>
             <div className="p-4 bg-brand-sage/5 border border-brand-sage/10 rounded-xl">
               <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Liquidity Heatmap</p>
-              <p className="text-[10px] font-medium text-brand-charcoal leading-relaxed">{data?.liquidity_heatmap ?? "N/A"}</p>
+              <p className="text-[10px] font-medium text-brand-charcoal leading-relaxed">{safeRender(data?.liquidity_heatmap)}</p>
             </div>
           </div>
         </div>
@@ -300,15 +316,15 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className={`p-4 rounded-xl border ${(data?.probabilities?.irl_only ?? 0) > 50 ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-sage/20 bg-white'}`}>
               <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Scenario A: IRL Reaction</p>
-              <p className="text-xl font-black text-brand-charcoal">{data?.probabilities?.irl_only ?? 0}%</p>
+              <p className="text-xl font-black text-brand-charcoal">{safeRender(data?.probabilities?.irl_only, "0")}%</p>
             </div>
             <div className={`p-4 rounded-xl border ${(data?.probabilities?.irl_to_erl ?? 0) > 50 ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-sage/20 bg-white'}`}>
               <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Scenario B: IRL → ERL</p>
-              <p className="text-xl font-black text-brand-charcoal">{data?.probabilities?.irl_to_erl ?? 0}%</p>
+              <p className="text-xl font-black text-brand-charcoal">{safeRender(data?.probabilities?.irl_to_erl, "0")}%</p>
             </div>
             <div className={`p-4 rounded-xl border ${(data?.probabilities?.expansion ?? 0) > 50 ? 'border-brand-gold bg-brand-gold/5' : 'border-brand-sage/20 bg-white'}`}>
               <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Scenario C: Expansion</p>
-              <p className="text-xl font-black text-brand-charcoal">{data?.probabilities?.expansion ?? 0}%</p>
+              <p className="text-xl font-black text-brand-charcoal">{safeRender(data?.probabilities?.expansion, "0")}%</p>
             </div>
           </div>
         </div>
@@ -316,10 +332,10 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
         {/* Structural Confluence Breakdown */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Structure', score: data?.confluence_scores?.structure_score ?? 0 },
-            { label: 'Liquidity', score: data?.confluence_scores?.liquidity_score ?? 0 },
-            { label: 'POI Quality', score: data?.confluence_scores?.poi_score ?? 0 },
-            { label: 'Prem/Disc', score: data?.confluence_scores?.premium_discount_score ?? 0 }
+            { label: 'Structure', score: safeRender(data?.confluence_scores?.structure_score, "0") },
+            { label: 'Liquidity', score: safeRender(data?.confluence_scores?.liquidity_score, "0") },
+            { label: 'POI Quality', score: safeRender(data?.confluence_scores?.poi_score, "0") },
+            { label: 'Prem/Disc', score: safeRender(data?.confluence_scores?.premium_discount_score, "0") }
           ].map((item, idx) => (
             <div key={idx} className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10 text-center">
               <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">{item.label}</p>
@@ -335,14 +351,14 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
             <div className="flex justify-between items-center">
               <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Corrective Setup</p>
               {data?.corrective_setup && (
-                <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Score: {data?.corrective_setup?.score ?? 0}</span>
+                <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Score: {safeRender(data?.corrective_setup?.score, "0")}</span>
               )}
             </div>
             {data?.corrective_setup ? (
               <div className="p-5 bg-brand-sage/5 border border-brand-sage/20 rounded-xl space-y-4">
                 <div className="flex justify-between items-center">
                   <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data?.corrective_setup?.direction === 'buy' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-error/10 text-brand-error'}`}>
-                    {data?.corrective_setup?.direction ?? "N/A"}
+                    {safeRender(data?.corrective_setup?.direction)}
                   </span>
                   <span className="text-[9px] font-black text-brand-muted uppercase tracking-widest">Target: {fmt(data?.corrective_setup?.target)}</span>
                 </div>
@@ -371,7 +387,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
               <div className="p-5 bg-brand-charcoal text-white rounded-xl space-y-4 shadow-xl">
                 <div className="flex justify-between items-center">
                   <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data?.impulse_setup?.direction === 'buy' ? 'bg-brand-success text-white' : 'bg-brand-error text-white'}`}>
-                    {data?.impulse_setup?.direction ?? "N/A"}
+                    {safeRender(data?.impulse_setup?.direction)}
                   </span>
                   <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Primary Continuation</span>
                 </div>
@@ -411,18 +427,18 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
         {/* Volatility Context */}
         <div className="p-4 bg-brand-sage/5 border border-brand-sage/10 rounded-xl">
           <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Volatility Context</p>
-          <p className="text-xs font-medium text-brand-charcoal italic leading-relaxed">{data?.volatility_context ?? "N/A"}</p>
+          <p className="text-xs font-medium text-brand-charcoal italic leading-relaxed">{safeRender(data?.volatility_context)}</p>
         </div>
 
         {/* Reasoning Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-brand-sage/10">
           <div className="space-y-1">
             <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">HTF Structural framework</p>
-            <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">{data?.reasoning?.bias_explanation ?? "N/A"}</div>
+            <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">{safeRender(data?.reasoning?.bias_explanation)}</div>
           </div>
           <div className="space-y-1">
             <p className="text-[9px] text-brand-muted uppercase font-black tracking-[0.2em]">Liquidity Engineering</p>
-            <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">{data?.reasoning?.liquidity_explanation ?? "N/A"}</div>
+            <div className="p-4 bg-brand-sage/5 rounded-lg text-xs text-brand-charcoal font-medium leading-relaxed">{safeRender(data?.reasoning?.liquidity_explanation)}</div>
           </div>
         </div>
 
@@ -444,7 +460,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
                           data.validationResult === 'Exit trade' ? 'bg-brand-error/10 text-brand-error' :
                           'bg-brand-gold/10 text-brand-gold'
                         }`}>
-                          {data?.validationResult ?? "N/A"}
+                          {safeRender(data?.validationResult)}
                         </span>
                         <p className="text-[8px] text-brand-muted mt-1 uppercase tracking-wider">
                            {data.lastValidatedAt ? new Date(data.lastValidatedAt).toLocaleString() : ''}
@@ -470,9 +486,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
                           data.feedback.outcome === 'SL_HIT' ? 'bg-brand-error/20 text-brand-error' :
                           'bg-brand-charcoal/10 text-brand-charcoal'
                        }`}>
-                          {(data.feedback.outcome ?? "").replace('_', ' ')}
+                          {safeRender(data.feedback.outcome, "").replace('_', ' ')}
                        </div>
-                       {data.feedback.comment && <p className="text-xs text-brand-muted italic pt-1">"{data.feedback.comment}"</p>}
+                       {data.feedback.comment && <p className="text-xs text-brand-muted italic pt-1">"{safeRender(data.feedback.comment)}"</p>}
                     </div>
                  ) : (
                     activeFeedbackId === data.id ? (
@@ -507,7 +523,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
         )}
 
         <div className="pt-4 flex justify-between items-center text-[8px] text-brand-muted uppercase font-bold tracking-widest opacity-50">
-            <span>{data?.meta?.analysis_engine_version || 'Athenix v2.0.0 (Deterministic)'}</span>
+            <span>{safeRender(data?.meta?.analysis_engine_version, 'Athenix v2.0.0 (Deterministic)')}</span>
             <span>{data?.timestamp ? new Date(data.timestamp).toLocaleString() : 'LIVE'}</span>
         </div>
       </div>
@@ -652,7 +668,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
                                   {item.final_decision === 'no_trade' ? 'NT' : (item.signal?.direction === 'buy' ? 'BUY' : 'SELL')}
                                </div>
                                <div>
-                                  <h4 className="text-sm font-black text-brand-charcoal uppercase tracking-tight">{item?.instrument ?? "N/A"}</h4>
+                                  <h4 className="text-sm font-black text-brand-charcoal uppercase tracking-tight">{safeRender(item?.instrument)}</h4>
                                   <p className="text-[9px] text-brand-muted uppercase font-bold tracking-widest">{item?.timestamp ? new Date(item.timestamp).toLocaleDateString() : "N/A"}</p>
                                </div>
                             </div>
