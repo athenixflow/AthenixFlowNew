@@ -521,10 +521,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
         <p className="text-brand-muted font-medium text-sm uppercase tracking-widest">Master Strategy Execution Constitution v1.0 Engaged.</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        
-        {/* LEFT COLUMN: CONFIGURATION */}
-        <section className="w-full lg:w-1/3 space-y-8">
+      <ErrorBoundary>
+        <div className="flex flex-col lg:flex-row gap-8">
+          
+          {/* LEFT COLUMN: CONFIGURATION */}
+          <section className="w-full lg:w-1/3 space-y-8">
           <div className="athenix-card p-8 space-y-8 relative">
             <h3 className="text-xs font-black text-brand-gold uppercase tracking-[0.3em] border-l-4 border-brand-gold pl-4">System Parameters</h3>
             
@@ -693,6 +694,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
 
         </section>
       </div>
+      </ErrorBoundary>
     </div>
   );
 

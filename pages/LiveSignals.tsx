@@ -49,12 +49,12 @@ const LiveSignals: React.FC = () => {
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-brand-charcoal text-white rounded-xl flex items-center justify-center font-black text-lg">
-                      {signal.instrument.substring(0, 2)}
+                      {(signal.instrument || "").substring(0, 2)}
                     </div>
                     <div>
-                      <h4 className="text-lg font-black text-brand-charcoal uppercase tracking-tighter">{signal.instrument}</h4>
+                      <h4 className="text-lg font-black text-brand-charcoal uppercase tracking-tighter">{signal.instrument || "N/A"}</h4>
                       <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">
-                        {signal.execution_mode.replace('_', ' ')} • {signal.timeframe}
+                        {(signal.execution_mode || "").replace('_', ' ')} • {signal.timeframe || "N/A"}
                       </p>
                     </div>
                   </div>

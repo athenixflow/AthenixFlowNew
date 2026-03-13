@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { getJournalEntries, addJournalEntry } from '../services/firestore';
 import { JournalEntry, UserProfile } from '../types';
 import { auth } from '../firebase';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 interface JournalProps {
   user: UserProfile | null;
@@ -120,7 +121,8 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
   };
 
   return (
-    <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-5xl mx-auto">
+    <ErrorBoundary>
+      <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-5xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
           <h2 className="text-4xl font-black text-brand-charcoal uppercase tracking-tighter">Trade Journal</h2>
@@ -251,7 +253,7 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
                          <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-brand-sage/10 text-brand-muted">{entry.market}</span>
                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${entry.direction === 'BUY' ? 'text-brand-success bg-brand-success/10' : 'text-brand-error bg-brand-error/10'}`}>{entry.direction}</span>
                          {entry.tradeMode && (
-                           <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-brand-gold/10 text-brand-gold">{entry.tradeMode.replace('_', ' ')}</span>
+                           <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-brand-gold/10 text-brand-gold">{(entry.tradeMode || "").replace('_', ' ')}</span>
                          )}
                        </div>
                        <p className="text-xs text-brand-muted font-medium leading-relaxed whitespace-pre-wrap line-clamp-2 hover:line-clamp-none transition-all cursor-default">
@@ -281,6 +283,7 @@ const Journal: React.FC<JournalProps> = ({ user }) => {
         )}
       </section>
     </div>
+    </ErrorBoundary>
   );
 };
 

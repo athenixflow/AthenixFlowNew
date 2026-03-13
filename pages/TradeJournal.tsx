@@ -109,12 +109,12 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ user }) => {
                       trade.feedback?.outcome === 'SL_HIT' ? 'bg-brand-error/10 text-brand-error' :
                       'bg-brand-sage/10 text-brand-charcoal'
                     }`}>
-                      {trade.instrument.substring(0, 2)}
+                      {(trade.instrument || "").substring(0, 2)}
                     </div>
                     <div>
-                      <h4 className="text-lg font-black text-brand-charcoal uppercase tracking-tighter">{trade.instrument}</h4>
+                      <h4 className="text-lg font-black text-brand-charcoal uppercase tracking-tighter">{trade.instrument || "N/A"}</h4>
                       <p className="text-[10px] text-brand-muted font-bold uppercase tracking-widest">
-                        {new Date(trade.timestamp).toLocaleDateString()} • {trade.execution_mode.replace('_', ' ')}
+                        {new Date(trade.timestamp).toLocaleDateString()} • {(trade.execution_mode || "").replace('_', ' ')}
                       </p>
                     </div>
                   </div>
@@ -124,7 +124,7 @@ const TradeJournal: React.FC<TradeJournalProps> = ({ user }) => {
                       trade.feedback?.outcome === 'SL_HIT' ? 'bg-brand-error/20 text-brand-error' :
                       'bg-brand-charcoal/10 text-brand-charcoal'
                     }`}>
-                      {trade.feedback?.outcome.replace('_', ' ')}
+                      {(trade.feedback?.outcome || "").replace('_', ' ')}
                     </span>
                   </div>
                 </div>
