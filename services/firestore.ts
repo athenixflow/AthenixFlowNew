@@ -1,7 +1,58 @@
 
 import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc, getCountFromServer } from "firebase/firestore";
-import { firestore } from "../firebase";
+import { firestore, auth } from "../firebase";
 import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry } from "../types";
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export const initializeUserDocument = async (uid: string, data: { fullName: string; email: string }) => {
   try {
@@ -24,13 +75,25 @@ export const initializeUserDocument = async (uid: string, data: { fullName: stri
       return newUser;
     }
     return userSnap.data() as UserProfile;
-  } catch (error) { return null; }
+  } catch (error) { 
+    if (error instanceof Error && error.message.includes('permission')) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${uid}`);
+    }
+    return null; 
+  }
 };
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   if (!uid) return null;
-  const userSnap = await getDoc(doc(firestore, "users", uid));
-  return userSnap.exists() ? (userSnap.data() as UserProfile) : null;
+  try {
+    const userSnap = await getDoc(doc(firestore, "users", uid));
+    return userSnap.exists() ? (userSnap.data() as UserProfile) : null;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('permission')) {
+      handleFirestoreError(error, OperationType.GET, `users/${uid}`);
+    }
+    return null;
+  }
 };
 
 // For User App: Shows all signals sorted by time, excluding deleted ones
@@ -247,33 +310,7 @@ export const getEducationLessons = async (): Promise<Lesson[]> => {
 };
 
 // Removed duplicate saveEducationInteraction
-
-export const getUserEducationHistory = async (userId: string): Promise<EducationInteraction[]> => {
-    try {
-        const q = query(
-          collection(firestore, "educationHistory"), 
-          where("userId", "==", userId)
-        );
-        
-        const snap = await getDocs(q);
-        
-        const history = snap.docs.map(doc => {
-             const data = doc.data();
-             let ts = new Date().toISOString();
-             if (data.timestamp && typeof data.timestamp.toDate === 'function') {
-                ts = data.timestamp.toDate().toISOString();
-             } else if (data.timestamp) {
-                ts = new Date(data.timestamp).toISOString();
-             }
-             return { id: doc.id, ...data, timestamp: ts } as EducationInteraction;
-        });
-        
-        return history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    } catch (e) {
-        console.error("Failed to fetch education history", e);
-        return [];
-    }
-}
+// Removed duplicate getUserEducationHistory
 
 // --- ADMIN & SYSTEM ---
 
@@ -695,21 +732,26 @@ export const getPublishedSignals = async (): Promise<TradeAnalysis[]> => {
 };
 
 export const saveEducationInteraction = async (userId: string, interaction: Omit<EducationInteraction, 'id' | 'userId'>) => {
+  const path = "educationInteractions";
   try {
-    await addDoc(collection(firestore, "educationInteractions"), {
+    await addDoc(collection(firestore, path), {
       userId,
       ...interaction,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error("Error saving education interaction:", error);
+    if (error instanceof Error && error.message.includes('permission')) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
   }
 };
 
 export const getEducationHistory = async (userId: string): Promise<EducationInteraction[]> => {
+  const path = "educationInteractions";
   try {
     const q = query(
-      collection(firestore, "educationInteractions"),
+      collection(firestore, path),
       where("userId", "==", userId),
       orderBy("timestamp", "desc"),
       limit(50)
@@ -718,6 +760,9 @@ export const getEducationHistory = async (userId: string): Promise<EducationInte
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EducationInteraction));
   } catch (error) {
     console.error("Error fetching education history:", error);
+    if (error instanceof Error && error.message.includes('permission')) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
     return [];
   }
 };

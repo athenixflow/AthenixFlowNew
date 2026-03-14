@@ -180,7 +180,7 @@ export const revalidateAnalysis = async (userId: string, analysisId: string, ori
   }
 };
 
-export const getAILessonContent = async (userId: string, question: string, context?: string): Promise<BackendResponse> => {
+export const getAILessonContent = async (userId: string, question: string, context?: string, difficulty: string = 'Intermediate', category?: string): Promise<BackendResponse> => {
   try {
     const userRef = doc(firestore, 'users', userId);
     const userSnap = await getDoc(userRef);
@@ -193,12 +193,13 @@ export const getAILessonContent = async (userId: string, question: string, conte
 
     if (user.educationTokens < 1) return { status: 'error', message: 'Insufficient education tokens.' };
     
-    const result = await getEducationResponse(question, context);
+    const result = await getEducationResponse(question, context, difficulty, category);
     
     await saveEducationInteraction(userId, {
       question,
       answer: result,
       context: context || 'Direct Query',
+      category: category || 'General Trading',
       timestamp: new Date().toISOString()
     });
     

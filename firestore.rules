@@ -18,8 +18,8 @@ service cloud.firestore {
     // Check if user has ADMIN role in their user profile
     function isAdmin() {
       return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+         (request.auth.token.email == "blinxzoe@gmail.com" && request.auth.token.email_verified == true));
     }
 
     // --- USERS COLLECTION ---
@@ -46,9 +46,18 @@ service cloud.firestore {
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['feedback']);
     }
 
-    // --- EDUCATION HISTORY ---
-    match /educationHistory/{historyId} {
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    // --- EDUCATION INTERACTIONS ---
+    match /educationInteractions/{interactionId} {
+      function isValidInteraction(data) {
+        return data.userId is string &&
+               data.question is string && data.question.size() < 2000 &&
+               data.answer is string && data.answer.size() < 20000 &&
+               data.timestamp is string;
+      }
+
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid &&
+                      isValidInteraction(request.resource.data);
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 

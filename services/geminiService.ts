@@ -516,14 +516,23 @@ export const analyzeMarket = async (
   return JSON.parse(response.text) as TradeAnalysis;
 };
 
-export const getEducationResponse = async (question: string, context?: string): Promise<string> => {
+export const getEducationResponse = async (question: string, context?: string, difficulty: string = 'Intermediate', category?: string): Promise<string> => {
   const model = 'gemini-3-flash-preview';
-  const prompt = `Answer: ${question}. Context: ${context || 'None'}.`;
+  const prompt = `
+    Question: ${question}
+    Category: ${category || 'General Trading'}
+    Difficulty Level: ${difficulty}
+    Context: ${context || 'None'}
+
+    Provide a clear, structured, and professional explanation using Smart Money Concepts (SMC).
+    Use Markdown for formatting (bolding, lists, headers).
+    Tailor the depth of the explanation to the ${difficulty} level.
+  `;
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
     config: {
-      systemInstruction: "You are an expert trading mentor at Athenix. Focus on Smart Money Concepts."
+      systemInstruction: "You are an expert trading mentor at Athenix. Focus on Smart Money Concepts, Liquidity, and Market Structure. Provide educational, institutional-grade responses."
     }
   });
   return response.text || "Unable to generate response.";

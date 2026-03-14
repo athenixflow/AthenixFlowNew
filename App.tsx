@@ -24,6 +24,8 @@ import { auth } from './firebase';
 import { verifyBackendConnectivity } from './services/backend';
 import { getUserProfile, initializeUserDocument } from './services/firestore';
 
+import ErrorBoundary from './components/ErrorBoundary';
+
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<string>('splash');
   const [isAuthResolving, setIsAuthResolving] = useState(true);
@@ -173,7 +175,7 @@ const App: React.FC = () => {
     } catch (error) {}
   };
 
-  const isPublicPage = ['landing', 'onboarding', 'login', 'signup', 'splash', 'education', 'about', 'privacy', 'terms', 'pricing'].includes(currentPage);
+  const isPublicPage = ['landing', 'onboarding', 'login', 'signup', 'splash', 'about', 'privacy', 'terms', 'pricing'].includes(currentPage);
   const isAdminPage = currentPage === 'admin';
   const showMainLayout = !isPublicPage && !isAdminPage && !!user;
 
@@ -213,7 +215,11 @@ const App: React.FC = () => {
       case 'pricing': return <Pricing user={user} onNavigate={navigateTo} />;
       case 'dashboard': return <Dashboard user={user} onNavigate={navigateTo} />;
       case 'assistant': return <AIAssistant user={user} onTokenSpend={(amount: number) => handleTokenSpend(amount, 'analysis')} />;
-      case 'education': return <EducationHub user={user} onTokenSpend={(amount: number) => handleTokenSpend(amount, 'education')} />;
+      case 'education': return (
+        <ErrorBoundary>
+          <EducationHub user={user} onTokenSpend={(amount: number) => handleTokenSpend(amount, 'education')} />
+        </ErrorBoundary>
+      );
       case 'signals': return <LiveSignals />;
       case 'journal': return <TradeJournal user={user} />;
       case 'billing': return <Billing user={user} />;
