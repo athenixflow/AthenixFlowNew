@@ -74,19 +74,22 @@ export interface TradingSignal {
   isDeleted?: boolean;
 }
 
+export type JournalOutcome = 'Pending' | 'Take Profit' | 'Stop Loss' | 'Break Even' | 'Manual Close';
+
 export interface JournalEntry {
   id?: string;
   userId: string;
-  title: string;
-  market: string;
-  tradeMode?: 'scalp' | 'day_trade' | 'swing_trade';
-  direction: 'BUY' | 'SELL';
-  entryPrice: string;
-  stopLoss: string;
-  takeProfit: string;
-  outcome: 'win' | 'loss' | 'partial' | 'open';
+  instrument: string;
+  direction: 'Buy' | 'Sell';
+  tradeType: 'Scalp' | 'Day Trade' | 'Swing Trade';
+  entryPrice: number;
+  stopLoss: number;
+  takeProfit: number;
+  rr: string;
+  outcome: JournalOutcome;
+  timeframe: string;
   notes: string;
-  createdAt: string;
+  timestamp: string;
 }
 
 export interface Lesson {

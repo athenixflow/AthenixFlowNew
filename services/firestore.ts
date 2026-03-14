@@ -1,5 +1,5 @@
 
-import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc, getCountFromServer } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc, deleteDoc, getCountFromServer } from "firebase/firestore";
 import { firestore, auth } from "../firebase";
 import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry } from "../types";
 
@@ -142,69 +142,79 @@ export const getAllSignals = async (): Promise<TradingSignal[]> => {
 // --- JOURNAL SERVICES ---
 
 export const getJournalEntries = async (userId: string): Promise<JournalEntry[]> => {
+  const path = "tradeJournal";
   try {
     const q = query(
-      collection(firestore, "tradeJournal"), 
-      where("userId", "==", userId)
+      collection(firestore, path), 
+      where("userId", "==", userId),
+      orderBy("timestamp", "desc")
     );
     
     const snap = await getDocs(q);
     
-    const entries = snap.docs.map(doc => {
+    return snap.docs.map(doc => {
       const data = doc.data();
-      let createdDate = new Date().toISOString();
-      if (data.createdAt && typeof data.createdAt.toDate === 'function') {
-        createdDate = data.createdAt.toDate().toISOString();
-      } else if (data.createdAt) {
-         createdDate = new Date(data.createdAt).toISOString();
-      }
-
       return {
         id: doc.id,
-        userId: data.userId,
-        title: data.title || 'Untitled',
-        market: data.market || '',
-        notes: data.notes || '',
-        direction: data.direction || 'BUY',
-        entryPrice: data.entryPrice || '',
-        stopLoss: data.stopLoss || '',
-        takeProfit: data.takeProfit || '',
-        outcome: data.outcome || 'open',
-        createdAt: createdDate
+        ...data
       } as JournalEntry;
-    });
-
-    return entries.sort((a, b) => {
-      const timeA = new Date(a.createdAt).getTime();
-      const timeB = new Date(b.createdAt).getTime();
-      return timeB - timeA;
     });
   } catch (error) {
     console.error("Error fetching journal entries:", error);
+    if (error instanceof Error && error.message.includes('permission')) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
     return [];
   }
 };
 
-export const addJournalEntry = async (userId: string, entry: Partial<JournalEntry>) => {
+export const addJournalEntry = async (userId: string, entry: Omit<JournalEntry, 'id' | 'userId' | 'timestamp'>) => {
+  const path = "tradeJournal";
   try {
     if (!userId) return { success: false, error: "Authentication missing" };
 
-    const docRef = await addDoc(collection(firestore, "tradeJournal"), {
+    const docRef = await addDoc(collection(firestore, path), {
       userId,
-      title: entry.title,
-      market: entry.market || '',
-      notes: entry.notes || '',
-      direction: entry.direction || 'BUY',
-      entryPrice: entry.entryPrice || '',
-      stopLoss: entry.stopLoss || '',
-      takeProfit: entry.takeProfit || '',
-      outcome: entry.outcome || 'open',
+      ...entry,
+      timestamp: new Date().toISOString(),
       createdAt: serverTimestamp()
     });
 
     return { success: true, id: docRef.id };
   } catch (e: any) {
     console.error("[Journal] Save Failed:", e.message);
+    if (e instanceof Error && e.message.includes('permission')) {
+      handleFirestoreError(e, OperationType.CREATE, path);
+    }
+    return { success: false, error: e.message };
+  }
+};
+
+export const updateJournalEntry = async (entryId: string, updates: Partial<JournalEntry>) => {
+  const path = `tradeJournal/${entryId}`;
+  try {
+    const ref = doc(firestore, "tradeJournal", entryId);
+    await updateDoc(ref, updates);
+    return { success: true };
+  } catch (e: any) {
+    console.error("[Journal] Update Failed:", e.message);
+    if (e instanceof Error && e.message.includes('permission')) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+    return { success: false, error: e.message };
+  }
+};
+
+export const deleteJournalEntry = async (entryId: string) => {
+  const path = `tradeJournal/${entryId}`;
+  try {
+    await deleteDoc(doc(firestore, "tradeJournal", entryId));
+    return { success: true };
+  } catch (e: any) {
+    console.error("[Journal] Delete Failed:", e.message);
+    if (e instanceof Error && e.message.includes('permission')) {
+      handleFirestoreError(e, OperationType.DELETE, path);
+    }
     return { success: false, error: e.message };
   }
 };
