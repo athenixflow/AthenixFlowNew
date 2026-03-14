@@ -61,14 +61,22 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // --- SIGNALS (Admin Manageable) ---
+    // Check if user is a signal publisher
+    function isSignalPublisher() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/signal_publishers/$(request.auth.uid)) && get(/databases/$(database)/documents/signal_publishers/$(request.auth.uid)).data.canPostSignals == true;
+    }
+
+    // --- SIGNALS (Admin & Publisher Manageable) ---
     match /signals/{signalId} {
-      // Everyone can read active signals
       allow read: if isAuthenticated();
-      // Only Admin can manage lifecycle explicitly
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create: if isSignalPublisher() || isAdmin();
+      allow update, delete: if isAdmin() || (isSignalPublisher() && resource.data.postedBy == request.auth.uid);
+    }
+
+    // --- SIGNAL PUBLISHERS (Admin Only) ---
+    match /signal_publishers/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // --- EDUCATION CONTENT (Admin Manageable) ---

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AdminOverviewMetrics, TradeAnalysis, UserProfile } from '../types';
 import { getAdminMetrics, getPublishedSignals, publishSignal, getUserAnalysisHistory, getStrategyPerformance } from '../services/firestore';
 import { ICONS } from '../constants';
+import SignalsControlCenter from '../components/SignalsControlCenter';
 
 const safeRender = (val: any, fallback = "N/A"): string => {
   if (val === null || val === undefined) return fallback;
@@ -23,7 +24,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
   const [recentAnalyses, setRecentAnalyses] = useState<TradeAnalysis[]>([]);
   const [strategyStats, setStrategyStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'SIGNALS' | 'STRATEGY'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'SIGNALS' | 'STRATEGY' | 'SIGNALS_CONTROL'>('OVERVIEW');
 
   useEffect(() => {
     loadAdminData();
@@ -64,16 +65,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
           <p className="text-sm text-brand-muted font-medium">Platform oversight and signal management.</p>
         </div>
         
-        <div className="flex bg-brand-sage/10 p-1 rounded-xl">
-          {['OVERVIEW', 'SIGNALS', 'STRATEGY'].map(tab => (
+        <div className="flex bg-brand-sage/10 p-1 rounded-xl overflow-x-auto">
+          {['OVERVIEW', 'SIGNALS', 'STRATEGY', 'SIGNALS_CONTROL'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
-              className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+              className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                 activeTab === tab ? 'bg-white text-brand-charcoal shadow-sm' : 'text-brand-muted hover:text-brand-gold'
               }`}
             >
-              {tab}
+              {tab.replace('_', ' ')}
             </button>
           ))}
         </div>
@@ -225,6 +226,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'SIGNALS_CONTROL' && (
+        <SignalsControlCenter user={user} />
       )}
     </div>
   );

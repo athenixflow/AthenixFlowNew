@@ -37,41 +37,41 @@ export interface TokenTransaction {
 }
 
 export type SignalStatus = 
-  | 'pending' 
-  | 'active' 
-  | 'triggered' 
-  | 'completed_tp' 
-  | 'completed_sl' 
-  | 'completed_be' 
-  | 'cancelled' 
-  | 'expired';
+  | 'Pending' 
+  | 'Triggered' 
+  | 'Active' 
+  | 'Take Profit' 
+  | 'Stop Loss' 
+  | 'Break Even' 
+  | 'Closed';
 
 export interface TradingSignal {
-  id: string;
-  instrument: string; 
-  market: 'Forex' | 'Stocks' | 'Crypto';
-  timeframe: string;
-  signalType: 'Buy' | 'Sell' | 'Buy Limit' | 'Sell Limit' | 'Buy Stop' | 'Sell Stop';
+  id?: string;
+  instrument: string;
+  direction: 'Buy' | 'Sell';
+  orderType: 'Market' | 'Buy Limit' | 'Sell Limit' | 'Buy Stop' | 'Sell Stop';
   entry: number;
   stopLoss: number;
   takeProfit: number;
-  rrRatio: number;
+  riskReward: string;
+  timeframe: string;
+  tradeType: 'Scalp' | 'Day Trade' | 'Swing Trade';
   status: SignalStatus;
-  confidence: number;
+  visibility: 'All Users' | 'Paid Users' | 'Lite' | 'Pro' | 'Elite';
   notes?: string;
-  author: string;
-  authorId?: string;
-  timestamp: string;
-  direction?: 'BUY' | 'SELL'; 
-  orderType?: string;
-  audience?: 'all_users' | 'paid_users' | 'specific_plans';
-  plans?: string[];
-  triggeredAt?: string;
-  closedAt?: string;
-  exitPrice?: number;
-  outcomeComment?: string;
-  finalOutcome?: 'win' | 'loss' | 'be';
-  isDeleted?: boolean;
+  postedBy: string; // userId
+  postedByName?: string;
+  timestamp: any; // Firestore Timestamp
+}
+
+export interface SignalPublisher {
+  id?: string;
+  userId: string;
+  name: string;
+  role: string;
+  canPostSignals: boolean;
+  approvedBy: string; // adminUID
+  timestamp: any;
 }
 
 export type JournalOutcome = 'Pending' | 'Take Profit' | 'Stop Loss' | 'Break Even' | 'Manual Close';

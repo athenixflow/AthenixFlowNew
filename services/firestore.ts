@@ -1,7 +1,7 @@
 
-import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc, deleteDoc, getCountFromServer } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc, deleteDoc, getCountFromServer, onSnapshot, Unsubscribe } from "firebase/firestore";
 import { firestore, auth } from "../firebase";
-import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry } from "../types";
+import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry, SignalPublisher } from "../types";
 
 enum OperationType {
   CREATE = 'create',
@@ -96,47 +96,111 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
   }
 };
 
-// For User App: Shows all signals sorted by time, excluding deleted ones
-export const getActiveSignals = async (): Promise<TradingSignal[]> => {
+// --- SIGNAL SERVICES ---
+
+export const subscribeToSignals = (callback: (signals: TradingSignal[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "signals"), orderBy("timestamp", "desc"));
+  return onSnapshot(q, (snap) => {
+    const signals = snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as TradingSignal));
+    callback(signals);
+  }, (error) => {
+    console.error("Signals Subscription Error:", error);
+  });
+};
+
+export const addSignal = async (signal: Omit<TradingSignal, 'id' | 'timestamp'>) => {
+  const path = "signals";
   try {
-    const q = query(collection(firestore, "signals"), orderBy("timestamp", "desc"));
-    const snap = await getDocs(q);
-    
-    return snap.docs
-      .map(doc => {
-        const data = doc.data();
-        let ts = new Date().toISOString();
-        if (data.timestamp && typeof data.timestamp.toDate === 'function') {
-          ts = data.timestamp.toDate().toISOString();
-        } else if (data.timestamp) {
-          ts = new Date(data.timestamp).toISOString();
-        }
+    const docRef = await addDoc(collection(firestore, path), {
+      ...signal,
+      timestamp: serverTimestamp()
+    });
+    return { success: true, id: docRef.id };
+  } catch (e: any) {
+    console.error("[Signals] Add Failed:", e.message);
+    if (e instanceof Error && e.message.includes('permission')) {
+      handleFirestoreError(e, OperationType.CREATE, path);
+    }
+    return { success: false, error: e.message };
+  }
+};
 
-        const entry = Number(data.entry) || 0;
-        const stopLoss = Number(data.stopLoss) || 0;
-        const takeProfit = Number(data.takeProfit) || 0;
-        const rrRatio = Number(data.rrRatio) || 0;
+export const updateSignal = async (signalId: string, updates: Partial<TradingSignal>) => {
+  const path = `signals/${signalId}`;
+  try {
+    const ref = doc(firestore, "signals", signalId);
+    await updateDoc(ref, updates);
+    return { success: true };
+  } catch (e: any) {
+    console.error("[Signals] Update Failed:", e.message);
+    if (e instanceof Error && e.message.includes('permission')) {
+      handleFirestoreError(e, OperationType.UPDATE, path);
+    }
+    return { success: false, error: e.message };
+  }
+};
 
-        return { 
-          id: doc.id, 
-          ...data,
-          entry, stopLoss, takeProfit, rrRatio,
-          market: data.market || 'Forex',
-          status: (data.status || 'active').toLowerCase(),
-          signalType: data.signalType || (data.direction === 'BUY' ? 'Buy' : 'Sell'),
-          timestamp: ts
-        } as TradingSignal;
-      })
-      .filter(signal => signal.isDeleted !== true); // Client-side filter for soft deletes
+export const deleteSignal = async (signalId: string) => {
+  const path = `signals/${signalId}`;
+  try {
+    await deleteDoc(doc(firestore, "signals", signalId));
+    return { success: true };
+  } catch (e: any) {
+    console.error("[Signals] Delete Failed:", e.message);
+    if (e instanceof Error && e.message.includes('permission')) {
+      handleFirestoreError(e, OperationType.DELETE, path);
+    }
+    return { success: false, error: e.message };
+  }
+};
+
+export const getSignalPublishers = async (): Promise<SignalPublisher[]> => {
+  const path = "signal_publishers";
+  try {
+    const snap = await getDocs(collection(firestore, path));
+    return snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as SignalPublisher));
   } catch (error) {
-    console.error("Error fetching signals:", error);
+    console.error("Error fetching publishers:", error);
     return [];
   }
 };
 
-// For Admin: Fetch all signals for management (Alias)
-export const getAllSignals = async (): Promise<TradingSignal[]> => {
-  return getActiveSignals(); 
+export const updateSignalPublisherPermission = async (userId: string, canPost: boolean, approvedBy: string, name: string, role: string) => {
+  const path = `signal_publishers/${userId}`;
+  try {
+    const ref = doc(firestore, "signal_publishers", userId);
+    await setDoc(ref, {
+      userId,
+      name,
+      role,
+      canPostSignals: canPost,
+      approvedBy,
+      timestamp: serverTimestamp()
+    }, { merge: true });
+    return { success: true };
+  } catch (e: any) {
+    console.error("[Publishers] Update Failed:", e.message);
+    return { success: false, error: e.message };
+  }
+};
+
+export const checkSignalPublisherPermission = async (userId: string): Promise<boolean> => {
+  try {
+    const ref = doc(firestore, "signal_publishers", userId);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      return snap.data().canPostSignals === true;
+    }
+    return false;
+  } catch (error) {
+    return false;
+  }
 };
 
 // --- JOURNAL SERVICES ---
