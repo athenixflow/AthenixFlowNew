@@ -1,7 +1,7 @@
 
 import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc, deleteDoc, getCountFromServer, onSnapshot, Unsubscribe } from "firebase/firestore";
 import { firestore, auth } from "../firebase";
-import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry, SignalPublisher } from "../types";
+import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry, SignalPublisher, Subscription, Referral, TokenTransaction } from "../types";
 
 enum OperationType {
   CREATE = 'create',
@@ -59,6 +59,9 @@ export const initializeUserDocument = async (uid: string, data: { fullName: stri
     const userRef = doc(firestore, "users", uid);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) {
+      const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const referralLink = `${window.location.origin}/?ref=${referralCode}`;
+      
       const newUser: UserProfile = {
         uid,
         fullName: data.fullName || 'New Trader',
@@ -69,12 +72,26 @@ export const initializeUserDocument = async (uid: string, data: { fullName: stri
         accountStatus: 'active',
         analysisTokens: 0,
         educationTokens: 0,
+        tokens: 0,
+        referralCode,
+        referralLink,
         createdAt: new Date().toISOString()
       };
       await setDoc(userRef, newUser);
       return newUser;
     }
-    return userSnap.data() as UserProfile;
+    
+    // Ensure existing users get a referral code if they don't have one
+    const existingUser = userSnap.data() as UserProfile;
+    if (!existingUser.referralCode) {
+      const referralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const referralLink = `${window.location.origin}/?ref=${referralCode}`;
+      await updateDoc(userRef, { referralCode, referralLink });
+      existingUser.referralCode = referralCode;
+      existingUser.referralLink = referralLink;
+    }
+    
+    return existingUser;
   } catch (error) { 
     if (error instanceof Error && error.message.includes('permission')) {
       handleFirestoreError(error, OperationType.WRITE, `users/${uid}`);
@@ -385,6 +402,141 @@ export const getEducationLessons = async (): Promise<Lesson[]> => {
 
 // Removed duplicate saveEducationInteraction
 // Removed duplicate getUserEducationHistory
+
+// --- ADMIN REAL-TIME SUBSCRIPTIONS ---
+
+export const subscribeToUsers = (callback: (users: UserProfile[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "users"), orderBy("createdAt", "desc"));
+  return onSnapshot(q, (snap) => {
+    const users = snap.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+    callback(users);
+  }, (error) => console.error("Users Subscription Error:", error));
+};
+
+export const subscribeToSubscriptions = (callback: (subs: Subscription[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "subscriptions"), orderBy("createdAt", "desc"));
+  return onSnapshot(q, (snap) => {
+    const subs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription));
+    callback(subs);
+  }, (error) => console.error("Subscriptions Subscription Error:", error));
+};
+
+export const subscribeToAnalysisHistory = (callback: (history: TradeAnalysis[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "analysisHistory"), orderBy("timestamp", "desc"));
+  return onSnapshot(q, (snap) => {
+    const history = snap.docs.map(doc => {
+      const data = doc.data();
+      let ts = new Date().toISOString();
+      const dateField = data.createdAt || data.timestamp;
+      if (dateField && typeof dateField.toDate === 'function') ts = dateField.toDate().toISOString();
+      else if (dateField && typeof dateField === 'string') ts = dateField;
+      else if (dateField && typeof dateField === 'number') ts = new Date(dateField).toISOString();
+      return { id: doc.id, ...data, timestamp: ts } as TradeAnalysis;
+    });
+    callback(history);
+  }, (error) => console.error("Analysis History Subscription Error:", error));
+};
+
+export const subscribeToReferrals = (callback: (referrals: Referral[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "referrals"), orderBy("timestamp", "desc"));
+  return onSnapshot(q, (snap) => {
+    const referrals = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Referral));
+    callback(referrals);
+  }, (error) => console.error("Referrals Subscription Error:", error));
+};
+
+export const subscribeToSystemLogs = (callback: (logs: any[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "system_logs"), orderBy("timestamp", "desc"), limit(100));
+  return onSnapshot(q, (snap) => {
+    const logs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    callback(logs);
+  }, (error) => console.error("System Logs Subscription Error:", error));
+};
+
+export const subscribeToTokenTransactions = (callback: (transactions: TokenTransaction[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "token_transactions"), orderBy("timestamp", "desc"));
+  return onSnapshot(q, (snap) => {
+    const transactions = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TokenTransaction));
+    callback(transactions);
+  }, (error) => console.error("Token Transactions Subscription Error:", error));
+};
+
+// --- TOKEN MANAGEMENT ---
+
+export const adminAddTokens = async (userId: string, amount: number, reason: string, adminId: string) => {
+  try {
+    const userRef = doc(firestore, "users", userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return { success: false, error: "User not found" };
+    
+    const userData = userSnap.data() as UserProfile;
+    const currentTokens = userData.tokens || 0;
+    
+    await updateDoc(userRef, { tokens: currentTokens + amount });
+    
+    await addDoc(collection(firestore, "token_transactions"), {
+      userId,
+      amount,
+      type: 'admin_credit',
+      reason,
+      adminId,
+      timestamp: new Date().toISOString()
+    });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error adding tokens:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+// --- REFERRAL SYSTEM ---
+
+export const addReferral = async (referrerId: string, referredUserId: string) => {
+  try {
+    await addDoc(collection(firestore, "referrals"), {
+      referrerId,
+      referredUserId,
+      status: 'signed_up',
+      timestamp: new Date().toISOString()
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error adding referral:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const updateReferralStatus = async (referredUserId: string, status: 'subscribed') => {
+  try {
+    const q = query(collection(firestore, "referrals"), where("referredUserId", "==", referredUserId));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const refDoc = snap.docs[0];
+      await updateDoc(doc(firestore, "referrals", refDoc.id), { status });
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating referral status:", error);
+    return { success: false, error: error.message };
+  }
+};
+
+// --- SYSTEM LOGS ---
+
+export const logSystemEvent = async (type: 'error' | 'warning' | 'info', source: string, message: string, details?: any) => {
+  try {
+    await addDoc(collection(firestore, "system_logs"), {
+      type,
+      source,
+      message,
+      details: details ? JSON.stringify(details) : null,
+      timestamp: new Date().toISOString()
+    });
+  } catch (e) {
+    console.error("Failed to write system log:", e);
+  }
+};
 
 // --- ADMIN & SYSTEM ---
 

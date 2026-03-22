@@ -21,6 +21,9 @@ export interface UserProfile {
   accountStatus?: 'active' | 'suspended'; 
   analysisTokens: number;
   educationTokens: number;
+  tokens?: number; // Added for Token System
+  referralCode?: string; // Added for Referral System
+  referralLink?: string; // Added for Referral System
   createdAt: string;
   lastActiveAt?: string; 
 }
@@ -28,12 +31,34 @@ export interface UserProfile {
 export interface TokenTransaction {
   id?: string;
   userId: string;
-  type: 'refill' | 'deduction' | 'admin_grant';
-  resource: 'analysis' | 'education';
+  type: 'refill' | 'deduction' | 'admin_credit' | 'admin_grant';
+  resource?: 'analysis' | 'education' | 'general';
   amount: number; 
   cost?: number; 
+  reason?: string;
+  adminId?: string;
   timestamp: string;
-  description: string;
+  description?: string;
+}
+
+export interface Subscription {
+  id?: string;
+  userId: string;
+  plan: SubscriptionPlan;
+  status: 'active' | 'canceled' | 'past_due';
+  amount: number;
+  currency: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  createdAt: string;
+}
+
+export interface Referral {
+  id?: string;
+  referrerId: string;
+  referredUserId: string;
+  status: 'signed_up' | 'subscribed';
+  timestamp: string;
 }
 
 export type SignalStatus = 
