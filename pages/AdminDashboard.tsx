@@ -11,6 +11,7 @@ import {
   adminAddTokens,
   checkDatabaseConnection
 } from '../services/firestore';
+import { testMarketConnection } from '../services/marketData';
 import { ICONS } from '../constants';
 import SignalsControlCenter from '../components/SignalsControlCenter';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
@@ -67,9 +68,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
     const unsubTokens = subscribeToTokenTransactions(setTokenTransactions);
 
     checkDatabaseConnection().then(setDbStatus);
-    
-    // Simple mock ping for API status
-    fetch('/').then(res => setApiStatus(res.ok)).catch(() => setApiStatus(false));
+
+    // Real market-data feed health check (same check used in Settings diagnostics)
+    testMarketConnection().then(setApiStatus).catch(() => setApiStatus(false));
 
     return () => {
       unsubUsers();
@@ -461,7 +462,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
       {/* SYSTEM HEALTH TAB */}
       {activeTab === 'SYSTEM_HEALTH' && (
         <div className="space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white p-6 rounded-2xl border border-brand-sage/20 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">Database</p>
@@ -475,13 +476,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
                 <p className="text-lg font-black text-brand-charcoal">Market Data</p>
               </div>
               <div className={`w-3 h-3 rounded-full ${apiStatus ? 'bg-brand-success' : 'bg-brand-error'}`}></div>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-brand-sage/20 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black text-brand-muted uppercase tracking-widest">AI Engine</p>
-                <p className="text-lg font-black text-brand-charcoal">Operational</p>
-              </div>
-              <div className="w-3 h-3 rounded-full bg-brand-success"></div>
             </div>
           </div>
 

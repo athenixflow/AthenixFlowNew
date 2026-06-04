@@ -32,7 +32,7 @@ const Header: React.FC<HeaderProps> = ({ user, onToggleSidebar, onNavigate }) =>
       <div className="flex items-center gap-5">
         <div className="hidden sm:flex flex-col items-end">
           <span className="text-[9px] font-black text-brand-gold uppercase tracking-[0.2em]">{user.subscriptionPlan} Network</span>
-          <span className="text-[9px] text-brand-muted font-bold uppercase">System Operational</span>
+          <span className="text-[9px] text-brand-muted font-bold uppercase">{user.subscriptionStatus === 'active' ? 'Subscription Active' : (user.subscriptionStatus || 'none')}</span>
         </div>
         <button 
           onClick={() => onNavigate('settings')}

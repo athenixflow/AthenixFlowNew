@@ -55,7 +55,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate }) => {
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${user ? 'bg-brand-success' : 'bg-brand-warning'}`}></div>
             <span className="text-2xl font-black text-brand-charcoal uppercase tracking-tighter">
-              {user ? 'Operational' : 'Syncing...'}
+              {user ? 'Connected' : 'Syncing...'}
             </span>
           </div>
           <p className="text-[10px] text-brand-muted font-bold uppercase mt-1 tracking-widest">Secure Firestore Protocol</p>

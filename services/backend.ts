@@ -308,116 +308,11 @@ export const adminGrantTokens = async (adminId: string, targetUid: string, type:
   }
 };
 
-export const adminManageSignal = async (adminId: string, action: 'create' | 'update' | 'delete' | 'soft_delete', data: any): Promise<BackendResponse> => {
-  if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
-  const signalsRef = collection(firestore, 'signals');
-  
-  try {
-    if (action === 'create') {
-      const entry = parseFloat(data.entry);
-      const sl = parseFloat(data.stopLoss);
-      const tp = parseFloat(data.takeProfit);
-      
-      let rrRatio = 0;
-      if (!isNaN(entry) && !isNaN(sl) && !isNaN(tp) && entry !== sl) {
-        const risk = Math.abs(entry - sl);
-        const reward = Math.abs(tp - entry);
-        if (risk > 0) {
-           rrRatio = reward / risk;
-        }
-      }
-
-      // Default status logic: 'pending' for limit orders, 'active' for market orders
-      let initialStatus = 'pending';
-      let triggeredAtVal = null;
-      if (data.signalType && (data.signalType.toLowerCase().includes('limit') || data.signalType.toLowerCase().includes('stop'))) {
-         initialStatus = 'pending';
-      } else {
-         initialStatus = 'active';
-         triggeredAtVal = new Date().toISOString();
-      }
-
-      // Legacy field mapping
-      const direction = (data.signalType && data.signalType.toUpperCase().includes('BUY')) ? 'BUY' : 'SELL';
-
-      const payload = {
-        instrument: data.instrument,
-        market: data.market,
-        timeframe: data.timeframe,
-        signalType: data.signalType,
-        entry: entry,
-        stopLoss: sl,
-        takeProfit: tp,
-        rrRatio: parseFloat(rrRatio.toFixed(2)),
-        status: initialStatus,
-        triggeredAt: triggeredAtVal,
-        
-        direction: direction,
-        confidence: data.confidence || 90,
-        audience: data.audience || 'all_users',
-        plans: data.plans || [],
-        notes: data.notes || '',
-
-        authorId: adminId,
-        author: data.author || 'Admin',
-        timestamp: new Date().toISOString(),
-        createdAt: serverTimestamp(),
-        isDeleted: false
-      };
-      
-      const docRef = await addDoc(signalsRef, payload);
-      await logAdminAction(adminId, 'Admin', 'signal_published', `Created ${initialStatus} signal for ${data.instrument} (ID: ${docRef.id})`);
-    }
-    else if (action === 'update') {
-      const { id, ...rest } = data; // Destructure ID to avoid overwriting it in document
-      if (!id) return { status: 'error', message: 'Signal ID missing for update' };
-
-      // 1. Sanitize updates to remove undefined fields
-      const updates: Record<string, any> = {};
-      Object.keys(rest).forEach(key => {
-        if (rest[key] !== undefined) {
-          updates[key] = rest[key];
-        }
-      });
-      
-      // Auto-timestamp logic
-      if (updates.status === 'active' || updates.status === 'triggered') {
-         // If triggering a pending signal, set triggeredAt
-         if (!updates.triggeredAt) updates.triggeredAt = new Date().toISOString();
-      }
-      
-      const completedStatuses = ['completed_tp', 'completed_sl', 'completed_be'];
-      if (completedStatuses.includes(updates.status)) {
-         if (!updates.closedAt) updates.closedAt = new Date().toISOString();
-         // Map simple outcome
-         if (updates.status === 'completed_tp') updates.finalOutcome = 'win';
-         if (updates.status === 'completed_sl') updates.finalOutcome = 'loss';
-         if (updates.status === 'completed_be') updates.finalOutcome = 'be';
-      } else {
-         // Ensure exitPrice is NOT included for non-completed statuses unless explicitly intended
-         // This prevents stale or undefined exitPrice from persisting or causing errors if it was filtered out
-         delete updates.exitPrice;
-         delete updates.finalOutcome;
-      }
-
-      const docRef = doc(firestore, 'signals', id);
-      await updateDoc(docRef, updates);
-      await logAdminAction(adminId, 'Admin', 'Update Signal', `Updated signal ${id}`);
-    }
-    else if (action === 'soft_delete') {
-      await updateDoc(doc(firestore, 'signals', data.id), { isDeleted: true });
-      await logAdminAction(adminId, 'Admin', 'Soft Delete Signal', `Soft deleted signal ${data.id}`);
-    }
-    else if (action === 'delete') {
-      await deleteDoc(doc(firestore, 'signals', data.id));
-      await logAdminAction(adminId, 'Admin', 'Hard Delete Signal', `Permanently deleted signal ${data.id}`);
-    }
-    return { status: 'success', message: `Signal processed (${action})` };
-  } catch (e: any) {
-    console.error("Signal Ops Error:", e);
-    return { status: 'error', message: e.message };
-  }
-};
+// NOTE: `adminManageSignal` was removed during post-audit cleanup. It was orphaned
+// (no callers) and wrote a signal document shape incompatible with the TradingSignal
+// type the UI reads (e.g. direction 'BUY'/'SELL', lowercase status, signalType, a
+// hardcoded `confidence || 90`). The live signal path is SignalsControlCenter ->
+// addSignal() in services/firestore.ts, which already matches the type.
 
 export const adminManageLesson = async (adminId: string, action: 'create' | 'update' | 'delete', data: any): Promise<BackendResponse> => {
   if (!(await isAdmin(adminId))) return { status: 'error', message: 'Unauthorized' };
@@ -459,7 +354,7 @@ export const getSystemHealthStatus = async (): Promise<SystemHealth> => {
     database: dbStatus,
     forexApi: apiStatus,
     stockApi: apiStatus, // Assuming shared endpoint
-    aiApi: 'operational', // Mocking for now, could ping Gemini
+    aiApi: 'unknown', // Not probed from the client; AI runs server-side via /api/analyze
     lastCheck: new Date().toISOString()
   };
 };

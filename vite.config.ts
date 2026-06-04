@@ -1,12 +1,11 @@
 
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
-  // Set the third parameter to '' to load all envs regardless of the `VITE_` prefix.
-  const env = loadEnv(mode, (process as any).cwd(), '');
-  
+// NOTE: The Gemini API key is intentionally NOT injected into the client bundle.
+// All AI calls go through the server-side functions in /api (analyze, education,
+// revalidate), which read the key from process.env.Google_api on the server.
+export default defineConfig(() => {
   return {
     plugins: [react()],
     build: {
@@ -16,10 +15,6 @@ export default defineConfig(({ mode }) => {
           main: './index.html',
         },
       },
-    },
-    define: {
-      // Robustly map the API key. Prioritizes 'Google_api' as per Vercel configuration.
-      'process.env.API_KEY': JSON.stringify(env.Google_api || env.API_KEY || env.VITE_API_KEY || ''),
     },
     server: {
       port: 3000,

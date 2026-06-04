@@ -56,10 +56,11 @@ exports.aggregateDailyAnalytics = functions.pubsub.schedule('every 24 hours').on
     stats.totalAnalyses++;
     stats.confidenceSum += score;
 
-    // Outcome Counts
-    if (outcome === 'TP') stats.tpCount++;
-    if (outcome === 'SL') stats.slCount++;
-    if (outcome === 'BE') stats.beCount++;
+    // Outcome Counts — must match the values the app actually stores
+    // (see AnalysisFeedback in types.ts: TP_HIT / SL_HIT / BREAK_EVEN / NOT_TAKEN).
+    if (outcome === 'TP_HIT') stats.tpCount++;
+    if (outcome === 'SL_HIT') stats.slCount++;
+    if (outcome === 'BREAK_EVEN') stats.beCount++;
     if (outcome === 'NOT_TAKEN') stats.notTakenCount++;
 
     // Grouping
@@ -81,9 +82,9 @@ exports.aggregateDailyAnalytics = functions.pubsub.schedule('every 24 hours').on
     date: dateStr,
     totalAnalyses: stats.totalAnalyses,
     outcomes: {
-      TP: stats.tpCount,
-      SL: stats.slCount,
-      BE: stats.beCount,
+      TP_HIT: stats.tpCount,
+      SL_HIT: stats.slCount,
+      BREAK_EVEN: stats.beCount,
       NOT_TAKEN: stats.notTakenCount
     },
     averageConfidenceScore,
@@ -110,7 +111,7 @@ exports.aggregateOverallAnalytics = functions.pubsub.schedule('0 1 * * *').onRun
 
   const summary = {
     totalAnalysesWithFeedback: 0,
-    outcomes: { TP: 0, SL: 0, BE: 0, NOT_TAKEN: 0 },
+    outcomes: { TP_HIT: 0, SL_HIT: 0, BREAK_EVEN: 0, NOT_TAKEN: 0 },
     confidenceBucketPerformance: {
       High: { total: 0, wins: 0 },
       Good: { total: 0, wins: 0 },
@@ -140,17 +141,17 @@ exports.aggregateOverallAnalytics = functions.pubsub.schedule('0 1 * * *').onRun
 
     // Confidence Performance
     summary.confidenceBucketPerformance[bucket].total++;
-    if (outcome === 'TP') summary.confidenceBucketPerformance[bucket].wins++;
+    if (outcome === 'TP_HIT') summary.confidenceBucketPerformance[bucket].wins++;
 
     // Trade Mode Performance
     if (!summary.tradeModePerformance[mode]) summary.tradeModePerformance[mode] = { total: 0, tp: 0 };
     summary.tradeModePerformance[mode].total++;
-    if (outcome === 'TP') summary.tradeModePerformance[mode].tp++;
+    if (outcome === 'TP_HIT') summary.tradeModePerformance[mode].tp++;
 
     // Strategy Performance
     if (!summary.strategyPerformance[strategy]) summary.strategyPerformance[strategy] = { total: 0, tp: 0 };
     summary.strategyPerformance[strategy].total++;
-    if (outcome === 'TP') summary.strategyPerformance[strategy].tp++;
+    if (outcome === 'TP_HIT') summary.strategyPerformance[strategy].tp++;
   });
 
   await db.collection('admin_analytics_overall').doc('summary').set({
@@ -187,7 +188,7 @@ exports.onAnalysisFeedback = functions.firestore
       // Helper for incrementing/decrementing nested paths
       const updateCounts = (docData, outcome, delta) => {
         if (!docData) return;
-        if (!docData.outcomes) docData.outcomes = { TP: 0, SL: 0, BE: 0, NOT_TAKEN: 0 };
+        if (!docData.outcomes) docData.outcomes = { TP_HIT: 0, SL_HIT: 0, BREAK_EVEN: 0, NOT_TAKEN: 0 };
         
         // Update generic outcome count
         if (docData.outcomes[outcome] !== undefined) {
@@ -199,13 +200,13 @@ exports.onAnalysisFeedback = functions.firestore
            const bucket = getConfidenceBucket(after.signal?.confidence_score || 0);
            if (docData.confidenceBucketPerformance[bucket]) {
              docData.confidenceBucketPerformance[bucket].total += delta;
-             if (outcome === 'TP') docData.confidenceBucketPerformance[bucket].wins += delta;
+             if (outcome === 'TP_HIT') docData.confidenceBucketPerformance[bucket].wins += delta;
            }
         }
       };
 
-      const dailyData = dailyDoc.exists ? dailyDoc.data() : { outcomes: { TP: 0, SL: 0, BE: 0, NOT_TAKEN: 0 } };
-      const overallData = overallDoc.exists ? overallDoc.data() : { outcomes: { TP: 0, SL: 0, BE: 0, NOT_TAKEN: 0 } };
+      const dailyData = dailyDoc.exists ? dailyDoc.data() : { outcomes: { TP_HIT: 0, SL_HIT: 0, BREAK_EVEN: 0, NOT_TAKEN: 0 } };
+      const overallData = overallDoc.exists ? overallDoc.data() : { outcomes: { TP_HIT: 0, SL_HIT: 0, BREAK_EVEN: 0, NOT_TAKEN: 0 } };
 
       // Remove old outcome count if existed
       if (beforeFeedback) {

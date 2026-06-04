@@ -47,8 +47,8 @@ const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
           <div className="space-y-2">
             <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Access Tier</p>
             <p className="font-black text-brand-gold uppercase">
-              {user?.subscriptionPlan || 'LITE'} 
-              <span className="ml-2 px-2 py-0.5 bg-brand-gold/10 text-[8px] rounded">ACTIVE</span>
+              {user?.subscriptionPlan || 'LITE'}
+              <span className="ml-2 px-2 py-0.5 bg-brand-gold/10 text-[8px] rounded">{(user?.subscriptionStatus || 'none').toUpperCase()}</span>
             </p>
           </div>
           <div className="space-y-2">
