@@ -4,7 +4,7 @@ import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse, revalidateTradeSetup } from './geminiService';
 import { getMarketData, testMarketConnection } from './marketData';
 import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth, TradingSignal, TradeAnalysis } from '../types';
-import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection, updateAnalysisValidation, deductTokens } from './firestore';
+import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection, updateAnalysisValidation } from './firestore';
 
 export interface BackendResponse<T = any> {
   message: string;
@@ -106,9 +106,8 @@ export const analyzeMarket = async (
       console.warn("Athenix: Failed to commit analysis to history ledger.");
     }
 
-    // 5. Atomic Unit Deduction & Activity Update
-    await deductTokens(userId, 1, 'analysis');
-    await updateDoc(userRef, { 
+    // 5. Activity update. Token deduction is now enforced server-side in /api/analyze.
+    await updateDoc(userRef, {
       lastActiveAt: new Date().toISOString()
     });
     
@@ -203,8 +202,8 @@ export const getAILessonContent = async (userId: string, question: string, conte
       timestamp: new Date().toISOString()
     });
     
-    await deductTokens(userId, 1, 'education');
-    await updateDoc(userRef, { 
+    // Token deduction is now enforced server-side in /api/education.
+    await updateDoc(userRef, {
       lastActiveAt: new Date().toISOString()
     });
     return { status: 'success', message: 'Lesson generated', data: result };

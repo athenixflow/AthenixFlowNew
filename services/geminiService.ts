@@ -1,5 +1,15 @@
 
 import { TradeAnalysis } from "../types";
+import { auth } from "../firebase";
+
+// Attaches the caller's Firebase ID token so the server-side AI endpoints can
+// authenticate the request and enforce the token economy.
+async function authHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const idToken = await auth.currentUser?.getIdToken();
+  if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
+  return headers;
+}
 
 /**
  * Athenix AI client.
@@ -22,7 +32,7 @@ export const analyzeMarket = async (
 ): Promise<TradeAnalysis> => {
   const response = await fetch('/api/analyze', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body: JSON.stringify({ symbol, timeframe, includeFundamentals, marketContext })
   });
 
@@ -48,7 +58,7 @@ export const getEducationResponse = async (
 ): Promise<string> => {
   const response = await fetch('/api/education', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body: JSON.stringify({ question, context, difficulty, category })
   });
 
@@ -75,7 +85,7 @@ export const revalidateTradeSetup = async (
 
   const response = await fetch('/api/revalidate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body: JSON.stringify({ originalAnalysis, currentPrice })
   });
 

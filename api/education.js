@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { requireUser, checkRateLimit, capString, assertCanSpend, spendToken, sendError, HttpError } from "./_lib/guard.js";
 
 // Server-side Athenix education endpoint.
 // Behaviour identical to the previous client-side getEducationResponse.
@@ -8,18 +9,25 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed. Use POST." });
   }
 
-  const apiKey = process.env.Google_api || process.env.API_KEY || process.env.VITE_API_KEY;
-  if (!apiKey) {
-    console.error("Configuration Error: process.env.Google_api is missing in Vercel Environment Variables.");
-    return res.status(500).json({ error: "Server configuration error: AI key not found." });
-  }
-
   try {
-    const { question, context, difficulty = 'Intermediate', category } = req.body || {};
-
-    if (!question) {
-      return res.status(400).json({ error: "Missing question." });
+    const apiKey = process.env.Google_api || process.env.API_KEY || process.env.VITE_API_KEY;
+    if (!apiKey) {
+      throw new HttpError(500, "Server configuration error: AI key not found.");
     }
+
+    const uid = await requireUser(req);
+    await checkRateLimit(uid, 'education');
+
+    const { question, context, difficulty = 'Intermediate', category } = req.body || {};
+    capString(question, 4000, 'question');
+    capString(context, 4000, 'context');
+    capString(difficulty, 32, 'difficulty');
+    capString(category, 128, 'category');
+    if (!question) {
+      throw new HttpError(400, "Missing question.");
+    }
+
+    await assertCanSpend(uid, 'education');
 
     const ai = new GoogleGenAI({ apiKey });
     const model = 'gemini-3-flash-preview';
@@ -43,9 +51,13 @@ export default async function handler(req, res) {
       }
     });
 
-    return res.status(200).json({ text: response.text || "Unable to generate response." });
+    const text = response.text || "Unable to generate response.";
+
+    // Charge one education token only after a successful generation.
+    await spendToken(uid, 'education');
+
+    return res.status(200).json({ text });
   } catch (error) {
-    console.error("Education Endpoint Error:", error);
-    return res.status(500).json({ error: error.message || "Education error" });
+    return sendError(res, error);
   }
 }

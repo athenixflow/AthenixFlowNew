@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { requireUser, checkRateLimit, capString, assertCanSpend, spendToken, sendError, HttpError } from "./_lib/guard.js";
 
 // Server-side Athenix analysis endpoint.
 // The Gemini API key (process.env.Google_api) never leaves the server.
@@ -493,18 +494,26 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed. Use POST." });
   }
 
-  const apiKey = process.env.Google_api || process.env.API_KEY || process.env.VITE_API_KEY;
-  if (!apiKey) {
-    console.error("Configuration Error: process.env.Google_api is missing in Vercel Environment Variables.");
-    return res.status(500).json({ error: "Server configuration error: AI key not found." });
-  }
-
   try {
-    const { symbol, timeframe, includeFundamentals, marketContext } = req.body || {};
-
-    if (!symbol || !timeframe) {
-      return res.status(400).json({ error: "Missing symbol or timeframe." });
+    const apiKey = process.env.Google_api || process.env.API_KEY || process.env.VITE_API_KEY;
+    if (!apiKey) {
+      throw new HttpError(500, "Server configuration error: AI key not found.");
     }
+
+    // 1. Authenticate, 2. rate-limit, 3. cap inputs.
+    const uid = await requireUser(req);
+    await checkRateLimit(uid, 'analyze');
+
+    const { symbol, timeframe, includeFundamentals, marketContext } = req.body || {};
+    capString(symbol, 32, 'symbol');
+    capString(timeframe, 16, 'timeframe');
+    capString(marketContext, 20000, 'marketContext');
+    if (!symbol || !timeframe) {
+      throw new HttpError(400, "Missing symbol or timeframe.");
+    }
+
+    // 4. Enforce token economy BEFORE spending Gemini compute.
+    await assertCanSpend(uid, 'analysis');
 
     const ai = new GoogleGenAI({ apiKey });
     const model = 'gemini-3.1-pro-preview';
@@ -527,13 +536,17 @@ export default async function handler(req, res) {
     });
 
     if (!response.text) {
-      return res.status(502).json({ error: "Neural engine returned an empty response." });
+      throw new HttpError(502, "Neural engine returned an empty response.");
     }
 
-    // Return the raw JSON text; the client parses it into TradeAnalysis (unchanged shape).
-    return res.status(200).json(JSON.parse(response.text));
+    const result = JSON.parse(response.text);
+
+    // 5. Charge exactly one analysis unit, only after a successful generation.
+    await spendToken(uid, 'analysis');
+
+    // Shape unchanged; the client parses it into TradeAnalysis.
+    return res.status(200).json(result);
   } catch (error) {
-    console.error("Analyze Endpoint Error:", error);
-    return res.status(500).json({ error: error.message || "The neural engine encountered an unexpected exception." });
+    return sendError(res, error);
   }
 }
