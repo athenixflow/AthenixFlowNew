@@ -95,6 +95,21 @@ export const ICONS: Record<string, React.FC<{ className?: string }>> = {
   )
 };
 
+export const CRYPTO_INSTRUMENTS = [
+  { symbol: 'BTCUSD', name: 'Bitcoin / US Dollar' },
+  { symbol: 'ETHUSD', name: 'Ethereum / US Dollar' },
+  { symbol: 'SOLUSD', name: 'Solana / US Dollar' },
+  { symbol: 'XRPUSD', name: 'Ripple / US Dollar' },
+  { symbol: 'BNBUSD', name: 'BNB / US Dollar' },
+  { symbol: 'ADAUSD', name: 'Cardano / US Dollar' },
+  { symbol: 'DOGEUSD', name: 'Dogecoin / US Dollar' },
+  { symbol: 'AVAXUSD', name: 'Avalanche / US Dollar' },
+  { symbol: 'DOTUSD', name: 'Polkadot / US Dollar' },
+  { symbol: 'LINKUSD', name: 'Chainlink / US Dollar' },
+  { symbol: 'MATICUSD', name: 'Polygon / US Dollar' },
+  { symbol: 'LTCUSD', name: 'Litecoin / US Dollar' },
+];
+
 export const METALS_INSTRUMENTS = [
   { symbol: 'XAUUSD', name: 'Gold / US Dollar' },
   { symbol: 'XAGUSD', name: 'Silver / US Dollar' },

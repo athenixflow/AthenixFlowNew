@@ -150,6 +150,7 @@ export interface TradeAnalysis {
   userId?: string;   
   timestamp: string;
   instrument: string;
+  marketType?: 'forex' | 'crypto' | 'stock' | 'metals' | 'indices';
   timeframe: string;
   execution_timeframe: string;
   market_phase: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';

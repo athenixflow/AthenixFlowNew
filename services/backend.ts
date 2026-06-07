@@ -23,7 +23,7 @@ export const analyzeMarket = async (
   symbol: string, 
   timeframe: string, 
   includeFundamentals: boolean,
-  marketType?: 'forex' | 'stock' | 'metals' | 'indices'
+  marketType?: 'forex' | 'crypto' | 'stock' | 'metals' | 'indices'
 ): Promise<BackendResponse> => {
   try {
     const userRef = doc(firestore, 'users', userId);
@@ -38,12 +38,12 @@ export const analyzeMarket = async (
 
     if (user.analysisTokens < 1) return { status: 'error', message: 'Insufficient analysis units. Please refill in the Billing terminal.' };
 
-    // 1. Fetch Real-Time Market Data
+    // 1. Fetch Real-Time Market Data (Twelve Data via /api/market)
+    const resolvedMarketType = marketType || (symbol.length < 5 ? 'stock' : 'forex');
     let marketContext = '';
     try {
-      const type = marketType || (symbol.length < 5 ? 'stock' : 'forex');
-      const marketData = await getMarketData(type, symbol);
-      
+      const marketData = await getMarketData(resolvedMarketType, symbol, timeframe);
+
       if (marketData && !marketData.error) {
         marketContext = JSON.stringify(marketData);
       }
@@ -60,6 +60,7 @@ export const analyzeMarket = async (
       userId: userId,
       timestamp: new Date().toISOString(),
       status: 'active',
+      marketType: resolvedMarketType,
       
       // Ensure Version 2.0 fields are present (defaults if missing from AI response)
       market_narrative_context: result.market_narrative_context || {
@@ -137,25 +138,13 @@ export const revalidateAnalysis = async (userId: string, analysisId: string, ori
       };
     }
 
-    // Fetch Current Price
-    const type = originalAnalysis.instrument.length < 5 ? 'stock' : 'forex';
-    const marketData = await getMarketData(type, originalAnalysis.instrument);
-    
+    // Fetch Current Price (Twelve Data via /api/market — normalized latest close)
+    const type = originalAnalysis.marketType || (originalAnalysis.instrument.length < 5 ? 'stock' : 'forex');
+    const marketData = await getMarketData(type, originalAnalysis.instrument, originalAnalysis.execution_timeframe || originalAnalysis.timeframe);
+
     let currentPrice = 0;
-    
-    if (marketData && marketData.success) {
-      if (type === 'forex' && marketData.quotes) {
-        const pair = "USD" + originalAnalysis.instrument.replace("/", ""); 
-        // Note: This assumes USD base or quotes. In real app, robust pair mapping is needed. 
-        // For simplicity, we assume we can extract a rate or use a direct rate.
-        // If exact pair matches a key in quotes:
-        const directKey = "USD" + originalAnalysis.instrument;
-        if (marketData.quotes[directKey]) currentPrice = marketData.quotes[directKey];
-        // If not found, check values. If only one rate returned, use it.
-        else if (Object.values(marketData.quotes).length === 1) currentPrice = Object.values(marketData.quotes)[0];
-      } else if (type === 'stock' && marketData.data && marketData.data.length > 0) {
-        currentPrice = marketData.data[0].close || marketData.data[0].last;
-      }
+    if (marketData && marketData.success && marketData.price != null && Number.isFinite(marketData.price as number)) {
+      currentPrice = marketData.price as number;
     }
 
     if (currentPrice === 0) {

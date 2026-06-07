@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, TradeAnalysis, AnalysisFeedback } from '../types';
 import { analyzeMarket, revalidateAnalysis } from '../services/backend';
 import { getUserAnalysisHistory, submitAnalysisFeedback } from '../services/firestore';
-import { FOREX_INSTRUMENTS, STOCK_INSTRUMENTS, METALS_INSTRUMENTS, INDICES_INSTRUMENTS, ICONS } from '../constants';
+import { FOREX_INSTRUMENTS, STOCK_INSTRUMENTS, METALS_INSTRUMENTS, INDICES_INSTRUMENTS, CRYPTO_INSTRUMENTS, ICONS } from '../constants';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const safeRender = (val: any, fallback = "N/A"): string => {
@@ -56,7 +56,7 @@ interface AIAssistantProps {
 
 const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
   const [tradeMode, setTradeMode] = useState<ExecutionMode | null>(null);
-  const [marketType, setMarketType] = useState<'forex' | 'metals' | 'indices' | 'stock' | null>(null);
+  const [marketType, setMarketType] = useState<'forex' | 'crypto' | 'metals' | 'indices' | 'stock' | null>(null);
   const [symbol, setSymbol] = useState('');
   const [timeframe, setTimeframe] = useState('');
   const [fundamentalToggle, setFundamentalToggle] = useState(false);
@@ -572,9 +572,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-brand-muted uppercase tracking-widest block">2. Select Market Sector</label>
                 <div className="flex flex-wrap gap-2 p-1 bg-brand-sage/10 rounded-xl">
-                  {['forex', 'metals', 'indices', 'stock'].map(type => (
+                  {['forex', 'crypto', 'stock', 'metals', 'indices'].map(type => (
                     <button key={type} onClick={() => setMarketType(type as any)} className={`flex-1 min-w-[80px] py-3 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${marketType === type ? 'bg-white text-brand-charcoal shadow-sm' : 'text-brand-muted hover:text-brand-gold'}`}>
-                      {type === 'forex' ? 'Forex' : type === 'metals' ? 'Metals' : type === 'indices' ? 'Indices' : 'Stocks'}
+                      {type === 'forex' ? 'Forex' : type === 'crypto' ? 'Crypto' : type === 'stock' ? 'Stocks' : type === 'metals' ? 'Metals' : 'Indices'}
                     </button>
                   ))}
                 </div>
@@ -715,7 +715,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
   );
 
   function getFilteredInstruments() {
-    const list = marketType === 'forex' ? FOREX_INSTRUMENTS : 
+    const list = marketType === 'forex' ? FOREX_INSTRUMENTS :
+                 marketType === 'crypto' ? CRYPTO_INSTRUMENTS :
                  marketType === 'metals' ? METALS_INSTRUMENTS :
                  marketType === 'indices' ? INDICES_INSTRUMENTS :
                  marketType === 'stock' ? STOCK_INSTRUMENTS : [];
