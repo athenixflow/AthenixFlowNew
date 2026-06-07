@@ -9,7 +9,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "latest",
+    "@google/genai": "1.45.0",
     "clsx": "2.1.0",
     "firebase": "10.8.0",
     "firebase-admin": "^12.7.0",
