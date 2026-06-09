@@ -52,9 +52,10 @@ const MODE_CONFIG: Record<ExecutionMode, { label: string; desc: string; timefram
 interface AIAssistantProps {
   user: UserProfile | null;
   onTokenSpend: (amount: number) => void;
+  onNavigate?: (page: string) => void;
 }
 
-const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
+const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigate }) => {
   const [tradeMode, setTradeMode] = useState<ExecutionMode | null>(null);
   const [marketType, setMarketType] = useState<'forex' | 'crypto' | 'metals' | 'indices' | 'stock' | null>(null);
   const [symbol, setSymbol] = useState('');
@@ -577,6 +578,32 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
     </ErrorBoundary>
   );
 
+  const isSubscriptionError = (msg: string | null) => !!msg && /insufficient|subscri|refill|units|token/i.test(msg);
+
+  const errorBanner = error ? (
+    <div className="rounded-xl border border-brand-error/30 bg-brand-error/5 p-5 space-y-3 animate-fade-in w-full">
+      <div className="flex items-start gap-3">
+        <div className="w-8 h-8 rounded-lg bg-brand-error/10 flex items-center justify-center flex-shrink-0">
+          <svg className="w-4 h-4 text-brand-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+          </svg>
+        </div>
+        <div className="space-y-1 min-w-0">
+          <p className="text-[11px] font-black text-brand-error uppercase tracking-widest">Analysis Unavailable</p>
+          <p className="text-xs text-brand-charcoal font-medium leading-relaxed break-words">{error}</p>
+        </div>
+      </div>
+      {isSubscriptionError(error) && (
+        <button
+          onClick={() => onNavigate?.('pricing')}
+          className="btn-primary w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em]"
+        >
+          Subscribe to Unlock Analysis
+        </button>
+      )}
+    </div>
+  ) : null;
+
   return (
     <div className="p-6 md:p-10 space-y-10 animate-fade-in max-w-7xl mx-auto pb-24">
       <div className="space-y-2">
@@ -660,6 +687,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
               <button disabled={isAnalyzing || !tradeMode || !timeframe || !symbol} onClick={handleGenerate} className="btn-primary w-full py-5 font-black text-xs rounded-xl shadow-xl uppercase tracking-[0.2em] mt-4 disabled:opacity-50">
                 {isAnalyzing ? 'Decoding Market Architecture...' : 'Initialize Analysis Cycle'}
               </button>
+
+              {errorBanner}
             </div>
           </div>
         </section>
@@ -678,6 +707,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
                    <p className="text-[9px] font-medium text-brand-sage uppercase tracking-widest">Weighting IRL/ERL Alignment</p>
                 </div>
               </div>
+            ) : error ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-6">{errorBanner}</div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-12 opacity-40">
                 <div className="w-16 h-16 bg-brand-sage/10 rounded-2xl flex items-center justify-center text-brand-muted mb-6"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg></div>

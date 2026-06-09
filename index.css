@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prevent decorative absolute/blur elements from creating horizontal scroll on phones. */
+body {
+  overflow-x: hidden;
+}
+
+/* Mobile: let wide data tables scroll horizontally instead of clipping/overflowing.
+   Desktop (>=768px) is unchanged — tables render normally. */
+@media (max-width: 767px) {
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+}

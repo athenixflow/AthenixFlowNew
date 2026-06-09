@@ -25,16 +25,26 @@ import { verifyBackendConnectivity } from './services/backend';
 import { getUserProfile, initializeUserDocument } from './services/firestore';
 
 import ErrorBoundary from './components/ErrorBoundary';
+import SubscribeModal from './components/SubscribeModal';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<string>('splash');
   const [isAuthResolving, setIsAuthResolving] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false);
 
   // Use refs to access latest state/props inside effects without triggering re-runs
   const userRef = useRef<UserProfile | null>(null);
   useEffect(() => { userRef.current = user; }, [user]);
+
+  // Prompt non-subscribers to subscribe whenever they land on the home/dashboard
+  // (which is also where every fresh login lands). Paid users never see it.
+  useEffect(() => {
+    if (user && user.subscriptionStatus !== 'active' && currentPage === 'dashboard') {
+      setShowSubscribeModal(true);
+    }
+  }, [user, currentPage]);
 
   const getPageFromPath = useCallback((path: string) => {
     if (!path || path === '/' || path === '') return 'landing';
@@ -106,6 +116,11 @@ const App: React.FC = () => {
     setCurrentPage(initialPage);
     verifyBackendConnectivity();
 
+    // Safety net: never let the "Verifying Neural Session" gate hang forever on a
+    // slow/blocked network (e.g. Firestore long-poll stalls) — clear it after 12s
+    // so the app stays usable instead of spinning indefinitely.
+    const authTimeout = setTimeout(() => setIsAuthResolving(false), 12000);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!userRef.current && firebaseUser) setIsAuthResolving(true);
       
@@ -161,10 +176,11 @@ const App: React.FC = () => {
            else setCurrentPage(current);
         }
       }
+      clearTimeout(authTimeout);
       setIsAuthResolving(false);
     });
 
-    return () => unsubscribe();
+    return () => { clearTimeout(authTimeout); unsubscribe(); };
   }, []);
 
   const handleLogout = async () => {
@@ -214,7 +230,7 @@ const App: React.FC = () => {
       case 'terms': return <Terms onNavigate={navigateTo} />;
       case 'pricing': return <Pricing user={user} onNavigate={navigateTo} />;
       case 'dashboard': return <Dashboard user={user} onNavigate={navigateTo} />;
-      case 'assistant': return <AIAssistant user={user} onTokenSpend={(amount: number) => handleTokenSpend(amount, 'analysis')} />;
+      case 'assistant': return <AIAssistant user={user} onNavigate={navigateTo} onTokenSpend={(amount: number) => handleTokenSpend(amount, 'analysis')} />;
       case 'education': return (
         <ErrorBoundary>
           <EducationHub user={user} onTokenSpend={(amount: number) => handleTokenSpend(amount, 'education')} />
@@ -251,6 +267,14 @@ const App: React.FC = () => {
         )}
         <div className="flex-1 overflow-auto">{renderPage()}</div>
       </main>
+
+      {showSubscribeModal && user && (
+        <SubscribeModal
+          user={user}
+          onClose={() => setShowSubscribeModal(false)}
+          onSubscribe={() => { setShowSubscribeModal(false); navigateTo('pricing'); }}
+        />
+      )}
     </div>
   );
 };
