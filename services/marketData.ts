@@ -18,13 +18,15 @@ export interface MarketDataResponse {
   price?: number | null;
   values?: any[];
   meta?: any;
+  indicators?: any;
   error?: string | any;
 }
 
 export const getMarketData = async (
   type: MarketType,
   symbol: string,
-  timeframe?: string
+  timeframe?: string,
+  opts?: { indicators?: boolean }
 ): Promise<MarketDataResponse | null> => {
   try {
     const idToken = await auth.currentUser?.getIdToken();
@@ -32,8 +34,9 @@ export const getMarketData = async (
     if (idToken) headers['Authorization'] = `Bearer ${idToken}`;
 
     const intervalParam = timeframe ? `&interval=${encodeURIComponent(timeframe)}` : '';
+    const indicatorParam = opts?.indicators ? '&indicators=1' : '';
     const response = await fetch(
-      `/api/market?type=${type}&symbol=${encodeURIComponent(symbol)}${intervalParam}`,
+      `/api/market?type=${type}&symbol=${encodeURIComponent(symbol)}${intervalParam}${indicatorParam}`,
       { headers }
     );
 

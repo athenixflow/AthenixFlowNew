@@ -430,6 +430,53 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend }) => {
           <p className="text-xs font-medium text-brand-charcoal italic leading-relaxed">{safeRender(data?.volatility_context)}</p>
         </div>
 
+        {/* Macro / Fundamental Context (only when the Macro toggle was on) */}
+        {data?.macro_context && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Macro / Fundamental Context</p>
+              <span className="text-[8px] font-bold text-brand-muted uppercase tracking-widest">{safeRender(data.macro_context.scope)} · {safeRender(data.macro_context.as_of)}</span>
+            </div>
+
+            {(data.macro_context.rate_differential != null || data.macro_context.base_currency || data.macro_context.counter_currency) && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {data.macro_context.rate_differential != null && (
+                  <div className="p-4 bg-brand-gold/5 border border-brand-gold/20 rounded-xl">
+                    <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Policy-Rate Differential</p>
+                    <p className="text-lg font-black text-brand-charcoal">{safeRender(data.macro_context.base)} − {safeRender(data.macro_context.quote)}: {fmt(data.macro_context.rate_differential, 2)}%</p>
+                    {data.macro_context.yield_differential != null && (
+                      <p className="text-[9px] text-brand-muted font-bold mt-1 uppercase tracking-wide">10Y yield diff: {fmt(data.macro_context.yield_differential, 2)}%</p>
+                    )}
+                  </div>
+                )}
+                {[data.macro_context.base_currency, data.macro_context.counter_currency].filter(Boolean).map((c: any, idx: number) => (
+                  <div key={idx} className="p-4 bg-brand-charcoal text-white rounded-xl">
+                    <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-2">{safeRender(c.code)}</p>
+                    <div className="space-y-1 text-[10px] font-bold">
+                      {c.policy_rate?.value != null && <div className="flex justify-between"><span className="text-white/50">Policy / Short</span><span>{fmt(c.policy_rate.value, 2)}%</span></div>}
+                      {c.ten_year?.value != null && <div className="flex justify-between"><span className="text-white/50">10Y Yield</span><span>{fmt(c.ten_year.value, 2)}%</span></div>}
+                      {c.cpi_yoy?.value != null && <div className="flex justify-between"><span className="text-white/50">CPI YoY</span><span>{fmt(c.cpi_yoy.value, 2)}%</span></div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {data.macro_context.us_backdrop && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.values(data.macro_context.us_backdrop).map((e: any, idx: number) => (
+                  e && e.value != null ? (
+                    <div key={idx} className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10 text-center">
+                      <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">{safeRender(e.label)}</p>
+                      <p className="text-sm font-black text-brand-charcoal">{fmt(e.value, 2)}{e.suffix || ''}</p>
+                    </div>
+                  ) : null
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Reasoning Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-brand-sage/10">
           <div className="space-y-1">

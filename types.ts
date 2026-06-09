@@ -145,12 +145,42 @@ export interface AnalysisFeedback {
   timestamp: string;
 }
 
+export interface MacroDataPoint {
+  value: number;
+  prev?: number | null;
+  date?: string;
+  label?: string;
+  suffix?: string;
+}
+
+export interface MacroCurrency {
+  code: string;
+  policy_rate?: MacroDataPoint;
+  ten_year?: MacroDataPoint;
+  cpi_yoy?: MacroDataPoint;
+}
+
+// Additive FRED macro snapshot attached server-side when the Macro toggle is on.
+// Not part of the engine's response schema.
+export interface MacroSnapshot {
+  as_of: string;
+  scope: string;
+  base?: string | null;
+  quote?: string | null;
+  rate_differential?: number | null;
+  yield_differential?: number | null;
+  us_backdrop?: Record<string, MacroDataPoint> | null;
+  base_currency?: MacroCurrency | null;
+  counter_currency?: MacroCurrency | null;
+}
+
 export interface TradeAnalysis {
-  id?: string;       
-  userId?: string;   
+  id?: string;
+  userId?: string;
   timestamp: string;
   instrument: string;
   marketType?: 'forex' | 'crypto' | 'stock' | 'metals' | 'indices';
+  macro_context?: MacroSnapshot;
   timeframe: string;
   execution_timeframe: string;
   market_phase: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';

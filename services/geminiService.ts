@@ -13,7 +13,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 /**
  * Athenix AI client.
- *
+ *JESUS
  * The Gemini API key is NO LONGER used in the browser. These functions are thin
  * clients that call the server-side Vercel functions in /api (analyze, education,
  * revalidate), which hold the key, the system instruction and the response schema.
@@ -28,12 +28,13 @@ export const analyzeMarket = async (
   symbol: string,
   timeframe: string,
   includeFundamentals: boolean,
-  marketContext?: string
+  marketContext?: string,
+  marketType?: string
 ): Promise<TradeAnalysis> => {
   const response = await fetch('/api/analyze', {
     method: 'POST',
     headers: await authHeaders(),
-    body: JSON.stringify({ symbol, timeframe, includeFundamentals, marketContext })
+    body: JSON.stringify({ symbol, timeframe, includeFundamentals, marketContext, marketType })
   });
 
   if (!response.ok) {

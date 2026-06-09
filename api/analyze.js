@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { requireUser, checkRateLimit, capString, assertCanSpend, spendToken, sendError, HttpError } from "./_lib/guard.js";
+import { getMacroContext } from "./_lib/fred.js";
 
 // Server-side Athenix analysis endpoint.
 // The Gemini API key (process.env.Google_api) never leaves the server.
@@ -504,9 +505,10 @@ export default async function handler(req, res) {
     const uid = await requireUser(req);
     await checkRateLimit(uid, 'analyze');
 
-    const { symbol, timeframe, includeFundamentals, marketContext } = req.body || {};
+    const { symbol, timeframe, includeFundamentals, marketContext, marketType } = req.body || {};
     capString(symbol, 32, 'symbol');
     capString(timeframe, 16, 'timeframe');
+    capString(marketType, 16, 'marketType');
     capString(marketContext, 20000, 'marketContext');
     if (!symbol || !timeframe) {
       throw new HttpError(400, "Missing symbol or timeframe.");
@@ -515,14 +517,29 @@ export default async function handler(req, res) {
     // 4. Enforce token economy BEFORE spending Gemini compute.
     await assertCanSpend(uid, 'analysis');
 
+    // Optional FRED macro/fundamental context — ONLY when the user toggled it on.
+    // Additive input context; a failure never blocks the analysis.
+    let macro = null;
+    if (includeFundamentals) {
+      try {
+        macro = await getMacroContext({ symbol, type: marketType });
+      } catch (e) {
+        console.warn('Macro context unavailable:', e?.message || e);
+      }
+    }
+
     const ai = new GoogleGenAI({ apiKey });
     const model = 'gemini-3.1-pro-preview';
 
-    const prompt = `Analyze ${symbol} on ${timeframe}.
+    let prompt = `Analyze ${symbol} on ${timeframe}.
   Include Fundamentals: ${includeFundamentals}.
   Market Context: ${marketContext || 'None'}.
 
   Strictly follow the ATHENIX MASTER IMPLEMENTATION PROMPT. Calculate scores and probabilities deterministically.`;
+
+    if (macro?.promptText) {
+      prompt += `\n\n${macro.promptText}`;
+    }
 
     const response = await ai.models.generateContent({
       model,
@@ -540,6 +557,12 @@ export default async function handler(req, res) {
     }
 
     const result = JSON.parse(response.text);
+
+    // Attach the macro snapshot (added by our server code, NOT the model — the
+    // response schema is untouched). Surfaced in the UI Macro panel + history.
+    if (macro?.snapshot) {
+      result.macro_context = macro.snapshot;
+    }
 
     // 5. Charge exactly one analysis unit, only after a successful generation.
     await spendToken(uid, 'analysis');

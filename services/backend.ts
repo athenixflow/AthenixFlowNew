@@ -42,7 +42,8 @@ export const analyzeMarket = async (
     const resolvedMarketType = marketType || (symbol.length < 5 ? 'stock' : 'forex');
     let marketContext = '';
     try {
-      const marketData = await getMarketData(resolvedMarketType, symbol, timeframe);
+      // Pull candles + the Core technical-indicator set as ADDITIVE context.
+      const marketData = await getMarketData(resolvedMarketType, symbol, timeframe, { indicators: true });
 
       if (marketData && !marketData.error) {
         marketContext = JSON.stringify(marketData);
@@ -52,7 +53,7 @@ export const analyzeMarket = async (
     }
 
     // 2. Call Gemini Analysis Engine
-    const result = await callGeminiAnalysis(symbol, timeframe, includeFundamentals, marketContext);
+    const result = await callGeminiAnalysis(symbol, timeframe, includeFundamentals, marketContext, resolvedMarketType);
     
     // 3. Prepare full record for persistence (Flattened for query/sorting)
     const fullAnalysis: TradeAnalysis = {
