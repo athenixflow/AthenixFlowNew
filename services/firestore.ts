@@ -519,26 +519,33 @@ export const logSecurityEvent = async (event: Omit<SecurityEvent, 'id' | 'timest
 
 // --- TOKEN MANAGEMENT ---
 
-export const adminAddTokens = async (userId: string, amount: number, reason: string, adminId: string) => {
+export const adminAddTokens = async (userId: string, amount: number, reason: string, adminId: string, resource: 'analysis' | 'education' = 'analysis') => {
   try {
     const userRef = doc(firestore, "users", userId);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) return { success: false, error: "User not found" };
-    
+
     const userData = userSnap.data() as UserProfile;
-    const currentTokens = userData.tokens || 0;
-    
-    await updateDoc(userRef, { tokens: currentTokens + amount });
-    
+    const currentTokens = resource === 'analysis'
+      ? (userData.analysisTokens || 0)
+      : (userData.educationTokens || 0);
+
+    const updateData = resource === 'analysis'
+      ? { analysisTokens: currentTokens + amount }
+      : { educationTokens: currentTokens + amount };
+
+    await updateDoc(userRef, updateData);
+
     await addDoc(collection(firestore, "token_transactions"), {
       userId,
       amount,
       type: 'admin_credit',
+      resource,
       reason,
       adminId,
       timestamp: new Date().toISOString()
     });
-    
+
     return { success: true };
   } catch (error: any) {
     console.error("Error adding tokens:", error);

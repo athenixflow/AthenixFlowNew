@@ -63,6 +63,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
   const [grantUser, setGrantUser] = useState<UserProfile | null>(null);
   const [tokenAmount, setTokenAmount] = useState(0);
   const [tokenReason, setTokenReason] = useState('');
+  const [grantResource, setGrantResource] = useState<'analysis' | 'education'>('analysis');
+  const [grantError, setGrantError] = useState('');
+  const [grantBusy, setGrantBusy] = useState(false);
   const [detailUser, setDetailUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
@@ -94,9 +97,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
 
   const handleGrant = async () => {
     if (!grantUser || tokenAmount <= 0 || !tokenReason) return;
-    await adminAddTokens(grantUser.uid, tokenAmount, tokenReason, user.uid);
-    await logAdminAction(user.uid, user.fullName, 'GRANT_TOKENS', `+${tokenAmount} tokens to ${grantUser.fullName} (${tokenReason})`);
-    setGrantUser(null); setTokenAmount(0); setTokenReason('');
+    setGrantBusy(true); setGrantError('');
+    const res = await adminAddTokens(grantUser.uid, tokenAmount, tokenReason, user.uid, grantResource);
+    if (!res.success) {
+      setGrantError(res.error || 'Failed to grant tokens. Please try again.');
+      setGrantBusy(false);
+      return;
+    }
+    await logAdminAction(user.uid, user.fullName, 'GRANT_TOKENS', `+${tokenAmount} ${grantResource} tokens to ${grantUser.fullName} (${tokenReason})`);
+    setGrantBusy(false);
+    setGrantUser(null); setTokenAmount(0); setTokenReason(''); setGrantResource('analysis'); setGrantError('');
   };
 
   const handleToggleSuspend = async (u: UserProfile) => {
@@ -174,18 +184,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onNavigate, onLog
 
       {/* Grant tokens modal */}
       {grantUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4" onClick={() => setGrantUser(null)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[90] flex items-center justify-center p-4" onClick={() => { if (!grantBusy) { setGrantUser(null); setGrantError(''); } }}>
           <div className="bg-white rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-black text-brand-charcoal uppercase tracking-tighter mb-2">Grant Tokens</h3>
             <p className="text-xs text-brand-muted mb-4">To <span className="font-bold text-brand-charcoal">{grantUser.fullName}</span></p>
             <div className="space-y-4">
-              <input type="number" value={tokenAmount} onChange={e => setTokenAmount(Number(e.target.value))} placeholder="Amount" className="w-full bg-brand-sage/10 rounded-xl p-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand-gold" />
-              <input type="text" value={tokenReason} onChange={e => setTokenReason(e.target.value)} placeholder="Reason (e.g. bonus, refund)" className="w-full bg-brand-sage/10 rounded-xl p-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand-gold" />
+              <div>
+                <label className="block text-[10px] font-black text-brand-muted uppercase tracking-widest mb-2">Token Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['analysis', 'education'] as const).map(r => (
+                    <button key={r} type="button" onClick={() => setGrantResource(r)}
+                      className={`py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${grantResource === r ? 'bg-brand-gold text-white shadow-md shadow-brand-gold/10' : 'bg-brand-sage/10 text-brand-muted hover:bg-brand-sage/20'}`}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-brand-muted uppercase tracking-widest mb-2">Amount</label>
+                <input type="number" min={1} value={tokenAmount || ''} onChange={e => setTokenAmount(Number(e.target.value))} placeholder="e.g. 50" className="w-full bg-brand-sage/10 rounded-xl p-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand-gold" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-brand-muted uppercase tracking-widest mb-2">Reason</label>
+                <input type="text" value={tokenReason} onChange={e => setTokenReason(e.target.value)} placeholder="e.g. bonus, refund, support credit" className="w-full bg-brand-sage/10 rounded-xl p-3 text-sm font-bold outline-none focus:ring-2 focus:ring-brand-gold" />
+              </div>
             </div>
+            {grantError && <p className="mt-4 text-xs font-bold text-brand-error bg-brand-error/10 rounded-xl p-3">{grantError}</p>}
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setGrantUser(null)} className="flex-1 py-3 bg-brand-sage/10 text-brand-charcoal text-xs font-black uppercase tracking-widest rounded-xl">Cancel</button>
-              <button onClick={handleGrant} disabled={tokenAmount <= 0 || !tokenReason} className="flex-1 py-3 bg-brand-gold text-white text-xs font-black uppercase tracking-widest rounded-xl disabled:opacity-50">Confirm</button>
+              <button onClick={() => { setGrantUser(null); setGrantError(''); }} disabled={grantBusy} className="flex-1 py-3 bg-brand-sage/10 text-brand-charcoal text-xs font-black uppercase tracking-widest rounded-xl disabled:opacity-50">Cancel</button>
+              <button onClick={handleGrant} disabled={tokenAmount <= 0 || !tokenReason || grantBusy} className="flex-1 py-3 bg-brand-gold text-white text-xs font-black uppercase tracking-widest rounded-xl disabled:opacity-50">{grantBusy ? 'Granting…' : 'Confirm'}</button>
             </div>
+            {(tokenAmount <= 0 || !tokenReason) && !grantBusy && (
+              <p className="mt-3 text-center text-[10px] text-brand-muted font-bold uppercase tracking-wide">Enter an amount and a reason to enable Confirm</p>
+            )}
           </div>
         </div>
       )}
