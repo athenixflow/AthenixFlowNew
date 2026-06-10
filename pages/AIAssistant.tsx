@@ -425,6 +425,65 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
           </div>
         </div>
 
+        {/* News banner (Macro toggle on + event in-window) */}
+        {data?.news_context?.events?.length ? (
+          <div className={`p-4 rounded-xl border space-y-2 ${data.news_context.highest_impact === 'high' ? 'border-brand-warning/40 bg-brand-warning/5' : 'border-brand-sage/30 bg-brand-sage/5'}`}>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-black uppercase tracking-widest ${data.news_context.highest_impact === 'high' ? 'text-brand-warning' : 'text-brand-muted'}`}>
+                {data.news_context.highest_impact === 'high' ? '⚠ High-Impact News In-Window' : 'Scheduled News In-Window'}
+              </span>
+              <span className="text-[8px] font-bold text-brand-muted uppercase tracking-widest">next {safeRender(data.news_context.horizon_hours)}h</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {data.news_context.events.map((ev: any, i: number) => (
+                <span key={i} className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-wide ${ev.impact === 'high' ? 'bg-brand-warning/15 text-brand-charcoal' : 'bg-brand-sage/15 text-brand-muted'}`}>
+                  {safeRender(ev.name)} · {safeRender(ev.date)}{ev.time_et ? ` ${ev.time_et} ET` : ''}
+                  {typeof ev.minutes_until === 'number' && ev.minutes_until > 0 ? ` · in ${ev.minutes_until < 120 ? ev.minutes_until + 'm' : Math.round(ev.minutes_until / 60) + 'h'}` : ''}
+                </span>
+              ))}
+            </div>
+            {data.news_context.highest_impact === 'high' ? (
+              <p className="text-[10px] text-brand-muted font-medium leading-relaxed">Around these releases expect a liquidity raid / spread blow-out. The separate news-refined setup below predicts the entry at the manipulation zone, the stop just beyond it, with targets unchanged.</p>
+            ) : (
+              <p className="text-[10px] text-brand-muted font-medium leading-relaxed">Secondary releases scheduled — heightened volatility possible. No setup refinement is applied for medium-impact events.</p>
+            )}
+          </div>
+        ) : null}
+
+        {/* News-Refined Setup — parallel run; standard setup above is unchanged */}
+        {data?.news_refined ? (
+          <div className="space-y-3">
+            <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">News-Refined Setup (High-Impact News)</p>
+            <div className="p-5 rounded-xl space-y-4 border-2 border-brand-gold/40 bg-brand-gold/5">
+              <div className="flex justify-between items-center">
+                <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${data.news_refined.direction === 'buy' ? 'bg-brand-success text-white' : 'bg-brand-error text-white'}`}>{safeRender(data.news_refined.direction)}</span>
+                <span className="text-[9px] font-black text-brand-gold uppercase tracking-widest">Manipulation Entry</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Entry · manipulation zone</p>
+                  <p className="text-sm font-black text-brand-charcoal">{fmt(data.news_refined.entry)}</p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest mb-1">Stop · just beyond sweep</p>
+                  <p className="text-sm font-black text-brand-error">{fmt(data.news_refined.stop_loss)}</p>
+                </div>
+              </div>
+              {Array.isArray(data.news_refined.take_profits) && data.news_refined.take_profits.length ? (
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-brand-gold/20">
+                  {data.news_refined.take_profits.slice(0, 3).map((tp: number, i: number) => (
+                    <div key={i}>
+                      <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest mb-1">TP{i + 1} · unchanged</p>
+                      <p className="text-[10px] font-black text-brand-success">{fmt(tp)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {data.news_refined.rationale ? <p className="text-[10px] text-brand-muted font-medium italic leading-relaxed pt-1">{safeRender(data.news_refined.rationale)}</p> : null}
+            </div>
+          </div>
+        ) : null}
+
         {/* Volatility Context */}
         <div className="p-4 bg-brand-sage/5 border border-brand-sage/10 rounded-xl">
           <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Volatility Context</p>

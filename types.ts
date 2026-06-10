@@ -174,6 +174,35 @@ export interface MacroSnapshot {
   counter_currency?: MacroCurrency | null;
 }
 
+// Additive FRED high-impact news context attached server-side when the Macro
+// toggle is on. Not part of the engine's response schema.
+export interface NewsEvent {
+  name: string;
+  date: string;        // YYYY-MM-DD
+  time_et?: string;    // conventional release time, US Eastern
+  impact: 'high' | 'medium';
+  minutes_until?: number;
+}
+
+export interface NewsSnapshot {
+  as_of: string;
+  horizon_hours: number;
+  events: NewsEvent[];
+  highest_impact?: string | null;
+}
+
+// The parallel news-refined setup — produced by a separate run of the SAME
+// engine + a News-Refinement module. Shown alongside the standard setup; the
+// standard analysis fields are never altered.
+export interface NewsRefinedSetup {
+  direction: 'buy' | 'sell';
+  entry: number;
+  stop_loss: number;
+  take_profits: number[];
+  quality_score?: number;
+  rationale?: string;
+}
+
 export interface TradeAnalysis {
   id?: string;
   userId?: string;
@@ -181,6 +210,8 @@ export interface TradeAnalysis {
   instrument: string;
   marketType?: 'forex' | 'crypto' | 'stock' | 'metals' | 'indices';
   macro_context?: MacroSnapshot;
+  news_context?: NewsSnapshot;
+  news_refined?: NewsRefinedSetup | null;
   timeframe: string;
   execution_timeframe: string;
   market_phase: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';
@@ -405,7 +436,7 @@ export interface AuditLogEntry {
 // Powers the AI Management + System Monitoring sections with real usage/latency/cost.
 export interface AiTelemetry {
   id?: string;
-  feature: 'analysis' | 'education' | 'revalidate';
+  feature: 'analysis' | 'analysis_news' | 'education' | 'revalidate';
   model: string;
   userId?: string | null;
   ok: boolean;
