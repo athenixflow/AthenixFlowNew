@@ -1,7 +1,7 @@
 
 import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, addDoc, limit, Timestamp, serverTimestamp, updateDoc, deleteDoc, getCountFromServer, onSnapshot, Unsubscribe } from "firebase/firestore";
 import { firestore, auth } from "../firebase";
-import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry, SignalPublisher, Subscription, Referral, TokenTransaction } from "../types";
+import { UserProfile, UserRole, SubscriptionPlan, TradingSignal, JournalEntry, Lesson, TradeAnalysis, AnalysisFeedback, EducationInteraction, AdminOverviewMetrics, RevenueMetrics, AIOversightMetrics, TokenEconomyConfig, AuditLogEntry, SignalPublisher, Subscription, Referral, TokenTransaction, AiTelemetry, SecurityEvent } from "../types";
 
 enum OperationType {
   CREATE = 'create',
@@ -461,6 +461,62 @@ export const subscribeToTokenTransactions = (callback: (transactions: TokenTrans
   }, (error) => console.error("Token Transactions Subscription Error:", error));
 };
 
+// --- ADMIN OS: additional real-time subscriptions (same pattern as above) -----
+
+export const subscribeToAllJournalEntries = (callback: (entries: JournalEntry[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "tradeJournal"), orderBy("timestamp", "desc"));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as JournalEntry)));
+  }, (error) => console.error("Journal (admin) Subscription Error:", error));
+};
+
+export const subscribeToAllEducationInteractions = (callback: (items: EducationInteraction[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "educationInteractions"), orderBy("timestamp", "desc"), limit(1000));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EducationInteraction)));
+  }, (error) => console.error("Education (admin) Subscription Error:", error));
+};
+
+export const subscribeToAuditLogs = (callback: (logs: AuditLogEntry[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "admin_audit_logs"), orderBy("timestamp", "desc"), limit(200));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map(doc => {
+      const data = doc.data();
+      let ts = new Date().toISOString();
+      if (data.timestamp && typeof data.timestamp.toDate === 'function') ts = data.timestamp.toDate().toISOString();
+      else if (typeof data.timestamp === 'string') ts = data.timestamp;
+      return { id: doc.id, ...data, timestamp: ts } as AuditLogEntry;
+    }));
+  }, (error) => console.error("Audit Logs Subscription Error:", error));
+};
+
+export const subscribeToAiTelemetry = (callback: (rows: AiTelemetry[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "ai_telemetry"), orderBy("timestamp", "desc"), limit(1000));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AiTelemetry)));
+  }, (error) => console.error("AI Telemetry Subscription Error:", error));
+};
+
+export const subscribeToSecurityEvents = (callback: (events: SecurityEvent[]) => void): Unsubscribe => {
+  const q = query(collection(firestore, "security_events"), orderBy("timestamp", "desc"), limit(500));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as SecurityEvent)));
+  }, (error) => console.error("Security Events Subscription Error:", error));
+};
+
+// Client-side security-event writer (auth boundary). Best-effort: login_failure
+// fires pre-auth and may be blocked by Firestore rules — that's acceptable.
+export const logSecurityEvent = async (event: Omit<SecurityEvent, 'id' | 'timestamp'>) => {
+  try {
+    await addDoc(collection(firestore, "security_events"), {
+      ...event,
+      timestamp: new Date().toISOString()
+    });
+  } catch (e) {
+    /* swallow — pre-auth writes may be denied by rules */
+  }
+};
+
 // --- TOKEN MANAGEMENT ---
 
 export const adminAddTokens = async (userId: string, amount: number, reason: string, adminId: string) => {
@@ -487,6 +543,16 @@ export const adminAddTokens = async (userId: string, amount: number, reason: str
   } catch (error: any) {
     console.error("Error adding tokens:", error);
     return { success: false, error: error.message };
+  }
+};
+
+export const adminUpdateAccountStatus = async (userId: string, status: 'active' | 'suspended') => {
+  try {
+    await updateDoc(doc(firestore, "users", userId), { accountStatus: status });
+    return { success: true };
+  } catch (e: any) {
+    console.error("Error updating account status:", e);
+    return { success: false, error: e.message };
   }
 };
 

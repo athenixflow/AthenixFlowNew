@@ -7,7 +7,7 @@ import {
   signInWithPopup
 } from 'firebase/auth';
 import { auth } from '../firebase';
-import { initializeUserDocument } from '../services/firestore';
+import { initializeUserDocument, logSecurityEvent } from '../services/firestore';
 import { UserProfile } from '../types';
 
 interface AuthPageProps {
@@ -48,16 +48,18 @@ const AuthPage: React.FC<AuthPageProps> = ({ mode, onToggleMode }) => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      
+
       // Initialize profile immediately to ensure data consistency
-      await initializeUserDocument(result.user.uid, { 
-        fullName: result.user.displayName || 'Trader', 
-        email: result.user.email || '' 
+      await initializeUserDocument(result.user.uid, {
+        fullName: result.user.displayName || 'Trader',
+        email: result.user.email || ''
       });
-      
+      logSecurityEvent({ type: 'login_success', email: result.user.email, userId: result.user.uid, method: 'google' });
+
       // onAuthSuccess is handled by the onAuthStateChanged listener in App.tsx
     } catch (err: any) {
       console.error(err);
+      logSecurityEvent({ type: 'login_failure', email: email || null, method: 'google', reason: err?.code || err?.message });
       let message = "Google Access Denied.";
       if (err.code === 'auth/popup-closed-by-user') message = "Authentication cancelled.";
       if (err.code === 'auth/popup-blocked') message = "Pop-up blocked by browser.";
@@ -94,14 +96,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ mode, onToggleMode }) => {
         }
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await initializeUserDocument(userCredential.user.uid, { fullName, email });
+        logSecurityEvent({ type: 'signup', email, userId: userCredential.user.uid, method: 'password' });
         // onAuthSuccess is handled by the onAuthStateChanged listener in App.tsx
       } else {
         // Login Flow
-        await signInWithEmailAndPassword(auth, email, password);
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        logSecurityEvent({ type: 'login_success', email, userId: cred.user.uid, method: 'password' });
         // onAuthSuccess is handled by the onAuthStateChanged listener in App.tsx
       }
     } catch (err: any) {
       console.error(err);
+      if (!isForgotPassword) {
+        logSecurityEvent({ type: 'login_failure', email: email || null, method: 'password', reason: err?.code || err?.message });
+      }
       let message = "Authentication failed.";
       
       // Firebase Error Mapping

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { requireUser, checkRateLimit, capString, assertCanSpend, spendToken, sendError, HttpError } from "./_lib/guard.js";
+import { recordAiCall } from "./_lib/telemetry.js";
 
 // Server-side Athenix education endpoint.
 // Behaviour identical to the previous client-side getEducationResponse.
@@ -43,13 +44,21 @@ export default async function handler(req, res) {
     Tailor the depth of the explanation to the ${difficulty} level.
   `;
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        systemInstruction: "You are an expert trading mentor at Athenix. Focus on Smart Money Concepts, Liquidity, and Market Structure. Provide educational, institutional-grade responses."
-      }
-    });
+    const startedAt = Date.now();
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          systemInstruction: "You are an expert trading mentor at Athenix. Focus on Smart Money Concepts, Liquidity, and Market Structure. Provide educational, institutional-grade responses."
+        }
+      });
+    } catch (e) {
+      await recordAiCall({ feature: 'education', model, uid, startedAt, usage: e?.response?.usageMetadata, ok: false, error: e?.message });
+      throw e;
+    }
+    await recordAiCall({ feature: 'education', model, uid, startedAt, usage: response?.usageMetadata, ok: true });
 
     const text = response.text || "Unable to generate response.";
 

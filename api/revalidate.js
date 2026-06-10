@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { adminDb } from "./_lib/firebaseAdmin.js";
 import { requireUser, checkRateLimit, sendError, HttpError } from "./_lib/guard.js";
+import { recordAiCall } from "./_lib/telemetry.js";
 
 // Server-side Athenix revalidation endpoint.
 // Auth-gated; the prompt is built from the SERVER-stored analysis (verified to
@@ -73,14 +74,22 @@ export default async function handler(req, res) {
     - "Setup invalidated"
   `;
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        temperature: 0.1,
-        responseMimeType: "text/plain"
-      }
-    });
+    const startedAt = Date.now();
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          temperature: 0.1,
+          responseMimeType: "text/plain"
+        }
+      });
+    } catch (e) {
+      await recordAiCall({ feature: 'revalidate', model, uid, startedAt, usage: e?.response?.usageMetadata, ok: false, error: e?.message });
+      throw e;
+    }
+    await recordAiCall({ feature: 'revalidate', model, uid, startedAt, usage: response?.usageMetadata, ok: true });
 
     return res.status(200).json({ result: response.text?.trim() || "Setup Still Valid" });
   } catch (error) {

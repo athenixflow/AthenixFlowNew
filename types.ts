@@ -398,3 +398,34 @@ export interface AuditLogEntry {
   details: string;
   timestamp: string;
 }
+
+// --- Admin OS: instrumentation data sources (real, captured going forward) ---
+
+// One row per server-side AI call (api/analyze, api/education, api/revalidate).
+// Powers the AI Management + System Monitoring sections with real usage/latency/cost.
+export interface AiTelemetry {
+  id?: string;
+  feature: 'analysis' | 'education' | 'revalidate';
+  model: string;
+  userId?: string | null;
+  ok: boolean;
+  error?: string | null;
+  latencyMs: number;
+  promptTokens: number;
+  candidateTokens: number;
+  totalTokens: number;
+  costUsd: number;
+  day: string;        // YYYY-MM-DD bucket
+  timestamp: string;  // ISO
+}
+
+// Authentication / security events captured client-side at the auth boundary.
+export interface SecurityEvent {
+  id?: string;
+  type: 'login_success' | 'login_failure' | 'signup' | 'password_reset';
+  email?: string | null;
+  userId?: string | null;
+  method?: 'password' | 'google';
+  reason?: string | null;  // failure reason / firebase error code
+  timestamp: string;
+}

@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { requireUser, checkRateLimit, capString, assertCanSpend, spendToken, sendError, HttpError } from "./_lib/guard.js";
 import { getMacroContext } from "./_lib/fred.js";
+import { recordAiCall } from "./_lib/telemetry.js";
 
 // Server-side Athenix analysis endpoint.
 // The Gemini API key (process.env.Google_api) never leaves the server.
@@ -541,16 +542,24 @@ export default async function handler(req, res) {
       prompt += `\n\n${macro.promptText}`;
     }
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt,
-      config: {
-        systemInstruction: ANALYSIS_SYSTEM_INSTRUCTION,
-        temperature: 0.1,
-        responseMimeType: "application/json",
-        responseSchema: RESPONSE_SCHEMA
-      }
-    });
+    const startedAt = Date.now();
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: {
+          systemInstruction: ANALYSIS_SYSTEM_INSTRUCTION,
+          temperature: 0.1,
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA
+        }
+      });
+    } catch (e) {
+      await recordAiCall({ feature: 'analysis', model, uid, startedAt, usage: e?.response?.usageMetadata, ok: false, error: e?.message });
+      throw e;
+    }
+    await recordAiCall({ feature: 'analysis', model, uid, startedAt, usage: response?.usageMetadata, ok: true });
 
     if (!response.text) {
       throw new HttpError(502, "Neural engine returned an empty response.");
