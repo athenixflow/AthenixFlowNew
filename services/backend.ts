@@ -23,7 +23,8 @@ export const analyzeMarket = async (
   symbol: string, 
   timeframe: string, 
   includeFundamentals: boolean,
-  marketType?: 'forex' | 'crypto' | 'stock' | 'metals' | 'indices'
+  marketType?: 'forex' | 'crypto' | 'stock' | 'metals' | 'indices',
+  selectedMode?: 'scalp' | 'day_trade' | 'swing_trade'
 ): Promise<BackendResponse> => {
   try {
     const userRef = doc(firestore, 'users', userId);
@@ -62,6 +63,9 @@ export const analyzeMarket = async (
       timestamp: new Date().toISOString(),
       status: 'active',
       marketType: resolvedMarketType,
+      // Record the user's selected mode (label source of truth; engine output untouched).
+      // Conditional-spread so we never write `undefined` to Firestore.
+      ...(selectedMode ? { selected_mode: selectedMode } : {}),
       
       // Ensure Version 2.0 fields are present (defaults if missing from AI response)
       market_narrative_context: result.market_narrative_context || {

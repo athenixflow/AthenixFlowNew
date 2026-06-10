@@ -216,6 +216,11 @@ export interface TradeAnalysis {
   execution_timeframe: string;
   market_phase: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';
   execution_mode: 'scalp' | 'day_trade' | 'swing_trade';
+  // The mode the USER selected in the UI (source of truth for the label).
+  // The engine's own `execution_mode` is left untouched; this is recorded
+  // client-side because the engine re-derives mode from the timeframe and can
+  // diverge on the overlapping M15 timeframe.
+  selected_mode?: 'scalp' | 'day_trade' | 'swing_trade';
   final_decision: 'trade' | 'no_trade';
   strategy_used: 'structure_only' | 'liquidity_only' | 'structure_plus_liquidity' | 'none';
 

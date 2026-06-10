@@ -29,7 +29,7 @@ const MODE_CONFIG: Record<ExecutionMode, { label: string; desc: string; timefram
   },
   day_trade: {
     label: 'DAY TRADE MODE',
-    desc: 'M15-H4. Refined to M5.',
+    desc: 'M15-H2. Refined to M5.',
     timeframes: ['M15', 'M30', 'H1', 'H2'],
     icon: ({selected}) => (
       <svg className={`w-5 h-5 ${selected ? 'text-white' : 'text-brand-gold'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -39,7 +39,7 @@ const MODE_CONFIG: Record<ExecutionMode, { label: string; desc: string; timefram
   },
   swing_trade: {
     label: 'SWING MODE',
-    desc: 'H4-Weekly. Refined to M15.',
+    desc: 'H4-D1. Refined to M15.',
     timeframes: ['H4', 'H8', 'D1'],
     icon: ({selected}) => (
       <svg className={`w-5 h-5 ${selected ? 'text-white' : 'text-brand-gold'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -122,7 +122,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
     setIsAnalyzing(true);
     setError(null);
     setAnalysis(null);
-    const response = await analyzeMarket(user.uid, symbol, timeframe, fundamentalToggle, marketType);
+    const response = await analyzeMarket(user.uid, symbol, timeframe, fundamentalToggle, marketType, tradeMode);
     if (response.status === 'success') {
       const data = response.data as TradeAnalysis;
       onTokenSpend(1);
@@ -172,7 +172,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
             <div className="flex items-center gap-3">
                <h4 className="text-3xl font-black text-brand-charcoal tracking-tighter uppercase">{safeRender(data?.instrument)}</h4>
                <span className="px-3 py-1 bg-brand-gold text-white text-[9px] font-black uppercase rounded tracking-widest shadow-md">
-                 {safeRender(data?.execution_mode).replace('_', ' ')}
+                 {safeRender(data?.selected_mode ?? data?.execution_mode).replace('_', ' ')}
                </span>
             </div>
             <div className="flex flex-wrap gap-2">

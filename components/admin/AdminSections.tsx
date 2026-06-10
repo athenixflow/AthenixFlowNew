@@ -575,7 +575,7 @@ export const AccuracySection: React.FC<{ data: AdminData }> = ({ data }) => {
   const fed = data.analyses.filter(a => a.feedback?.outcome);
   const tp = fed.filter(a => a.feedback?.outcome === 'TP_HIT').length;
   const byTf = Object.entries(fed.reduce((acc, a) => { (acc[a.timeframe] ||= { t: 0, w: 0 }); acc[a.timeframe].t++; if (a.feedback?.outcome === 'TP_HIT') acc[a.timeframe].w++; return acc; }, {} as Record<string, { t: number; w: number }>));
-  const byMode = Object.entries(fed.reduce((acc, a) => { const m = a.execution_mode || 'unknown'; (acc[m] ||= { t: 0, w: 0 }); acc[m].t++; if (a.feedback?.outcome === 'TP_HIT') acc[m].w++; return acc; }, {} as Record<string, { t: number; w: number }>));
+  const byMode = Object.entries(fed.reduce((acc, a) => { const m = a.selected_mode || a.execution_mode || 'unknown'; (acc[m] ||= { t: 0, w: 0 }); acc[m].t++; if (a.feedback?.outcome === 'TP_HIT') acc[m].w++; return acc; }, {} as Record<string, { t: number; w: number }>));
   return (
     <div className="space-y-8">
       <SectionHeader title="Accuracy Lab" desc="Forecast accuracy from real user-submitted outcomes." />
