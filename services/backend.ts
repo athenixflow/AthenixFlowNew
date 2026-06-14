@@ -3,6 +3,7 @@ import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, 
 import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse, revalidateTradeSetup } from './geminiService';
 import { getMarketData, testMarketConnection } from './marketData';
+import { getModeConfig, computeStructureFacts, scoreSignal, StructureFacts } from './structureEngine';
 import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth, TradingSignal, TradeAnalysis } from '../types';
 import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection, updateAnalysisValidation } from './firestore';
 
@@ -42,11 +43,33 @@ export const analyzeMarket = async (
     // 1. Fetch Real-Time Market Data (Twelve Data via /api/market)
     const resolvedMarketType = marketType || (symbol.length < 5 ? 'stock' : 'forex');
     let marketContext = '';
+    let structureFacts: StructureFacts | null = null;
     try {
       // Pull candles + the Core technical-indicator set as ADDITIVE context.
       const marketData = await getMarketData(resolvedMarketType, symbol, timeframe, { indicators: true });
 
       if (marketData && !marketData.error) {
+        // --- Structure Intelligence (patterns / multi-TF confluence / liquidity) ---
+        // Additive context only — fed to the LLM, never overrides its levels.
+        try {
+          const { correlationTimeframes } = getModeConfig(selectedMode, timeframe);
+          const [midTF, macroTF] = correlationTimeframes;
+          const [midResp, macroResp] = await Promise.all([
+            midTF ? getMarketData(resolvedMarketType, symbol, midTF) : Promise.resolve(null),
+            macroTF ? getMarketData(resolvedMarketType, symbol, macroTF) : Promise.resolve(null)
+          ]);
+          structureFacts = computeStructureFacts({
+            entryCandles: (marketData as any).values,
+            midCandles: midResp && !midResp.error ? (midResp as any).values : null,
+            macroCandles: macroResp && !macroResp.error ? (macroResp as any).values : null,
+            mode: selectedMode,
+            entryTimeframe: timeframe
+          });
+          (marketData as any).structure_intelligence = structureFacts;
+        } catch (e: any) {
+          console.warn('Athenix: structure intelligence unavailable:', e?.message || e);
+        }
+
         marketContext = JSON.stringify(marketData);
       }
     } catch (err) {
@@ -66,6 +89,8 @@ export const analyzeMarket = async (
       // Record the user's selected mode (label source of truth; engine output untouched).
       // Conditional-spread so we never write `undefined` to Firestore.
       ...(selectedMode ? { selected_mode: selectedMode } : {}),
+      // Structure Intelligence (supporting read; computed from the LLM's direction).
+      ...(structureFacts ? { structure_intelligence: scoreSignal(structureFacts, (result.impulse_setup?.direction || result.signal?.direction), includeFundamentals) } : {}),
       
       // Ensure Version 2.0 fields are present (defaults if missing from AI response)
       market_narrative_context: result.market_narrative_context || {

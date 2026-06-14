@@ -203,6 +203,21 @@ export interface NewsRefinedSetup {
   rationale?: string;
 }
 
+// Additive "Structure Intelligence" — JS-computed patterns / multi-TF confluence
+// / liquidity / 0-100 confidence. Fed to the LLM as context AND surfaced here as
+// a supporting read; it never overrides the LLM's entry/SL/TP. (See
+// services/structureEngine.ts.)
+export interface StructureIntelligence {
+  mode: 'scalp' | 'day_trade' | 'swing_trade';
+  entryTimeframe: string;
+  correlationTimeframes: (string | null)[];
+  patternDetected: { type: string; strength: number } | null;
+  confluence: 'high' | 'medium' | 'low';
+  liquiditySweepZones: number[];
+  macroApplied: boolean;
+  confidenceScore: number; // 0-100
+}
+
 export interface TradeAnalysis {
   id?: string;
   userId?: string;
@@ -212,6 +227,7 @@ export interface TradeAnalysis {
   macro_context?: MacroSnapshot;
   news_context?: NewsSnapshot;
   news_refined?: NewsRefinedSetup | null;
+  structure_intelligence?: StructureIntelligence;
   timeframe: string;
   execution_timeframe: string;
   market_phase: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';

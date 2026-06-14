@@ -484,6 +484,62 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
           </div>
         ) : null}
 
+        {/* Structure Intelligence (supports the recommendation; never overrides it) */}
+        {data?.structure_intelligence ? (() => {
+          const si: any = data.structure_intelligence;
+          const score = typeof si.confidenceScore === 'number' ? si.confidenceScore : 0;
+          const tier = score >= 75 ? { label: 'High', cls: 'text-brand-success', bar: 'bg-brand-success' }
+            : score >= 50 ? { label: 'Medium', cls: 'text-brand-warning', bar: 'bg-brand-warning' }
+            : { label: 'Low', cls: 'text-brand-error', bar: 'bg-brand-error' };
+          const conf = si.confluence === 'high' ? 'text-brand-success' : si.confluence === 'medium' ? 'text-brand-warning' : 'text-brand-error';
+          return (
+            <div className="p-5 rounded-xl border border-brand-sage/20 bg-white space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest">Structure Intelligence</p>
+                <span className="text-[8px] font-bold text-brand-muted uppercase tracking-widest">supporting read · informs, does not override</span>
+              </div>
+              <div className="flex items-end gap-4">
+                <div>
+                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Confidence</p>
+                  <p className={`text-3xl font-black ${tier.cls}`}>{score}<span className="text-sm text-brand-muted">/100</span></p>
+                  <p className={`text-[9px] font-black uppercase tracking-widest ${tier.cls}`}>{tier.label}</p>
+                </div>
+                <div className="flex-1 h-2 rounded-full bg-brand-sage/15 overflow-hidden mb-2">
+                  <div className={`h-full ${tier.bar}`} style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10">
+                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Pattern</p>
+                  <p className="text-xs font-black text-brand-charcoal">{si.patternDetected ? safeRender(si.patternDetected.type).replace(/_/g, ' ') : 'None at level'}</p>
+                </div>
+                <div className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10">
+                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">MTF Confluence</p>
+                  <p className={`text-xs font-black uppercase ${conf}`}>{safeRender(si.confluence)}</p>
+                </div>
+                <div className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10">
+                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Correlation TFs</p>
+                  <p className="text-xs font-black text-brand-charcoal">{(si.correlationTimeframes || []).filter(Boolean).join(' · ') || '—'}</p>
+                </div>
+                <div className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10">
+                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Macro Applied</p>
+                  <p className="text-xs font-black text-brand-charcoal">{si.macroApplied ? 'Yes' : 'No'}</p>
+                </div>
+              </div>
+              {Array.isArray(si.liquiditySweepZones) && si.liquiditySweepZones.length ? (
+                <div>
+                  <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-2">Liquidity Sweep Zones</p>
+                  <div className="flex flex-wrap gap-2">
+                    {si.liquiditySweepZones.slice(0, 8).map((z: number, i: number) => (
+                      <span key={i} className="px-2 py-1 rounded bg-brand-charcoal/5 text-[9px] font-black text-brand-charcoal font-mono">{fmt(z)}</span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          );
+        })() : null}
+
         {/* Volatility Context */}
         <div className="p-4 bg-brand-sage/5 border border-brand-sage/10 rounded-xl">
           <p className="text-[9px] text-brand-muted uppercase font-black tracking-widest mb-1">Volatility Context</p>
