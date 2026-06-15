@@ -551,6 +551,28 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
                 </div>
               ) : null}
 
+              {si.refinedEntry ? (
+                <div className="p-3 bg-brand-charcoal text-white rounded-lg">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Refined Entry · {safeRender(si.refinedEntry.refinementTimeframe)}</p>
+                    {si.refinedEntry.mssConfirmed
+                      ? <span className="text-[7px] font-black uppercase tracking-widest text-brand-success bg-brand-success/15 px-1.5 py-0.5 rounded">MSS ✓</span>
+                      : <span className="text-[7px] font-black uppercase tracking-widest text-white/40">awaiting MSS</span>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Entry zone</p>
+                      <p className="text-xs font-black"><span className={`uppercase ${si.refinedEntry.direction === 'buy' ? 'text-brand-success' : 'text-brand-error'}`}>{safeRender(si.refinedEntry.direction)}</span> {fmt(si.refinedEntry.entryLow)}–{fmt(si.refinedEntry.entryHigh)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[7px] font-black uppercase text-white/40 tracking-widest mb-1">Refined stop</p>
+                      <p className="text-xs font-black text-brand-error">{fmt(si.refinedEntry.refinedStop)}</p>
+                    </div>
+                  </div>
+                  <p className="text-[8px] text-white/40 font-bold uppercase mt-2 tracking-wide">{safeRender(si.refinedEntry.basis).replace(/_/g, ' ')} · LTF refinement of the suggested zone</p>
+                </div>
+              ) : null}
+
               {Array.isArray(si.liquiditySweepZones) && si.liquiditySweepZones.length ? (
                 <div>
                   <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-2">Liquidity Sweep Zones</p>

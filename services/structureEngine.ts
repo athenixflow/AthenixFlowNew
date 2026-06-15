@@ -40,6 +40,7 @@ export interface PremiumDiscount { rangeHigh: number; rangeLow: number; equilibr
 
 export interface POI { type: 'bullish' | 'bearish'; low: number; high: number; index: number; kind: 'fvg' | 'order_block'; }
 export interface SuggestedEntry { direction: 'buy' | 'sell'; zoneLow: number; zoneHigh: number; basis: 'order_block' | 'fvg' | 'ote'; inOTE: boolean; }
+export interface RefinedEntry { direction: 'buy' | 'sell'; refinementTimeframe: string; entryLow: number; entryHigh: number; refinedStop: number; basis: 'micro_fvg' | 'micro_ob'; mssConfirmed: boolean; }
 
 export interface StructureFacts {
   mode: ExecutionMode;
@@ -53,6 +54,7 @@ export interface StructureFacts {
   higherTFData: { tf: string; trend: Trend }[];
   premiumDiscount: PremiumDiscount | null;
   suggestedEntry: SuggestedEntry | null;
+  refinedEntry: RefinedEntry | null;
 }
 
 export interface StructureIntelligence {
@@ -66,6 +68,7 @@ export interface StructureIntelligence {
   confidenceScore: number; // 0-100
   premiumDiscount: PremiumDiscount | null;
   suggestedEntry: SuggestedEntry | null;
+  refinedEntry: RefinedEntry | null;
 }
 
 // Twelve Data `values` are newest-first, OHLC as strings. Normalize to numeric
@@ -243,6 +246,63 @@ export function buildSuggestedEntry(candles: Candle[], pd: PremiumDiscount | nul
 }
 
 // ---------------------------------------------------------------------------
+// 3c. Refined entry — drop to a LOWER timeframe, find a micro POI + MSS in the
+//     higher-TF zone for a tighter entry/stop. Supports/displays only.
+// ---------------------------------------------------------------------------
+export const REFINEMENT_TF: Record<ExecutionMode, string> = { scalp: 'M1', day_trade: 'M5', swing_trade: 'M15' };
+
+// The refinement timeframe for a mode — only if STRICTLY lower than the entry TF.
+export function getRefinementTimeframe(mode: ExecutionMode | undefined, entryTimeframe: string): string | null {
+  const m: ExecutionMode = mode && REFINEMENT_TF[mode] ? mode : 'day_trade';
+  const refTF = REFINEMENT_TF[m];
+  const entryIdx = TF_LADDER.indexOf(String(entryTimeframe || '').toUpperCase());
+  const refIdx = TF_LADDER.indexOf(refTF);
+  if (entryIdx < 0 || refIdx < 0) return null;
+  return refIdx < entryIdx ? refTF : null;
+}
+
+// Market Structure Shift: latest close breaks the most recent swing in `direction`.
+export function detectMSS(candles: Candle[], direction: 'buy' | 'sell'): boolean {
+  if (candles.length < 8) return false;
+  const { highs, lows } = swingPoints(candles);
+  const last = candles[candles.length - 1].c;
+  if (direction === 'buy') return highs.length > 0 && last > highs[highs.length - 1].price;
+  return lows.length > 0 && last < lows[lows.length - 1].price;
+}
+
+export function buildRefinedEntry(input: { refinementCandles?: any[] | null; refinementTimeframe: string | null; suggestedEntry: SuggestedEntry | null }): RefinedEntry | null {
+  const { suggestedEntry, refinementTimeframe } = input;
+  if (!suggestedEntry || !refinementTimeframe || !input.refinementCandles) return null;
+  const candles = toCandles(input.refinementCandles);
+  if (candles.length < 6) return null;
+
+  const dir = suggestedEntry.direction;
+  const wantType = dir === 'buy' ? 'bullish' : 'bearish';
+  const zLo = Math.min(suggestedEntry.zoneLow, suggestedEntry.zoneHigh);
+  const zHi = Math.max(suggestedEntry.zoneLow, suggestedEntry.zoneHigh);
+  const pad = Math.max(zHi - zLo, avgRange(candles) * 2, 1e-9);
+  const price = candles[candles.length - 1].c;
+
+  const micro = [...detectFVGs(candles), ...detectOrderBlocks(candles)]
+    .filter((p) => p.type === wantType)
+    .filter((p) => overlaps(p.low, p.high, zLo - pad, zHi + pad));
+  const dist = (p: POI) => Math.abs((p.low + p.high) / 2 - price);
+  const nearest = micro.sort((a, b) => dist(a) - dist(b))[0] || null;
+  if (!nearest) return null;
+
+  const buf = avgRange(candles) * 0.5;
+  return {
+    direction: dir,
+    refinementTimeframe,
+    entryLow: nearest.low,
+    entryHigh: nearest.high,
+    refinedStop: dir === 'buy' ? round(nearest.low - buf) : round(nearest.high + buf),
+    basis: nearest.kind === 'fvg' ? 'micro_fvg' : 'micro_ob',
+    mssConfirmed: detectMSS(candles, dir)
+  };
+}
+
+// ---------------------------------------------------------------------------
 // 4. Pattern detection (§3) — evaluated at the latest candle, near key levels
 // ---------------------------------------------------------------------------
 const nearLevel = (price: number, levels: number[], tol: number) => {
@@ -385,6 +445,7 @@ export function computeStructureFacts(input: {
   entryCandles: any[];
   midCandles?: any[] | null;
   macroCandles?: any[] | null;
+  refinementCandles?: any[] | null;
   mode: ExecutionMode | undefined;
   entryTimeframe: string;
 }): StructureFacts {
@@ -405,6 +466,11 @@ export function computeStructureFacts(input: {
 
   const premiumDiscount = computePremiumDiscount(entry);
   const suggestedEntry = buildSuggestedEntry(entry, premiumDiscount);
+  const refinedEntry = buildRefinedEntry({
+    refinementCandles: input.refinementCandles,
+    refinementTimeframe: getRefinementTimeframe(input.mode, input.entryTimeframe),
+    suggestedEntry
+  });
 
   return {
     mode,
@@ -417,7 +483,8 @@ export function computeStructureFacts(input: {
     trends,
     higherTFData,
     premiumDiscount,
-    suggestedEntry
+    suggestedEntry,
+    refinedEntry
   };
 }
 
@@ -449,6 +516,7 @@ export function scoreSignal(facts: StructureFacts, direction: Direction, macroOn
     macroApplied: macroOn,
     confidenceScore,
     premiumDiscount: facts.premiumDiscount,
-    suggestedEntry: facts.suggestedEntry
+    suggestedEntry: facts.suggestedEntry,
+    refinedEntry: facts.refinedEntry
   };
 }

@@ -228,6 +228,15 @@ export interface StructureIntelligence {
     basis: 'order_block' | 'fvg' | 'ote';
     inOTE: boolean;
   } | null;
+  refinedEntry?: {
+    direction: 'buy' | 'sell';
+    refinementTimeframe: string;
+    entryLow: number;
+    entryHigh: number;
+    refinedStop: number;
+    basis: 'micro_fvg' | 'micro_ob';
+    mssConfirmed: boolean;
+  } | null;
 }
 
 export interface TradeAnalysis {

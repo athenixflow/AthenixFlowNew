@@ -3,7 +3,7 @@ import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, 
 import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse, revalidateTradeSetup } from './geminiService';
 import { getMarketData, testMarketConnection } from './marketData';
-import { getModeConfig, computeStructureFacts, scoreSignal, StructureFacts } from './structureEngine';
+import { getModeConfig, getRefinementTimeframe, computeStructureFacts, scoreSignal, StructureFacts } from './structureEngine';
 import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth, TradingSignal, TradeAnalysis } from '../types';
 import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection, updateAnalysisValidation } from './firestore';
 
@@ -54,14 +54,17 @@ export const analyzeMarket = async (
         try {
           const { correlationTimeframes } = getModeConfig(selectedMode, timeframe);
           const [midTF, macroTF] = correlationTimeframes;
-          const [midResp, macroResp] = await Promise.all([
+          const refTF = getRefinementTimeframe(selectedMode, timeframe); // lower TF (or null)
+          const [midResp, macroResp, refResp] = await Promise.all([
             midTF ? getMarketData(resolvedMarketType, symbol, midTF) : Promise.resolve(null),
-            macroTF ? getMarketData(resolvedMarketType, symbol, macroTF) : Promise.resolve(null)
+            macroTF ? getMarketData(resolvedMarketType, symbol, macroTF) : Promise.resolve(null),
+            refTF ? getMarketData(resolvedMarketType, symbol, refTF) : Promise.resolve(null)
           ]);
           structureFacts = computeStructureFacts({
             entryCandles: (marketData as any).values,
             midCandles: midResp && !midResp.error ? (midResp as any).values : null,
             macroCandles: macroResp && !macroResp.error ? (macroResp as any).values : null,
+            refinementCandles: refResp && !refResp.error ? (refResp as any).values : null,
             mode: selectedMode,
             entryTimeframe: timeframe
           });
