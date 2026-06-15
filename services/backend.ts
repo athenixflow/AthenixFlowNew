@@ -50,7 +50,10 @@ export const analyzeMarket = async (
 
       if (marketData && !marketData.error) {
         // --- Structure Intelligence (patterns / multi-TF confluence / liquidity) ---
-        // Additive context only — fed to the LLM, never overrides its levels.
+        // SURFACE-ONLY: computed for the UI panel + saved on the record, but NOT
+        // fed to the LLM. Injecting it into marketContext scrambled the engine's
+        // own deterministic scoring (field-name/number collisions with its
+        // confluence/liquidity/POI/premium-discount layers → out-of-range scores).
         try {
           const { correlationTimeframes } = getModeConfig(selectedMode, timeframe);
           const [midTF, macroTF] = correlationTimeframes;
@@ -68,7 +71,8 @@ export const analyzeMarket = async (
             mode: selectedMode,
             entryTimeframe: timeframe
           });
-          (marketData as any).structure_intelligence = structureFacts;
+          // NOTE: deliberately NOT attaching structureFacts to marketData — it
+          // must not enter the LLM's marketContext (see surface-only note above).
         } catch (e: any) {
           console.warn('Athenix: structure intelligence unavailable:', e?.message || e);
         }
