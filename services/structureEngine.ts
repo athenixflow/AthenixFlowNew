@@ -35,6 +35,12 @@ export interface Candle { t: string; o: number; h: number; l: number; c: number;
 
 export interface PatternHit { type: string; index: number; level: number; strength: number; }
 
+export type PDZone = 'deep_discount' | 'discount' | 'equilibrium' | 'premium' | 'deep_premium';
+export interface PremiumDiscount { rangeHigh: number; rangeLow: number; equilibrium: number; positionPct: number; zone: PDZone; }
+
+export interface POI { type: 'bullish' | 'bearish'; low: number; high: number; index: number; kind: 'fvg' | 'order_block'; }
+export interface SuggestedEntry { direction: 'buy' | 'sell'; zoneLow: number; zoneHigh: number; basis: 'order_block' | 'fvg' | 'ote'; inOTE: boolean; }
+
 export interface StructureFacts {
   mode: ExecutionMode;
   entryTimeframe: string;
@@ -45,6 +51,8 @@ export interface StructureFacts {
   liquidity: { swingHighs: number[]; swingLows: number[]; sweepZones: number[] };
   trends: { entry: Trend; mid: Trend; macro: Trend };
   higherTFData: { tf: string; trend: Trend }[];
+  premiumDiscount: PremiumDiscount | null;
+  suggestedEntry: SuggestedEntry | null;
 }
 
 export interface StructureIntelligence {
@@ -56,6 +64,8 @@ export interface StructureIntelligence {
   liquiditySweepZones: number[];
   macroApplied: boolean;
   confidenceScore: number; // 0-100
+  premiumDiscount: PremiumDiscount | null;
+  suggestedEntry: SuggestedEntry | null;
 }
 
 // Twelve Data `values` are newest-first, OHLC as strings. Normalize to numeric
@@ -143,6 +153,93 @@ export function mapLiquidityZones(candles: Candle[]) {
   // to reach for liquidity before reversing/continuing.
   const sweepZones = [...swingHighs.slice(-3), ...swingLows.slice(-3)];
   return { swingHighs, swingLows, sweepZones };
+}
+
+// ---------------------------------------------------------------------------
+// 3b. Premium / Discount (fib EQ) + POI (FVG / order block) + suggested entry
+// ---------------------------------------------------------------------------
+// Premium/Discount: fib across the recent dealing range; 50% = equilibrium.
+// >50% premium (favor sells), <50% discount (favor buys). Computed locally from
+// the candles we already have — not a Twelve Data indicator.
+export function computePremiumDiscount(candles: Candle[], window = 40): PremiumDiscount | null {
+  if (candles.length < 5) return null;
+  const seg = candles.slice(-window);
+  const rangeHigh = Math.max(...seg.map((c) => c.h));
+  const rangeLow = Math.min(...seg.map((c) => c.l));
+  const r = rangeHigh - rangeLow;
+  if (!Number.isFinite(r) || r <= 0) return null;
+  const price = candles[candles.length - 1].c;
+  const positionPct = Math.max(0, Math.min(100, ((price - rangeLow) / r) * 100));
+  const zone: PDZone =
+    positionPct >= 75 ? 'deep_premium' :
+    positionPct > 52 ? 'premium' :
+    positionPct >= 48 ? 'equilibrium' :
+    positionPct > 25 ? 'discount' : 'deep_discount';
+  return { rangeHigh: round(rangeHigh), rangeLow: round(rangeLow), equilibrium: round((rangeHigh + rangeLow) / 2), positionPct: Math.round(positionPct), zone };
+}
+
+// Fair value gaps (3-candle imbalances).
+export function detectFVGs(candles: Candle[]): POI[] {
+  const out: POI[] = [];
+  for (let i = 2; i < candles.length; i++) {
+    const a = candles[i - 2], c = candles[i];
+    if (a.h < c.l) out.push({ type: 'bullish', low: round(a.h), high: round(c.l), index: i, kind: 'fvg' });
+    else if (a.l > c.h) out.push({ type: 'bearish', low: round(c.h), high: round(a.l), index: i, kind: 'fvg' });
+  }
+  return out;
+}
+
+// Order blocks: last opposing candle immediately before a displacement candle.
+export function detectOrderBlocks(candles: Candle[]): POI[] {
+  const out: POI[] = [];
+  for (let i = 1; i < candles.length - 1; i++) {
+    const ob = candles[i], next = candles[i + 1];
+    const down = ob.c < ob.o, up = ob.c > ob.o;
+    if (down && next.c > ob.h) out.push({ type: 'bullish', low: round(ob.l), high: round(ob.h), index: i, kind: 'order_block' });
+    else if (up && next.c < ob.l) out.push({ type: 'bearish', low: round(ob.l), high: round(ob.h), index: i, kind: 'order_block' });
+  }
+  return out;
+}
+
+const overlaps = (aLo: number, aHi: number, bLo: number, bHi: number) => aLo <= bHi && bLo <= aHi;
+
+// Suggested entry zone = the nearest valid POI on the bias side (+ OTE band).
+// Supports/displays only — never replaces the LLM's entry.
+export function buildSuggestedEntry(candles: Candle[], pd: PremiumDiscount | null): SuggestedEntry | null {
+  if (!pd || candles.length < 5) return null;
+  const bias: 'buy' | 'sell' | null =
+    pd.zone === 'discount' || pd.zone === 'deep_discount' ? 'buy' :
+    pd.zone === 'premium' || pd.zone === 'deep_premium' ? 'sell' : null;
+  if (!bias) return null;
+
+  const price = candles[candles.length - 1].c;
+  const r = pd.rangeHigh - pd.rangeLow;
+  // OTE 0.62–0.79 retracement of the dealing-range leg.
+  const ote = bias === 'buy'
+    ? { low: round(pd.rangeHigh - 0.79 * r), high: round(pd.rangeHigh - 0.62 * r) }
+    : { low: round(pd.rangeLow + 0.62 * r), high: round(pd.rangeLow + 0.79 * r) };
+
+  const wantType = bias === 'buy' ? 'bullish' : 'bearish';
+  const pois = [...detectFVGs(candles), ...detectOrderBlocks(candles)]
+    .filter((p) => p.type === wantType)
+    // POI must sit on the retracement side of price (below for buy, above for sell).
+    .filter((p) => (bias === 'buy' ? p.high <= price : p.low >= price));
+
+  // Nearest POI to current price.
+  const dist = (p: POI) => bias === 'buy' ? price - p.high : p.low - price;
+  const nearest = pois.filter((p) => dist(p) >= 0).sort((a, b) => dist(a) - dist(b))[0] || null;
+
+  if (nearest) {
+    return {
+      direction: bias,
+      zoneLow: nearest.low,
+      zoneHigh: nearest.high,
+      basis: nearest.kind,
+      inOTE: overlaps(nearest.low, nearest.high, ote.low, ote.high)
+    };
+  }
+  // Fall back to the OTE band when no clean POI is present.
+  return { direction: bias, zoneLow: ote.low, zoneHigh: ote.high, basis: 'ote', inOTE: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -306,6 +403,9 @@ export function computeStructureFacts(input: {
   if (mid.length && correlationTimeframes[0]) higherTFData.push({ tf: correlationTimeframes[0]!, trend: trends.mid });
   if (macro.length && correlationTimeframes[1]) higherTFData.push({ tf: correlationTimeframes[1]!, trend: trends.macro });
 
+  const premiumDiscount = computePremiumDiscount(entry);
+  const suggestedEntry = buildSuggestedEntry(entry, premiumDiscount);
+
   return {
     mode,
     entryTimeframe: String(input.entryTimeframe || '').toUpperCase(),
@@ -315,7 +415,9 @@ export function computeStructureFacts(input: {
     primaryPattern,
     liquidity,
     trends,
-    higherTFData
+    higherTFData,
+    premiumDiscount,
+    suggestedEntry
   };
 }
 
@@ -345,6 +447,8 @@ export function scoreSignal(facts: StructureFacts, direction: Direction, macroOn
     confluence,
     liquiditySweepZones: facts.liquidity.sweepZones,
     macroApplied: macroOn,
-    confidenceScore
+    confidenceScore,
+    premiumDiscount: facts.premiumDiscount,
+    suggestedEntry: facts.suggestedEntry
   };
 }

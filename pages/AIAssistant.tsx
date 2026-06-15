@@ -526,6 +526,31 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
                   <p className="text-xs font-black text-brand-charcoal">{si.macroApplied ? 'Yes' : 'No'}</p>
                 </div>
               </div>
+              {si.premiumDiscount ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3 bg-brand-sage/5 rounded-lg border border-brand-sage/10">
+                    <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-1">Premium / Discount</p>
+                    <p className={`text-xs font-black uppercase ${/discount/.test(si.premiumDiscount.zone) ? 'text-brand-success' : /premium/.test(si.premiumDiscount.zone) ? 'text-brand-error' : 'text-brand-muted'}`}>
+                      {safeRender(si.premiumDiscount.zone).replace(/_/g, ' ')} · {fmt(si.premiumDiscount.positionPct)}%
+                    </p>
+                    <p className="text-[8px] text-brand-muted font-bold mt-1 uppercase tracking-wide">EQ {fmt(si.premiumDiscount.equilibrium)}</p>
+                  </div>
+                  {si.suggestedEntry ? (
+                    <div className="p-3 bg-brand-gold/5 rounded-lg border border-brand-gold/20">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Suggested Entry Zone</p>
+                        {si.suggestedEntry.inOTE ? <span className="text-[7px] font-black uppercase tracking-widest text-brand-gold bg-brand-gold/15 px-1.5 py-0.5 rounded">OTE</span> : null}
+                      </div>
+                      <p className="text-xs font-black text-brand-charcoal">
+                        <span className={`uppercase ${si.suggestedEntry.direction === 'buy' ? 'text-brand-success' : 'text-brand-error'}`}>{safeRender(si.suggestedEntry.direction)}</span>
+                        {' '}{fmt(si.suggestedEntry.zoneLow)}–{fmt(si.suggestedEntry.zoneHigh)}
+                      </p>
+                      <p className="text-[8px] text-brand-muted font-bold uppercase mt-1 tracking-wide">{safeRender(si.suggestedEntry.basis).replace(/_/g, ' ')} · supports, not replaces</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               {Array.isArray(si.liquiditySweepZones) && si.liquiditySweepZones.length ? (
                 <div>
                   <p className="text-[8px] font-black uppercase text-brand-muted tracking-widest mb-2">Liquidity Sweep Zones</p>

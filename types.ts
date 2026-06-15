@@ -216,6 +216,18 @@ export interface StructureIntelligence {
   liquiditySweepZones: number[];
   macroApplied: boolean;
   confidenceScore: number; // 0-100
+  premiumDiscount?: {
+    zone: 'deep_discount' | 'discount' | 'equilibrium' | 'premium' | 'deep_premium';
+    positionPct: number;
+    equilibrium: number;
+  } | null;
+  suggestedEntry?: {
+    direction: 'buy' | 'sell';
+    zoneLow: number;
+    zoneHigh: number;
+    basis: 'order_block' | 'fvg' | 'ote';
+    inOTE: boolean;
+  } | null;
 }
 
 export interface TradeAnalysis {
