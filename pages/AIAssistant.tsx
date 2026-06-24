@@ -206,6 +206,10 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
                   <p className={`text-xs font-black ${data?.score_gates?.belowQuality ? 'text-brand-error' : 'text-brand-gold'}`}>{safeRender(data?.quality_score, "0")}/100</p>
                 </div>
                 <div className="text-right">
+                  <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Impulse</p>
+                  <p className="text-xs font-black text-brand-gold">{safeRender(data?.impulse_score, "0")}/100</p>
+                </div>
+                <div className="text-right">
                   <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Corrective</p>
                   <p className="text-xs font-black text-brand-gold">{safeRender(data?.corrective_score, "0")}/100</p>
                 </div>

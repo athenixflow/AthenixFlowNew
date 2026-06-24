@@ -3,7 +3,7 @@ import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, 
 import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse, revalidateTradeSetup } from './geminiService';
 import { getMarketData, testMarketConnection } from './marketData';
-import { getModeConfig, getRefinementTimeframe, computeStructureFacts, scoreSignal, computeRubricScores, StructureFacts } from './structureEngine';
+import { getModeConfig, getRefinementTimeframe, computeStructureFacts, scoreSignal, StructureFacts } from './structureEngine';
 import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth, TradingSignal, TradeAnalysis } from '../types';
 import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection, updateAnalysisValidation } from './firestore';
 
@@ -142,29 +142,16 @@ export const analyzeMarket = async (
     // unavailable). The LLM sometimes returns out-of-range scores (total 170/40).
     sanitizeScores(result);
 
-    // 2c. DETERMINISTIC SCORES: when we have real structure measurements, compute
-    // the confluence sub-scores + total + quality in code (same engine rubric) and
-    // use those as authoritative — consistent, explainable, no run-to-run variance.
-    // Narrative / entry / SL / TP / final_decision stay LLM-authored. Engine untouched.
-    if (structureFacts) {
-      const dir = result.impulse_setup?.direction || result.signal?.direction;
-      const entry = result.impulse_setup?.entry ?? result.signal?.entry_price ?? null;
-      const stop = result.impulse_setup?.stop_loss ?? result.signal?.stop_loss ?? null;
-      const tps = result.impulse_setup
-        ? [result.impulse_setup.tp1, result.impulse_setup.tp2, result.impulse_setup.tp3]
-        : (result.signal?.take_profits || []).map((t: any) => t?.price);
-      const rubric = computeRubricScores({ facts: structureFacts, direction: dir, entry, stop, tps });
-      result.confluence_scores = rubric.confluence_scores;
-      result.quality_score = rubric.quality_score;
-      result.score_gates = rubric.gates;
-      // Deterministic per-setup scores (consistent with the rubric above).
-      result.impulse_score = rubric.quality_score;
-      const cs = result.corrective_setup;
-      if (cs && typeof cs.entry === 'number') {
-        result.corrective_score = computeRubricScores({
-          facts: structureFacts, direction: cs.direction, entry: cs.entry, stop: cs.stop_loss, tps: [cs.target]
-        }).quality_score;
-      }
+    // 2c. Gate flags from the (LLM-authored, bounded) scores — drives the
+    // reconciled VALID / BELOW THRESHOLD / NO TRADE badge. Scores stay LLM-authored;
+    // sanitizeScores above only enforces the engine's own ranges (no 170/40).
+    {
+      const totalCs = result.confluence_scores?.total_confluence_score;
+      const q = result.quality_score;
+      result.score_gates = {
+        belowConfluence: typeof totalCs === 'number' && totalCs < 20,
+        belowQuality: typeof q === 'number' && q < 70
+      };
     }
 
     // 3. Prepare full record for persistence (Flattened for query/sorting)
