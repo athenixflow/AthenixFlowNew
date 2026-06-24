@@ -249,6 +249,9 @@ export interface TradeAnalysis {
   news_context?: NewsSnapshot;
   news_refined?: NewsRefinedSetup | null;
   structure_intelligence?: StructureIntelligence;
+  // Code-computed score thresholds (the engine's own reject gates), surfaced as
+  // flags. Scores are deterministic (see services/structureEngine.ts).
+  score_gates?: { belowConfluence: boolean; belowQuality: boolean };
   timeframe: string;
   execution_timeframe: string;
   market_phase: 'uptrend' | 'downtrend' | 'ranging' | 'accumulation' | 'distribution';

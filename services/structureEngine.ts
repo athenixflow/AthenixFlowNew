@@ -520,3 +520,85 @@ export function scoreSignal(facts: StructureFacts, direction: Direction, macroOn
     refinedEntry: facts.refinedEntry
   };
 }
+
+// ---------------------------------------------------------------------------
+// 8. Deterministic RUBRIC scores — code-computed confluence/quality numbers from
+//    the real structure measurements, mapped to the engine's OWN rubric (4 sub-
+//    scores 0-10 → total /40; 5 components × 20 → quality /100). Same input ->
+//    same score, fully explainable. Used to replace the LLM's flaky numbers.
+// ---------------------------------------------------------------------------
+export interface RubricScores {
+  confluence_scores: {
+    structure_score: number;
+    liquidity_score: number;
+    poi_score: number;
+    premium_discount_score: number;
+    total_confluence_score: number;
+  };
+  quality_score: number;
+  gates: { belowConfluence: boolean; belowQuality: boolean };
+}
+
+const clamp10 = (v: number) => Math.max(0, Math.min(10, Math.round(v)));
+
+export function computeRubricScores(input: {
+  facts: StructureFacts;
+  direction: Direction;
+  entry?: number | null;
+  stop?: number | null;
+  tp1?: number | null;
+}): RubricScores {
+  const { facts, direction } = input;
+
+  // Structure (0-10): multi-timeframe alignment + entry-TF agreement.
+  const conf = checkMultiTimeframeConfluence(direction, facts.higherTFData);
+  let structure = conf === 'high' ? 9 : conf === 'medium' ? 6 : 3;
+  if (direction && facts.trends.entry === (direction === 'buy' ? 'up' : 'down')) structure += 1;
+  const structure_score = clamp10(structure);
+
+  // Liquidity (0-10): richness of mapped liquidity / sweep zones.
+  const sweeps = facts.liquidity.sweepZones?.length || 0;
+  const liquidity_score = clamp10(4 + sweeps * 1.2);
+
+  // POI (0-10): quality of the entry POI + refinement.
+  let poi = 0;
+  if (facts.suggestedEntry) poi += 3;
+  if (facts.suggestedEntry?.inOTE) poi += 2;
+  if (facts.refinedEntry) poi += 2;
+  if (facts.refinedEntry?.mssConfirmed) poi += 2;
+  if (facts.primaryPattern) poi += 1;
+  const poi_score = clamp10(poi);
+
+  // Premium/Discount (0-10): right side of equilibrium for the direction.
+  let pd = 5;
+  const zone = facts.premiumDiscount?.zone;
+  if (zone && direction) {
+    const buyMap: Record<string, number> = { deep_discount: 10, discount: 8, equilibrium: 5, premium: 2, deep_premium: 1 };
+    const sellMap: Record<string, number> = { deep_premium: 10, premium: 8, equilibrium: 5, discount: 2, deep_discount: 1 };
+    pd = (direction === 'buy' ? buyMap : sellMap)[zone] ?? 5;
+  } else if (zone) {
+    pd = zone === 'equilibrium' ? 5 : 7;
+  }
+  const premium_discount_score = clamp10(pd);
+
+  const total_confluence_score = structure_score + liquidity_score + poi_score + premium_discount_score;
+
+  // Quality (0-100): 5 components × 20.
+  const structureIntegrity = (structure_score / 10) * 20;
+  const liquidityAlignment = (liquidity_score / 10) * 20;
+  const poiQuality = (poi_score / 10) * 20;
+  const sessionTiming = 14 + (facts.refinedEntry?.mssConfirmed ? 6 : 0);
+  let rrGeometry = 10;
+  const e = input.entry, s = input.stop, t = input.tp1;
+  if (typeof e === 'number' && typeof s === 'number' && typeof t === 'number' && e !== s) {
+    const rr = Math.abs(t - e) / Math.abs(e - s);
+    rrGeometry = rr >= 3 ? 20 : rr >= 2 ? 16 : rr >= 1.5 ? 12 : rr >= 1 ? 8 : 4;
+  }
+  const quality_score = Math.round(Math.max(0, Math.min(100, structureIntegrity + liquidityAlignment + poiQuality + sessionTiming + rrGeometry)));
+
+  return {
+    confluence_scores: { structure_score, liquidity_score, poi_score, premium_discount_score, total_confluence_score },
+    quality_score,
+    gates: { belowConfluence: total_confluence_score < 20, belowQuality: quality_score < 70 }
+  };
+}

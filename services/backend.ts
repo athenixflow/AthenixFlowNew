@@ -3,7 +3,7 @@ import { doc, getDoc, updateDoc, increment, collection, addDoc, runTransaction, 
 import { firestore } from '../firebase';
 import { analyzeMarket as callGeminiAnalysis, getEducationResponse, revalidateTradeSetup } from './geminiService';
 import { getMarketData, testMarketConnection } from './marketData';
-import { getModeConfig, getRefinementTimeframe, computeStructureFacts, scoreSignal, StructureFacts } from './structureEngine';
+import { getModeConfig, getRefinementTimeframe, computeStructureFacts, scoreSignal, computeRubricScores, StructureFacts } from './structureEngine';
 import { UserProfile, UserRole, SubscriptionPlan, TokenEconomyConfig, SystemHealth, TradingSignal, TradeAnalysis } from '../types';
 import { saveAnalysisToHistory, saveEducationInteraction, updateTokenEconomyConfig, logAdminAction, checkDatabaseConnection, updateAnalysisValidation } from './firestore';
 
@@ -19,8 +19,60 @@ const isAdmin = async (userId: string): Promise<boolean> => {
   return userSnap.exists() && userSnap.data()?.role === UserRole.ADMIN;
 };
 
+// Enforce the engine's OWN declared score bounds on its output. The LLM
+// occasionally violates them (e.g. total_confluence_score 170 vs a max of 40);
+// this applies the engine's stated ranges and its "total = sum of the four
+// sub-scores" definition in code — without touching the engine/prompt/schema.
+// Touches only numeric score fields; never introduces NaN/undefined.
+const clampNum = (v: any, lo: number, hi: number): number | undefined =>
+  typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : undefined;
+
+const sanitizeScores = (result: any): any => {
+  if (!result || typeof result !== 'object') return result;
+
+  const cs = result.confluence_scores;
+  if (cs && typeof cs === 'object') {
+    const subKeys = ['structure_score', 'liquidity_score', 'poi_score', 'premium_discount_score'] as const;
+    let sum = 0, anySub = false;
+    for (const k of subKeys) {
+      const c = clampNum(cs[k], 0, 10);
+      if (c !== undefined) { cs[k] = c; sum += c; anySub = true; }
+    }
+    // The engine defines total as the sum of the four sub-scores (<= 40).
+    if (anySub) cs.total_confluence_score = sum;
+    else { const t = clampNum(cs.total_confluence_score, 0, 40); if (t !== undefined) cs.total_confluence_score = t; }
+  }
+
+  const q = clampNum(result.quality_score, 0, 100); if (q !== undefined) result.quality_score = q;
+  const cor = clampNum(result.corrective_score, 0, 100); if (cor !== undefined) result.corrective_score = cor;
+  const imp = clampNum(result.impulse_score, 0, 100); if (imp !== undefined) result.impulse_score = imp;
+
+  const p = result.probabilities;
+  if (p && typeof p === 'object') {
+    const a = clampNum(p.irl_only, 0, 100);
+    const b = clampNum(p.irl_to_erl, 0, 100);
+    const c = clampNum(p.expansion, 0, 100);
+    if (a !== undefined) p.irl_only = a;
+    if (b !== undefined) p.irl_to_erl = b;
+    if (c !== undefined) p.expansion = c;
+    // When all three are present, normalize to a coherent 100% split.
+    if (a !== undefined && b !== undefined && c !== undefined) {
+      const total = a + b + c;
+      if (total > 0) {
+        const na = Math.round((a / total) * 100);
+        const nb = Math.round((b / total) * 100);
+        p.irl_only = na;
+        p.irl_to_erl = nb;
+        p.expansion = 100 - na - nb;
+      }
+    }
+  }
+
+  return result;
+};
+
 export const analyzeMarket = async (
-  userId: string, 
+  userId: string,
   symbol: string, 
   timeframe: string, 
   includeFundamentals: boolean,
@@ -85,7 +137,26 @@ export const analyzeMarket = async (
 
     // 2. Call Gemini Analysis Engine
     const result = await callGeminiAnalysis(symbol, timeframe, includeFundamentals, marketContext, resolvedMarketType);
-    
+
+    // 2b. Enforce the engine's own score bounds (fallback if structure data is
+    // unavailable). The LLM sometimes returns out-of-range scores (total 170/40).
+    sanitizeScores(result);
+
+    // 2c. DETERMINISTIC SCORES: when we have real structure measurements, compute
+    // the confluence sub-scores + total + quality in code (same engine rubric) and
+    // use those as authoritative — consistent, explainable, no run-to-run variance.
+    // Narrative / entry / SL / TP / final_decision stay LLM-authored. Engine untouched.
+    if (structureFacts) {
+      const dir = result.impulse_setup?.direction || result.signal?.direction;
+      const entry = result.impulse_setup?.entry ?? result.signal?.entry_price ?? null;
+      const stop = result.impulse_setup?.stop_loss ?? result.signal?.stop_loss ?? null;
+      const tp1 = result.impulse_setup?.tp1 ?? result.signal?.take_profits?.[0]?.price ?? null;
+      const rubric = computeRubricScores({ facts: structureFacts, direction: dir, entry, stop, tp1 });
+      result.confluence_scores = rubric.confluence_scores;
+      result.quality_score = rubric.quality_score;
+      result.score_gates = rubric.gates;
+    }
+
     // 3. Prepare full record for persistence (Flattened for query/sorting)
     const fullAnalysis: TradeAnalysis = {
       ...result,

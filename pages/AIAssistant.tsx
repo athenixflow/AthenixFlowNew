@@ -189,12 +189,13 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
           <div className="text-right flex flex-col items-end gap-2">
               <div>
                 <div className="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Total Confluence</div>
-                <div className="text-3xl font-black text-brand-charcoal">{safeRender(data?.confluence_scores?.total_confluence_score, "0")}/40</div>
+                <div className={`text-3xl font-black ${data?.score_gates?.belowConfluence ? 'text-brand-error' : 'text-brand-charcoal'}`}>{safeRender(data?.confluence_scores?.total_confluence_score, "0")}/40</div>
+                {data?.score_gates?.belowConfluence ? <div className="text-[8px] font-black uppercase tracking-widest text-brand-error mt-1">Below 20 · reject threshold</div> : null}
               </div>
               <div className="flex gap-4">
                 <div className="text-right">
                   <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Quality</p>
-                  <p className="text-xs font-black text-brand-gold">{safeRender(data?.quality_score, "0")}/100</p>
+                  <p className={`text-xs font-black ${data?.score_gates?.belowQuality ? 'text-brand-error' : 'text-brand-gold'}`}>{safeRender(data?.quality_score, "0")}/100</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Impulse</p>
