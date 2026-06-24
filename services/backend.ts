@@ -150,11 +150,21 @@ export const analyzeMarket = async (
       const dir = result.impulse_setup?.direction || result.signal?.direction;
       const entry = result.impulse_setup?.entry ?? result.signal?.entry_price ?? null;
       const stop = result.impulse_setup?.stop_loss ?? result.signal?.stop_loss ?? null;
-      const tp1 = result.impulse_setup?.tp1 ?? result.signal?.take_profits?.[0]?.price ?? null;
-      const rubric = computeRubricScores({ facts: structureFacts, direction: dir, entry, stop, tp1 });
+      const tps = result.impulse_setup
+        ? [result.impulse_setup.tp1, result.impulse_setup.tp2, result.impulse_setup.tp3]
+        : (result.signal?.take_profits || []).map((t: any) => t?.price);
+      const rubric = computeRubricScores({ facts: structureFacts, direction: dir, entry, stop, tps });
       result.confluence_scores = rubric.confluence_scores;
       result.quality_score = rubric.quality_score;
       result.score_gates = rubric.gates;
+      // Deterministic per-setup scores (consistent with the rubric above).
+      result.impulse_score = rubric.quality_score;
+      const cs = result.corrective_setup;
+      if (cs && typeof cs.entry === 'number') {
+        result.corrective_score = computeRubricScores({
+          facts: structureFacts, direction: cs.direction, entry: cs.entry, stop: cs.stop_loss, tps: [cs.target]
+        }).quality_score;
+      }
     }
 
     // 3. Prepare full record for persistence (Flattened for query/sorting)

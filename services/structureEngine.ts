@@ -541,12 +541,30 @@ export interface RubricScores {
 
 const clamp10 = (v: number) => Math.max(0, Math.min(10, Math.round(v)));
 
+// The ACTIVE dealing range = most recent swing high <-> swing low (the leg being
+// traded), falling back to the wider premium/discount range. Premium/discount is
+// then judged on where the ENTRY sits in THIS range — not where price is now.
+function activeDealingRange(facts: StructureFacts): { lo: number; hi: number } | null {
+  const sh = facts.liquidity?.swingHighs || [];
+  const sl = facts.liquidity?.swingLows || [];
+  if (sh.length && sl.length) {
+    const hi = sh[sh.length - 1];
+    const lo = sl[sl.length - 1];
+    if (Number.isFinite(hi) && Number.isFinite(lo) && hi !== lo) return { lo: Math.min(lo, hi), hi: Math.max(lo, hi) };
+  }
+  const pd = facts.premiumDiscount;
+  if (pd && Number.isFinite(pd.rangeHigh) && Number.isFinite(pd.rangeLow) && pd.rangeHigh !== pd.rangeLow) {
+    return { lo: Math.min(pd.rangeLow, pd.rangeHigh), hi: Math.max(pd.rangeLow, pd.rangeHigh) };
+  }
+  return null;
+}
+
 export function computeRubricScores(input: {
   facts: StructureFacts;
   direction: Direction;
   entry?: number | null;
   stop?: number | null;
-  tp1?: number | null;
+  tps?: (number | null | undefined)[];
 }): RubricScores {
   const { facts, direction } = input;
 
@@ -556,9 +574,19 @@ export function computeRubricScores(input: {
   if (direction && facts.trends.entry === (direction === 'buy' ? 'up' : 'down')) structure += 1;
   const structure_score = clamp10(structure);
 
-  // Liquidity (0-10): richness of mapped liquidity / sweep zones.
-  const sweeps = facts.liquidity.sweepZones?.length || 0;
-  const liquidity_score = clamp10(4 + sweeps * 1.2);
+  // Liquidity (0-10): discriminating — two-sided pools + a direction-aligned draw,
+  // not a saturating count.
+  const sh = facts.liquidity?.swingHighs || [];
+  const sl = facts.liquidity?.swingLows || [];
+  let liq = 3;
+  if (sh.length >= 1 && sl.length >= 1) liq += 2;            // two-sided liquidity exists
+  if (sh.length >= 2 && sl.length >= 2) liq += 1;            // clear, repeated structure
+  if (direction && (facts.premiumDiscount)) {
+    // A draw on liquidity ahead of the trade (sell → resting buy-side above / sweep below to run; reward presence).
+    if ((facts.liquidity?.sweepZones?.length || 0) >= 2) liq += 2;
+  }
+  if (facts.refinedEntry?.mssConfirmed) liq += 1;            // a confirmed shift = liquidity engaged
+  const liquidity_score = clamp10(liq);
 
   // POI (0-10): quality of the entry POI + refinement.
   let poi = 0;
@@ -569,15 +597,17 @@ export function computeRubricScores(input: {
   if (facts.primaryPattern) poi += 1;
   const poi_score = clamp10(poi);
 
-  // Premium/Discount (0-10): right side of equilibrium for the direction.
+  // Premium/Discount (0-10): where the ENTRY sits in the ACTIVE range, vs direction.
   let pd = 5;
-  const zone = facts.premiumDiscount?.zone;
-  if (zone && direction) {
-    const buyMap: Record<string, number> = { deep_discount: 10, discount: 8, equilibrium: 5, premium: 2, deep_premium: 1 };
-    const sellMap: Record<string, number> = { deep_premium: 10, premium: 8, equilibrium: 5, discount: 2, deep_discount: 1 };
-    pd = (direction === 'buy' ? buyMap : sellMap)[zone] ?? 5;
-  } else if (zone) {
-    pd = zone === 'equilibrium' ? 5 : 7;
+  const range = activeDealingRange(facts);
+  const entry = input.entry;
+  if (range && typeof entry === 'number' && direction) {
+    const pos = Math.max(0, Math.min(100, ((entry - range.lo) / (range.hi - range.lo)) * 100));
+    if (direction === 'sell') {
+      pd = pos >= 75 ? 10 : pos >= 60 ? 8 : pos >= 45 ? 5 : pos >= 25 ? 3 : 1;   // sell wants premium (high)
+    } else {
+      pd = pos <= 25 ? 10 : pos <= 40 ? 8 : pos <= 55 ? 5 : pos <= 75 ? 3 : 1;   // buy wants discount (low)
+    }
   }
   const premium_discount_score = clamp10(pd);
 
@@ -588,10 +618,13 @@ export function computeRubricScores(input: {
   const liquidityAlignment = (liquidity_score / 10) * 20;
   const poiQuality = (poi_score / 10) * 20;
   const sessionTiming = 14 + (facts.refinedEntry?.mssConfirmed ? 6 : 0);
+  // R/R measured to the setup's REAL target (furthest valid TP), not just TP1.
   let rrGeometry = 10;
-  const e = input.entry, s = input.stop, t = input.tp1;
-  if (typeof e === 'number' && typeof s === 'number' && typeof t === 'number' && e !== s) {
-    const rr = Math.abs(t - e) / Math.abs(e - s);
+  const e = input.entry, s = input.stop;
+  const tps = (input.tps || []).filter((x): x is number => typeof x === 'number' && Number.isFinite(x));
+  if (typeof e === 'number' && typeof s === 'number' && e !== s && tps.length) {
+    const target = tps.reduce((far, t) => Math.abs(t - e) > Math.abs(far - e) ? t : far, tps[0]);
+    const rr = Math.abs(target - e) / Math.abs(e - s);
     rrGeometry = rr >= 3 ? 20 : rr >= 2 ? 16 : rr >= 1.5 ? 12 : rr >= 1 ? 8 : 4;
   }
   const quality_score = Math.round(Math.max(0, Math.min(100, structureIntegrity + liquidityAlignment + poiQuality + sessionTiming + rrGeometry)));

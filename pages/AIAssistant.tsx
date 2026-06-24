@@ -177,9 +177,17 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
             </div>
             <div className="flex flex-wrap gap-2">
                 <span className="px-2 py-1 bg-brand-charcoal text-white text-[9px] font-black uppercase rounded tracking-widest">{safeRender(data?.execution_timeframe)}</span>
-                <span className={`px-2 py-1 text-[9px] font-black uppercase rounded tracking-widest ${data?.final_decision === 'trade' ? 'bg-brand-success/10 text-brand-success' : 'bg-brand-muted/10 text-brand-muted'}`}>
-                  {data?.final_decision === 'trade' ? 'VALID SETUP' : 'REJECTED'}
-                </span>
+                {(() => {
+                  const gated = data?.score_gates?.belowConfluence || data?.score_gates?.belowQuality;
+                  const isTrade = data?.final_decision === 'trade';
+                  const valid = isTrade && !gated;
+                  const label = !isTrade ? 'NO TRADE' : gated ? 'BELOW THRESHOLD' : 'VALID SETUP';
+                  return (
+                    <span className={`px-2 py-1 text-[9px] font-black uppercase rounded tracking-widest ${valid ? 'bg-brand-success/10 text-brand-success' : gated ? 'bg-brand-warning/10 text-brand-warning' : 'bg-brand-muted/10 text-brand-muted'}`}>
+                      {label}
+                    </span>
+                  );
+                })()}
                 {data?.market_phase && (
                     <span className="px-2 py-1 bg-brand-sage/20 text-brand-charcoal text-[9px] font-black uppercase rounded tracking-widest">{safeRender(data?.market_phase)}</span>
                 )}
@@ -196,10 +204,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
                 <div className="text-right">
                   <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Quality</p>
                   <p className={`text-xs font-black ${data?.score_gates?.belowQuality ? 'text-brand-error' : 'text-brand-gold'}`}>{safeRender(data?.quality_score, "0")}/100</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Impulse</p>
-                  <p className="text-xs font-black text-brand-gold">{safeRender(data?.impulse_score, "0")}/100</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[7px] font-black uppercase text-brand-muted tracking-widest">Corrective</p>
