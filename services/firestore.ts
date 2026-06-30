@@ -366,13 +366,13 @@ export const getUserAnalysisHistory = async (userId: string): Promise<TradeAnaly
 export const submitAnalysisFeedback = async (analysisId: string, feedback: AnalysisFeedback) => {
   try {
     const ref = doc(firestore, "analysisHistory", analysisId);
-    await updateDoc(ref, { 
+    // Only the `feedback` key may change (Firestore rule: affectedKeys.hasOnly(['feedback'])).
+    // Outcome lives at feedback.outcome — a root-level `outcome` write would be rejected.
+    await updateDoc(ref, {
       feedback: {
         ...feedback,
         feedbackTimestamp: serverTimestamp() // Ensure timestamp is server-side
-      },
-      // Update root level outcome for easier querying if needed, or just rely on nested
-      outcome: feedback.outcome 
+      }
     });
     return { success: true };
   } catch (e: any) {

@@ -134,10 +134,18 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
   };
 
   const submitFeedback = async (analysisId: string, outcome: 'TP_HIT' | 'SL_HIT' | 'BREAK_EVEN' | 'STILL_RUNNING' | 'NOT_TAKEN' | 'INVALID') => {
-    await submitAnalysisFeedback(analysisId, { outcome, comment: feedbackComment, timestamp: new Date().toISOString() });
-    setActiveFeedbackId(null); 
-    setFeedbackComment(''); 
-    loadHistory(); 
+    const fb = { outcome, comment: feedbackComment, timestamp: new Date().toISOString() };
+    const res = await submitAnalysisFeedback(analysisId, fb);
+    if (!res?.success) {
+      alert(res?.error || 'Could not save your feedback. Please try again.');
+      return; // keep the form open so the entry isn't lost
+    }
+    // Optimistically reflect the logged outcome (current card + matching history item).
+    setAnalysis(prev => (prev && prev.id === analysisId ? { ...prev, feedback: fb } : prev));
+    setHistory(prev => prev.map(h => (h.id === analysisId ? { ...h, feedback: fb } : h)));
+    setActiveFeedbackId(null);
+    setFeedbackComment('');
+    loadHistory();
   };
 
   const handleRevalidate = async (item: TradeAnalysis) => {
@@ -726,11 +734,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
                              value={feedbackComment}
                              onChange={e => setFeedbackComment(e.target.value)}
                           />
-                          <button onClick={() => setActiveFeedbackId(null)} className="text-[10px] text-brand-muted font-bold uppercase underline">Cancel</button>
+                          <button onClick={() => { setActiveFeedbackId(null); setFeedbackComment(''); }} className="text-[10px] text-brand-muted font-bold uppercase underline">Cancel</button>
                        </div>
                     ) : (
-                       <button 
-                          onClick={() => setActiveFeedbackId(data.id!)}
+                       <button
+                          onClick={() => { setFeedbackComment(''); setActiveFeedbackId(data.id!); }}
                           className="text-[10px] font-black text-brand-gold uppercase tracking-widest hover:underline"
                        >
                           + Log Trade Outcome
@@ -870,7 +878,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
           {/* Active / Current Analysis */}
           <div className="athenix-card min-h-[600px] p-8 flex flex-col bg-white">
             <h3 className="text-xs font-black text-brand-muted uppercase tracking-[0.3em] mb-10">Probabilistic Terminal Output</h3>
-            {analysis ? <AnalysisDetailView data={analysis} /> : isAnalyzing ? (
+            {analysis ? AnalysisDetailView({ data: analysis }) : isAnalyzing ? (
               <div className="flex-1 flex flex-col items-center justify-center space-y-6">
                 <div className="w-16 h-16 border-4 border-brand-sage border-t-brand-gold rounded-full animate-spin"></div>
                 <div className="text-center space-y-2">
@@ -948,7 +956,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ user, onTokenSpend, onNavigat
                          
                          {expandedHistoryId === item.id && (
                             <div className="border-t border-brand-sage/10 bg-brand-sage/5 p-6">
-                               <AnalysisDetailView data={item} isHistory={true} />
+                               {AnalysisDetailView({ data: item, isHistory: true })}
                             </div>
                          )}
                       </div>
